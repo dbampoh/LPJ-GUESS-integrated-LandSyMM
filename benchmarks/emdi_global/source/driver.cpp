@@ -43,6 +43,7 @@ extern int nyear_spinup;
 	// allows access to the value declared guessio_cru.cpp
  
 
+
 ///////////////////////////////////////////////////////////////////////////////////////
 // RANDFRAC
 // Internal function for generating random numbers
@@ -81,7 +82,9 @@ double randfrac() {
 // soil data supplied as LPJ soil code rather than soil physical parameter values
 
 
-void soilparameters(Soiltype& soiltype,int soilcode) {
+// guess2008 - emdi - pass pawc [mm] 
+//void soilparameters(Soiltype& soiltype,int soilcode) {
+void soilparameters(Soiltype& soiltype,int soilcode, double pawc) {
 
 	// DESCRIPTION
 	// Derivation of soil physical parameters given LPJ soil code
@@ -123,6 +126,11 @@ void soilparameters(Soiltype& soiltype,int soilcode) {
 	if (soilcode<1 || soilcode>9)
 		fail("soilparameters: invalid LPJ soil code (%d)",soilcode);
 
+	// guess2008 - emdi
+	if (pawc > 0) {
+		// Assume pawc applies to the whole 1.5m, so replace data[soilcode-1][1] with a scaled pawc
+		data[soilcode-1][1] = pawc / 300.0; // as pawc applies to the upper 30cm
+	}
 	
 	soiltype.perc_base=data[soilcode-1][0];
 	soiltype.perc_exp=PERC_EXP;

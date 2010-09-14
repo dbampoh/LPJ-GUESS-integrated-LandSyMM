@@ -786,8 +786,12 @@ struct Coord {
 	double lat;
 	xtring descrip;
 
-};
 
+	// guess2008 - emdi - PAWC in upper 30cm of soil, from EMDI
+	double pawc;			// mm of plant available water in the upper 30cm
+	double crulon, crulat;	// determined from the EMDI lon & lats
+
+};
 
 ListArray_id<Coord> gridlist;
 	// Will maintain a list of Coord objectsc ontaining coordinates
@@ -1108,7 +1112,6 @@ bool annual_output;
 // guess2008 - make file_cru and file_cru_misc global variables
 xtring file_cru;
 xtring file_cru_misc;
-
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -1461,13 +1464,12 @@ bool searchcru_misc(char* cruark,double dlon,double dlat,int& elevation,
 
 
 
-// guess2008
-// Utility function that returns the CRU data from the nearest cell to (lon,lat) within 8 degrees
-// Currently only used in the EMDI tests
+// guess2008 - emdi
 bool findnearestCRUdata(char* cruark,double& lon, double& lat, int& scode, 
 						double hist_mtemp1[NYEAR_HIST][12],double hist_mprec1[NYEAR_HIST][12],
 						double hist_msun1[NYEAR_HIST][12]) {
 
+	// Quite possibly the ugliest function ever written...
 	// Return the CRU data from the nearest cell to (lon,lat) within 8 degrees
 
 	double newlon, newlat;
@@ -1658,22 +1660,80 @@ void initio(int argc,char* argv[],Pftlist& pftlist) {
 	file_cru=param["file_cru"].str;
 
 	
+	// guess2008 - emdi
+	double pawc = 0.0;
+
 	ngridcell=0;
 	while (!eof) {
 		
 		// Read next record in file
-		eof=!readfor(in_grid,"f,f,a",&dlon,&dlat,&descrip);
+		//eof=!readfor(in_grid,"f,f,a",&dlon,&dlat,&descrip);
+		eof=!readfor(in_grid,"f,f,f",&dlon,&dlat,&pawc);
 
 		if (!eof && !(dlon==0.0 && dlat==0.0)) { // ignore blank lines at end (if any)
 			Coord& c=gridlist.createobj(); // add new coordinate to grid list
 
+			// guess2008 - emdi
+			double crulat, crulon;
+
+			// guess2008 - emdi - Determine CRU cell corresponding to this EMDI coord
+			double ilon = (double)((int)(dlon));
+			double ilat = (double)((int)(dlat));
+
+			if (dlat - 0.5 < ilat) 
+				crulat = ilat;
+			else
+				crulat = ilat + 0.5;
+
+			if (dlon >= 0.0) {
+
+				if (dlon - 0.5 < ilon) 
+					crulon = ilon;
+				else
+					crulon = ilon + 0.5;
+
+			} else {
+
+				ilon -= 0.5;
+
+				if (dlon < ilon) 
+					crulon = ilon-0.5;
+				else
+					crulon = ilon;
+
+			}
+
+
+
+			// Check that this file is in the CRU .bin file
+			double hist_mtemp1[NYEAR_HIST][12];
+			double hist_mprec1[NYEAR_HIST][12];
+			double hist_msun1[NYEAR_HIST][12];
+			int soilcode = 1;			
+
+			bool isinCRU=searchcru(file_cru,crulon,
+				crulat,soilcode,hist_mtemp1,hist_mprec1,hist_msun1);
+
+			if (!isinCRU) 
+				isinCRU = findnearestCRUdata(file_cru,crulon,
+				crulat,soilcode,hist_mtemp1,hist_mprec1,hist_msun1);
+
+			if (!isinCRU) {
+				dprintf("\nNo CRU data for stand at (%g,%g)",dlat,dlon);
+			}
+
+
+			// guess2008 - emdi
+			c.pawc = pawc;
+			c.crulat = crulat;
+			c.crulon = crulon;
+
 			c.lon=dlon;
 			c.lat=dlat;
-			c.descrip=descrip;
+			//c.descrip=descrip; // guess2008 - emdi - don't need
 			ngridcell++;
 		}
 	}
-
 
 	fclose(in_grid);
 
@@ -1968,13 +2028,23 @@ bool getstand(Stand& stand) {
 
 		// New code:
 
+		// guess2008 - emdi - now use crulon/lat
+
+		/*
 		gridfound=searchcru(file_cru,gridlist.getobj().lon,
 			gridlist.getobj().lat,soilcode,hist_mtemp,hist_mprec,hist_msun);
 
 		if (gridfound) // Get more historical CRU data for this grid cell
 			gridfound= searchcru_misc(file_cru_misc,gridlist.getobj().lon,
 				gridlist.getobj().lat,elevation,hist_mfrs,hist_mwet,hist_mdtr);
+		*/
 
+		gridfound=searchcru(file_cru,gridlist.getobj().crulon,
+			gridlist.getobj().crulat,soilcode,hist_mtemp,hist_mprec,hist_msun);
+
+		if (gridfound) // Get more historical CRU data for this grid cell
+			gridfound= searchcru_misc(file_cru_misc,gridlist.getobj().crulon,
+				gridlist.getobj().crulat,elevation,hist_mfrs,hist_mwet,hist_mdtr);
 
 		// Old code:
 		/*
@@ -1992,12 +2062,24 @@ bool getstand(Stand& stand) {
 			gridlist.nextobj();
 			if (gridlist.isobj) {
 
+
+				// guess2008
+				// guess2008 - emdi - use crulon/lat now
+				gridfound=searchcru(file_cru,gridlist.getobj().crulon,
+					gridlist.getobj().crulat,soilcode,hist_mtemp,hist_mprec,hist_msun);
+
+				if (gridfound) // Get more historical CRU data for this grid cell
+					gridfound= searchcru_misc(file_cru_misc,gridlist.getobj().crulon,
+						gridlist.getobj().crulat,elevation,hist_mfrs,hist_mwet,hist_mdtr);
+
+				/*
 				gridfound=searchcru(file_cru,gridlist.getobj().lon,
 					gridlist.getobj().lat,soilcode,hist_mtemp,hist_mprec,hist_msun);
 
 				if (gridfound) // Get more historical CRU data for this grid cell
 					gridfound= searchcru_misc(file_cru_misc,gridlist.getobj().lon,
 						gridlist.getobj().lat,elevation,hist_mfrs,hist_mwet,hist_mdtr);
+				*/
 
 				// Old code:
 				/*
@@ -2038,7 +2120,9 @@ bool getstand(Stand& stand) {
 		stand.climate.instype=SUNSHINE;
 
 		// Tell framework the soil type of this grid cell
-		soilparameters(stand.soiltype,soilcode);
+		// guess2008 - emdi - pass pawc too.
+		//soilparameters(stand.soiltype,soilcode);
+		soilparameters(stand.soiltype,soilcode,gridlist.getobj().pawc);
 
 		// For Windows shell - clear graphical output
 		// (ignored on other platforms)
@@ -2269,8 +2353,11 @@ void outannual(Stand& stand,Pftlist& pftlist) {
 		// Print column labels
 		// guess2008 - added runoff & dens
 		
+		// guess2008 - emdi
 		const char* lonlatyearstr = "%8s%8s%8s"; // easier to change now.
 		const char* lonlatyearstr_extended = "%8s%8s%8s%8s%8s%8s%8s%10s\n";
+		//const char* lonlatyearstr = "%6s%6s%6s"; // easier to change now. // std CRU
+		//const char* lonlatyearstr_extended = "%6s%6s%6s%8s%8s%8s%8s%10s\n"; // std CRU
 
 		if (out_cmass) fprintf(out_cmass,lonlatyearstr,"Lon","Lat","Year");
 		if (out_anpp) fprintf(out_anpp,lonlatyearstr,"Lon","Lat","Year");
@@ -2390,7 +2477,8 @@ void outannual(Stand& stand,Pftlist& pftlist) {
 		// Print longitude, latitude, year
 
 		// guess2008
-		const char* lonlatyeardatastr = "%8.1f%8.1f%8d"; // std CRU
+		// const char* lonlatyeardatastr = "%6.1f%6.1f%6d"; //std CRU
+		const char* lonlatyeardatastr = "%8.2f%8.2f%8d"; // guess2008 - emdi
 		if (out_cmass) fprintf(out_cmass,lonlatyeardatastr,lon,lat,date.year);
 		if (out_anpp) fprintf(out_anpp,lonlatyeardatastr,lon,lat,date.year);
 		if (out_lai) fprintf(out_lai,lonlatyeardatastr,lon,lat,date.year);
@@ -2588,7 +2676,10 @@ void outannual(Stand& stand,Pftlist& pftlist) {
 				if (indiv.id!=-1 && indiv.alive) { 
 
 					for (m=0;m<12;m++) {
+						//mnpp[m] += indiv.mnpp[m]/(double)npatch;
 						mlai[m] += indiv.mlai[m]/(double)npatch;
+						//mgpp[m] += indiv.mgpp[m]/(double)npatch;
+						//mra[m] += indiv.mra[m]/(double)npatch;
 					}
 
 				} // alive?
