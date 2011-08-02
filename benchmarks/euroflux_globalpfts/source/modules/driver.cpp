@@ -82,8 +82,8 @@ double randfrac() {
 // May be called from input/output module to initialise stand Soiltype objects when
 // soil data supplied as LPJ soil code rather than soil physical parameter values
 
-
-void soilparameters(Soiltype& soiltype,int soilcode) {
+// guess2008 - euroflux - version with soil depth input
+void soilparameters(Soiltype& soiltype,int soilcode,double soildepth) {
 
 	// DESCRIPTION
 	// Derivation of soil physical parameters given LPJ soil code
@@ -122,20 +122,49 @@ void soilparameters(Soiltype& soiltype,int soilcode) {
 		{   0.2, 0.100,   0.2, 0.500,   0.4 }    // 9
 	};
 
+
+	/*
+
+		//    0      1      2      3      4       5         6       7      // soilcode
+		//  --------------------------------------------------------------------------
+
+		{   5.0, 0.110,   0.2, 0.800,   0.4,   0.01,    0.029,  0.421 },   // 1
+		{   4.0, 0.150,   0.2, 0.650,   0.4,   0.01,    0.119,  0.464 },   // 2
+		{   3.0, 0.120,   0.2, 0.500,   0.4,   0.01,    0.139,  0.468 },   // 3
+		{   4.5, 0.130,   0.2, 0.725,   0.4,   0.01,    0.047,  0.434 },   // 4
+		{   4.0, 0.115,   0.2, 0.650,   0.4,   0.01,    0.020,  0.406 },   // 5
+		{   3.5, 0.135,   0.2, 0.575,   0.4,   0.01,    0.103,  0.465 },   // 6
+		{   4.0, 0.127,   0.2, 0.650,   0.4,   0.01,    0.069,  0.404 },   // 7
+		{   9.0, 0.300,   0.1, 0.100,   0.1,   0.20,    0.066,  0.800 },   // 8
+		{   0.2, 0.100,   0.2, 0.500,   0.4,   0.01,    0.364,  0.482 }    // 9
+
+	*/
+
+
 	if (soilcode<1 || soilcode>9)
 		fail("soilparameters: invalid LPJ soil code (%d)",soilcode);
 
-	
 	soiltype.perc_base=data[soilcode-1][0];
 	soiltype.perc_exp=PERC_EXP;
-	soiltype.awc[0]=SOILDEPTH_UPPER*data[soilcode-1][1];
-	soiltype.awc[1]=SOILDEPTH_LOWER*data[soilcode-1][1];
+
+	// guess2008 - euroflux - implement new soil depth. Must be > 25cm
+	//soiltype.awc[0]=SOILDEPTH_UPPER*(data[soilcode-1][1]+0.5*0.103); // As before
+	//soiltype.awc[1]=min((soildepth-SOILDEPTH_UPPER),SOILDEPTH_LOWER)*(data[soilcode-1][1]+0.5*0.103); // 
+	if (soildepth >= 600.0) {
+		soiltype.awc[0]=SOILDEPTH_UPPER*(data[soilcode-1][1]); // 50cm, as before
+		soiltype.awc[1]=min((soildepth-SOILDEPTH_UPPER),SOILDEPTH_LOWER)*(data[soilcode-1][1]); // 
+	} else {
+		soiltype.awc[0]=SOILDEPTH_UPPER*(data[soilcode-1][1])/2.0; // 25cm
+		soiltype.awc[1]=min((soildepth-SOILDEPTH_UPPER/2.0),SOILDEPTH_LOWER)*(data[soilcode-1][1]); // 	
+	}
+
 	soiltype.thermdiff_0=data[soilcode-1][2];
 	soiltype.thermdiff_15=data[soilcode-1][3];
 	soiltype.thermdiff_100=data[soilcode-1][4];
 
 	// guess2008 - override the default SOM years with 70-80% of the spin-up period
 	soiltype.updateSolveSOMvalues(nyear_spinup);
+
 }
 
 
@@ -630,7 +659,7 @@ void dailyaccounting_patch(Patch& patch, Pftlist& pftlist) {
 		patch.mevap[date.month]=0.0;
 		patch.mrunoff[date.month]=0.0;
 		patch.mintercep[date.month]=0.0;
-		patch.mpet[date.month]=0.0;
+		patch.mpet[date.month]=0.0; 
 
 		// guess2008 - reset month C budget arrays each month
 		fluxes.mcflux_gpp[date.month] = 0.0;
