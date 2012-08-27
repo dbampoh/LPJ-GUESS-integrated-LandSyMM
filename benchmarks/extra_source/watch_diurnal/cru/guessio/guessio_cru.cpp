@@ -51,6 +51,8 @@
 #include "cru_1901_2006.h"
 #include "cru_1901_2006misc.h"
 
+#include "watch_netcdf.h"
+
 ///////////////////////////////////////////////////////////////////////////////////////
 //
 //                      SECTION: INPUT FROM INSTRUCTION SCRIPT
@@ -150,7 +152,7 @@ private:
 // ENUM DECLARATIONS OF INTEGER CONSTANTS FOR PLIB INTERFACE
 
 enum {BLOCK_GLOBAL,BLOCK_PFT,BLOCK_PARAM};
-enum {CB_NONE,CB_VEGMODE,CB_INSTYPE,CB_CHECKGLOBAL,CB_LIFEFORM,CB_LANDCOVER,CB_HYDROLOGY,CB_INTERCROP,CB_PHENOLOGY,CB_PATHWAY,	
+enum {CB_NONE,CB_VEGMODE,CB_CHECKGLOBAL,CB_LIFEFORM,CB_LANDCOVER,CB_PHENOLOGY,CB_PATHWAY,	
 	CB_ROOTDIST,CB_EST,CB_CHECKPFT,CB_STRPARAM,CB_NUMPARAM,CB_WATERUPTAKE};
 
 
@@ -168,9 +170,6 @@ int lc_fixed_frac[NLANDCOVERTYPES]={0};
 
 /// Whether gridcell is divided into equal active landcover fractions.
 bool equal_landcover_area;
-bool equal_crop_area;
-bool minimizecftlist;
-int cft_forc[NCROPSTANDS_MAX]={0};
 
 Pftlist* ppftlist; // pointer to PFT list
 Pft* ppft; // pointer to Pft object currently being assigned to
@@ -185,12 +184,15 @@ bool includepft;
 // guess2008 - Now declare the output file xtrings here
 // Output file names ...
 xtring outputdirectory;
-xtring file_cmass,file_anpp,file_dens,file_lai,file_cflux,file_cpool,file_runoff,file_yield;
+xtring file_cmass,file_anpp,file_dens,file_lai,file_cflux,file_cpool,file_runoff;
 xtring file_mnpp,file_mlai,file_mgpp,file_mra,file_maet,file_mpet,file_mevap,file_mrunoff,file_mintercep,file_mrh;
 xtring file_mnee,file_mwcont_upper,file_mwcont_lower;
 xtring file_firert,file_speciesheights;
 // bvoc
 xtring file_aiso,file_miso,file_amon,file_mmon;
+
+/// Whether to run in diurnal mode or not
+bool diurnal = false;
 
 void initsettings() {
 
@@ -210,7 +212,7 @@ void initsettings() {
 
 	// guess2008 - initialise filenames here
 	outputdirectory = "";
-	file_cmass=file_anpp=file_lai=file_yield=file_cflux=file_dens=file_runoff="";
+	file_cmass=file_anpp=file_lai=file_cflux=file_dens=file_runoff="";
 	file_mnpp=file_mlai=file_maet=file_mpet=file_mevap=file_mrunoff=file_mintercep=file_mrh="";
 	file_mgpp=file_mra=file_mnee=file_mwcont_upper=file_mwcont_lower="";
 	file_cpool=file_firert=file_speciesheights="";
@@ -293,6 +295,8 @@ void plib_declarations(int id,xtring setname) {
 			"Number of patches simulated");
 		declareitem("patcharea",&patcharea,1.0,1.0e4,1,CB_NONE,
 			"Patch area (m2)");
+		declareitem("diurnal", &diurnal, 1, CB_NONE,
+			"If specified, diurnal version will be run (0,1)");
 		declareitem("wateruptake", &strparam, 20, CB_WATERUPTAKE, 
 			"Water uptake mode (\"WCONT\", \"ROOTDIST\", \"SMART\", \"SPECIESSPECIFIC\")");
 
@@ -302,7 +306,6 @@ void plib_declarations(int id,xtring setname) {
 		declareitem("file_cmass",&file_cmass,300,CB_NONE,"C biomass output file");
 		declareitem("file_anpp",&file_anpp,300,CB_NONE,"Annual NPP output file");
 		declareitem("file_lai",&file_lai,300,CB_NONE,"LAI output file");
-		declareitem("file_yield",&file_yield,300,CB_NONE,"Crop yield output file");
 		declareitem("file_cflux",&file_cflux,300,CB_NONE,"C fluxes output file");
 		declareitem("file_dens",&file_dens,300,CB_NONE,"Tree density output file");
 		declareitem("file_cpool",&file_cpool,300,CB_NONE,"Soil C output file");
@@ -341,7 +344,7 @@ void plib_declarations(int id,xtring setname) {
 
 		// bvoc 
 		declareitem("ifbvoc",&ifbvoc,1,CB_NONE,
-			    "Whether or not BVOC calculations are performed (0,1)");
+			"Whether or not BVOC calculations are performed (0,1)");
 		declareitem("run_landcover",&run_landcover,1,CB_NONE,"Landcover version");
 		declareitem("run_urban",&run[URBAN],1,CB_NONE,"Whether urban land is to be simulated");
 		declareitem("run_crop",&run[CROPLAND],1,CB_NONE,"Whether crop-land is to be simulated");
@@ -350,46 +353,14 @@ void plib_declarations(int id,xtring setname) {
 		declareitem("run_natural",&run[NATURAL],1,CB_NONE,"Whether natural vegetation is to be simulated");
 		declareitem("run_peatland",&run[PEATLAND],1,CB_NONE,"Whether peatland is to be simulated");
 		declareitem("ifslowharvestpool",&ifslowharvestpool,1,CB_NONE,"If a slow harvested product pool is included in patchpft.");
-		declareitem("ifintercropgrass",&ifintercropgrass,1,CB_NONE,"Whether intercrop growth is allowed");
-		declareitem("forcesowingdates",&forcesowingdates,1,CB_NONE,"use sowingdates from input file");
-		declareitem("forceharvestdates",&forceharvestdates,1,CB_NONE,"use harvestdates from input file");
 		declareitem("lcfrac_fixed",&lcfrac_fixed,1,CB_NONE,"Whether static landcover fractions are set in the ins-file (0,1)");
-		declareitem("cftfrac_fixed",&cftfrac_fixed,1,CB_NONE,"Whether static CFT fractions are set in the ins-file (0,1)");
-		declareitem("equal_crop_area",&equal_crop_area,1,CB_NONE,"Whether enforced static CFT fractions are equal-sized stands of all included crops (0,1)");
 		declareitem("equal_landcover_area",&equal_landcover_area,1,CB_NONE,"Whether enforced static landcover fractions are equal-sized stands of all included landcovers (0,1)");
-		declareitem("minimizecftlist",&minimizecftlist,1,CB_NONE,"Whether pfts not in crop fraction input file are removed from pftlist (0,1)");
 		declareitem("lc_fixed_urban",&lc_fixed_frac[URBAN],0,100,1,CB_NONE,"% lc_fixed_urban");
 		declareitem("lc_fixed_cropland",&lc_fixed_frac[CROPLAND],0,100,1,CB_NONE,"% lc_fixed_cropland");
 		declareitem("lc_fixed_pasture",&lc_fixed_frac[PASTURE],0,100,1,CB_NONE,"% lc_fixed_pasture");
 		declareitem("lc_fixed_forest",&lc_fixed_frac[FOREST],0,100,1,CB_NONE,"% lc_fixed_forest");
 		declareitem("lc_fixed_natural",&lc_fixed_frac[NATURAL],0,100,1,CB_NONE,"% lc_fixed_natural");
 		declareitem("lc_fixed_peatland",&lc_fixed_frac[PEATLAND],0,100,1,CB_NONE,"% lc_fixed_peatland");
-		declareitem("cft0",&cft_forc[0],0,100,1,CB_NONE,"% cft0");
-		declareitem("cft1",&cft_forc[1],0,100,1,CB_NONE,"% cft1");
-		declareitem("cft2",&cft_forc[2],0,100,1,CB_NONE,"% cft2");
-		declareitem("cft3",&cft_forc[3],0,100,1,CB_NONE,"% cft3");
-		declareitem("cft4",&cft_forc[4],0,100,1,CB_NONE,"% cft4");
-		declareitem("cft5",&cft_forc[5],0,100,1,CB_NONE,"% cft5");
-		declareitem("cft6",&cft_forc[6],0,100,1,CB_NONE,"% cft6");
-		declareitem("cft7",&cft_forc[7],0,100,1,CB_NONE,"% cft7");
-		declareitem("cft8",&cft_forc[8],0,100,1,CB_NONE,"% cft8");
-		declareitem("cft9",&cft_forc[9],0,100,1,CB_NONE,"% cft9");
-		declareitem("cft10",&cft_forc[10],0,100,1,CB_NONE,"% cft10");
-		declareitem("cft11",&cft_forc[11],0,100,1,CB_NONE,"% cft11");
-		declareitem("cft12",&cft_forc[12],0,100,1,CB_NONE,"% cft12");
-		declareitem("cft13",&cft_forc[13],0,100,1,CB_NONE,"% cft13");
-		declareitem("cft14",&cft_forc[14],0,100,1,CB_NONE,"% cft14");
-		declareitem("cft15",&cft_forc[15],0,100,1,CB_NONE,"% cft15");
-		declareitem("cft16",&cft_forc[16],0,100,1,CB_NONE,"% cft16");
-		declareitem("cft17",&cft_forc[17],0,100,1,CB_NONE,"% cft17");
-		declareitem("cft18",&cft_forc[18],0,100,1,CB_NONE,"% cft18");
-		declareitem("cft19",&cft_forc[19],0,100,1,CB_NONE,"% cft19");
-		declareitem("cft20",&cft_forc[20],0,100,1,CB_NONE,"% cft20");
-		declareitem("cft21",&cft_forc[21],0,100,1,CB_NONE,"% cft21");
-		declareitem("cft22",&cft_forc[22],0,100,1,CB_NONE,"% cft22");
-		declareitem("cft23",&cft_forc[23],0,100,1,CB_NONE,"% cft23");
-		declareitem("cft24",&cft_forc[24],0,100,1,CB_NONE,"% cft24");
-		declareitem("cft25",&cft_forc[25],0,100,1,CB_NONE,"% cft25");
 
 		declareitem("pft",BLOCK_PFT,CB_NONE,"Header for block defining PFT");
 		declareitem("param",BLOCK_PARAM,CB_NONE,"Header for custom parameter block");
@@ -414,12 +385,8 @@ void plib_declarations(int id,xtring setname) {
 			"Lifeform (\"TREE\" or \"GRASS\")");
 		declareitem("landcover",&strparam,16,CB_LANDCOVER,
 			"Landcovertype (\"URBAN\", \"CROP\", \"PASTURE\", \"FOREST\", \"NATURAL\" or \"PEATLAND\")");
-		declareitem("hydrology",&strparam,16,CB_HYDROLOGY,
-			"Hydrology (\"RAINFED\" or \"IRRIGATED\")");
-		declareitem("intercrop",&strparam,16,CB_INTERCROP,
-			"Intercrop (\"NOINTERCROP\" or \"NATURALGRASS\")");
 		declareitem("phenology",&strparam,16,CB_PHENOLOGY,
-			"Phenology (\"EVERGREEN\", \"SUMMERGREEN\", \"RAINGREEN\", \"CROPGREEN\" or \"ANY\")");
+			"Phenology (\"EVERGREEN\", \"SUMMERGREEN\", \"RAINGREEN\" or \"ANY\")");
 		declareitem("phengdd5ramp",&ppft->phengdd5ramp,0.0,1000.0,1,CB_NONE,
 			"GDD on 5 deg C base to attain full leaf cover");
 		declareitem("wscal_min",&ppft->wscal_min,0.0,1.0,1,CB_NONE,
@@ -524,7 +491,7 @@ void plib_declarations(int id,xtring setname) {
 		// guess2008 - DLE
 		declareitem("drought_tolerance",&ppft->drought_tolerance,0.0,1.0,1,CB_NONE,
 			"Drought tolerance level (0 = very -> 1 = not at all) (unitless)");
-
+		
 		// bvoc
 		declareitem("ga",&ppft->ga,0.0,1.0,1,CB_NONE,
 			"aerodynamic conductance (m/s)");
@@ -542,41 +509,6 @@ void plib_declarations(int id,xtring setname) {
 			"Fraction of harvested products that goes into carbon depository for long-lived products like wood");
 		declareitem("turnover_harv_prod",&ppft->turnover_harv_prod,0.0,1.0,1,CB_NONE,"Harvested products turnover (fraction/year)");
 		declareitem("res_outtake",&ppft->res_outtake,0.0,1.0,1,CB_NONE,"Fraction of residue outtake at harvest");
-
-	    declareitem("cftid",&ppft->cftid,0,100.0,1,CB_NONE,"CFT id");
-	    declareitem("sdatenh",&ppft->sdatenh,1,365.0,1,CB_NONE,"sowing day northern hemisphere");
-		declareitem("sdatesh",&ppft->sdatesh,1,365.0,1,CB_NONE,"sowing day southern hemisphere");
-		declareitem("hlimitdatenh",&ppft->hlimitdatenh,1,365.0,1,CB_NONE,"last harvest date in the northern hemisphere");
-		declareitem("hlimitdatesh",&ppft->hlimitdatesh,1,365.0,1,CB_NONE,"last harvest date in the southern hemisphere");
-		declareitem("tb",&ppft->tb,0.0,25.0,1,CB_NONE,"");
-		declareitem("trg",&ppft->trg,0.0,20.0,1,CB_NONE,"");
-		declareitem("pvd",&ppft->pvd,0.0,100.0,1,CB_NONE,"");
-		declareitem("isintercropgrass",&ppft->isintercropgrass,1,CB_NONE,"Whether this pft is allowed to grow in intercrop period");
-		declareitem("psens",&ppft->psens,0.0,1.0,1,CB_NONE,"");
-		declareitem("pb",&ppft->pb,0.0,24.0,1,CB_NONE,"");
-		declareitem("ps",&ppft->ps,0.0,24.0,1,CB_NONE,"");
-		declareitem("phu",&ppft->phu,0.0,4000.0,1,CB_NONE,"");
-		declareitem("fphusen",&ppft->fphusen,0.0,1.0,1,CB_NONE,"growing season fract. when lai starts decreasing");
-		declareitem("shapesenescencenorm",&ppft->shapesenescencenorm,1,CB_NONE,"");
-		declareitem("flaimaxharvest",&ppft->flaimaxharvest,0.0,1.0,1,CB_NONE,"");
-		declareitem("aboveground_ho",&ppft->aboveground_ho,1,CB_NONE,"Whether aboveground structures are harvested");
-		declareitem("harv_eff_ic",&ppft->harv_eff_ic,0.0,1.0,1,CB_NONE,"");
-		declareitem("ifsdcalc",&ppft->ifsdcalc,1,CB_NONE,"Whether sowing date is to be calculated");
-		declareitem("ifsdtemp",&ppft->ifsdtemp,1,CB_NONE,"Whether sowing date is to be calculated from 20-year temperature data");
-		declareitem("ifsdautumn",&ppft->ifsdautumn,1,CB_NONE,"Whether sowing date in autumn is to be calculated");
-		declareitem("ifsdspring",&ppft->ifsdspring,1,CB_NONE,"Whether sowing date in spring is to be calculated");
-		declareitem("ifsdprec",&ppft->ifsdprec,1,CB_NONE,"Whether sowing date is to be calculated from 2-year precipitation data");
-		declareitem("tempautumn",&ppft->tempautumn,0.0,25.0,1,CB_NONE,"");
-		declareitem("tempspring",&ppft->tempspring,0.0,25.0,1,CB_NONE,"");
-		declareitem("firstsowdatenh_prec",&ppft->firstsowdatenh_prec,-1,365.0,1,CB_NONE,"precipitation-limited sowing date in the northern hemisphere");	// only used in Crop_sowing_date_prec()
-		declareitem("firstsowdatesh_prec",&ppft->firstsowdatesh_prec,-1,365.0,1,CB_NONE,"precipitation-limited sowing date in the southern hemisphere");	// only used in Crop_sowing_date_prec()
-		declareitem("hiopt",&ppft->hiopt,0.0,2.0,1,CB_NONE,"");
-		declareitem("himin",&ppft->himin,0.0,2.0,1,CB_NONE,"");
-		declareitem("frootstart",&ppft->frootstart,0.0,1.0,1,CB_NONE,"");
-		declareitem("frootend",&ppft->frootend,0.0,1.0,1,CB_NONE,"");
-		declareitem("forcesowingdate",&ppft->forcesowingdate,1,CB_NONE,"use sowingdate from input file");
-		declareitem("forceharvestdate",&ppft->forceharvestdate,1,CB_NONE,"use sowingdate from input file");
-		declareitem("laimax",&ppft->laimax,0.0,10.0,1,CB_NONE,"");
 
 		callwhendone(CB_CHECKPFT);
 		
@@ -651,35 +583,14 @@ void plib_callback(int callback) {
 			plibabort();
 		}
 		break;
-	case CB_HYDROLOGY:
-		if (strparam.upper()=="RAINFED") ppft->hydrology=RAINFED;
-		else if (strparam.upper()=="IRRIGATED") ppft->hydrology=IRRIGATED;
-		else 
-		{
-			sendmessage("Error",
-				"Unknown hydrology type (valid types: \"RAINFED\", \"IRRIGATED\")");
-			plibabort();
-		}
-		break;
-	case CB_INTERCROP:
-		if (strparam.upper()=="NOINTERCROP") ppft->intercrop=NOINTERCROP;
-		else if (strparam.upper()=="NATURALGRASS") ppft->intercrop=NATURALGRASS;
-		else 
-		{
-			sendmessage("Error",
-				"Unknown intercrop type (valid types: \"NOINTERCROP\", \"NATURALGRASS\")");
-			plibabort();
-		}
-		break;
 	case CB_PHENOLOGY:
 		if (strparam.upper()=="SUMMERGREEN") ppft->phenology=SUMMERGREEN;
 		else if (strparam.upper()=="RAINGREEN") ppft->phenology=RAINGREEN;
 		else if (strparam.upper()=="EVERGREEN") ppft->phenology=EVERGREEN;
-		else if (strparam.upper()=="CROPGREEN") ppft->phenology=CROPGREEN;
 		else if (strparam.upper()=="ANY") ppft->phenology=ANY;
 		else {
 			sendmessage("Error",
-				"Unknown phenology type\n  (valid types: \"EVERGREEN\", \"SUMMERGREEN\", \"RAINGREEN\", \"CROPGREEN\" or \"ANY\")");
+				"Unknown phenology type\n  (valid types: \"EVERGREEN\", \"SUMMERGREEN\", \"RAINGREEN\" or \"ANY\")");
 			plibabort();
 		}
 		break;
@@ -726,13 +637,16 @@ void plib_callback(int callback) {
 		// bvoc
 		if (!itemparsed("ifbvoc")) badins("ifbvoc");
 
+		if (itemparsed("diurnal")) {
+			if (diurnal && !ifdailynpp) {
+				fail("Diurnal and monthly mode contradict each other.");
+			}
+		}
+
 		if (!itemparsed("run_landcover")) badins("run_landcover");
 		if (run_landcover) {
-			if (!itemparsed("minimizecftlist")) badins("minimizecftlist");	
 			if (!itemparsed("lcfrac_fixed")) badins("lcfrac_fixed");
-			if (!itemparsed("cftfrac_fixed")) badins("cftfrac_fixed");
 			if (!itemparsed("equal_landcover_area")) badins("equal_landcover_area");
-			if (!itemparsed("equal_crop_area")) badins("equal_crop_area");
 			if (!itemparsed("lc_fixed_urban")) badins("lc_fixed_urban");
 			if (!itemparsed("lc_fixed_cropland")) badins("lc_fixed_cropland");
 			if (!itemparsed("lc_fixed_pasture")) badins("lc_fixed_pasture");
@@ -745,7 +659,6 @@ void plib_callback(int callback) {
 			if (!itemparsed("run_urban")) badins("run_urban");
 			if (!itemparsed("run_pasture")) badins("run_pasture");
 			if (!itemparsed("ifslowharvestpool")) badins("ifslowharvestpool");
-			if (!itemparsed("ifintercropgrass")) badins("ifintercropgrass");
 		}
 
 		if (!itemparsed("pft")) badins("pft");
@@ -799,56 +712,6 @@ void plib_callback(int callback) {
 			if (!itemparsed("harvest_slow_frac")) badins("harvest_slow_frac");
 			if (!itemparsed("harv_eff")) badins("harv_eff");
 			if (!itemparsed("res_outtake")) badins("res_outtake");
-
-			if (ppft->landcover==CROPLAND)
-			{
-				if (ppft->phenology==CROPGREEN)
-				{
-					if (!itemparsed("cftid")) badins("cftid");
-					if (!itemparsed("sdatenh")) badins("sdatenh");
-					if (!itemparsed("sdatesh")) badins("sdatesh");
-					if (!itemparsed("hlimitdatenh")) badins("hlimitdatenh");
-					if (!itemparsed("hlimitdatesh")) badins("hlimitdatesh");
-					if (!itemparsed("tb")) badins("tb");
-					if (!itemparsed("trg")) badins("trg");
-					if (!itemparsed("pvd")) badins("pvd");
-					if (!itemparsed("isintercropgrass")) badins("isintercropgrass");
-					if (!itemparsed("psens")) badins("psens");
-					if (!itemparsed("pb")) badins("pb");
-					if (!itemparsed("ps")) badins("ps");
-					if (!itemparsed("phu")) badins("phu");
-					if (!itemparsed("fphusen")) badins("fphusen");
-					if (!itemparsed("shapesenescencenorm")) badins("shapesenescencenorm");
-					if (!itemparsed("flaimaxharvest")) badins("flaimaxharvest");
-					if (!itemparsed("aboveground_ho")) badins("aboveground_ho");
-					if (!itemparsed("ifsdcalc")) badins("ifsdcalc");
-					if (!itemparsed("ifsdtemp")) badins("ifsdtemp");
-					if (!itemparsed("ifsdautumn")) badins("ifsdautumn");
-					if (!itemparsed("ifsdspring")) badins("ifsdspring");
-					if (!itemparsed("ifsdprec")) badins("ifsdprec");
-					if (!itemparsed("tempautumn")) badins("tempautumn");
-					if (!itemparsed("tempspring")) badins("tempspring");
-					if (!itemparsed("hiopt")) badins("hiopt");
-					if (!itemparsed("himin")) badins("himin");
-					if (!itemparsed("res_outtake")) badins("res_outtake");
-					if (!itemparsed("frootstart")) badins("frootstart");
-					if (!itemparsed("frootend")) badins("frootend");
-					if (!itemparsed("turnover_harv_prod")) badins("turnover_harv_prod");
-					if(ppft->ifsdprec)
-					{
-						if (!itemparsed("firstsowdatenh_prec")) badins("firstsowdatenh_prec");	// only used in Crop_sowing_date_prec()
-						if (!itemparsed("firstsowdatesh_prec")) badins("firstsowdatesh_prec");	// only used in Crop_sowing_date_prec()
-					}
-				}
-				else if (ppft->phenology==ANY)
-				{
-					if(ppft->phenology==ANY)
-						if (!itemparsed("laimax")) badins("laimax");
-
-					if(ppft->isintercropgrass)
-						if (!itemparsed("harv_eff_ic")) badins("harv_eff_ic");
-				}
-			}
 		}
 
 		// guess2008 - DLE
@@ -920,22 +783,6 @@ void plib_callback(int callback) {
 			if (ppft->landcover==NATURAL)
 				includepft=0;
 		}
-
-		if(run_landcover && run[CROPLAND] && includepft)
-		{
-			if(ppft->landcover==CROPLAND)
-				ncft++;
-		}
-
-#if defined NEWSOWINGDATE
-		if(ppft->phenology==CROPGREEN)
-		{
-			ppft->ifsdcalc=true;
-			ppft->ifsdtemp=true;
-			ppft->ifsdspring=true;
-			ppft->ifsdprec=true;
-		}
-#endif
 
 		// If "include 0", remove this PFT from list, and set id to correct value
 
@@ -1061,7 +908,7 @@ void printhelp() {
 //   Diurnal temperature range (dtr) added for calculation of leaf temperatures in 
 //   BVOC:
 //   gridcell.climate.dtr=ddtr[date.day]; 
-// 
+//
 //   If model is run in diurnal mode, which requires appropriate climate forcing data, 
 //   additional members of the climate must be initialised: temps, insols. Both of the
 //   variables must be of type std::vector. The length of these vectors should be equal
@@ -1321,13 +1168,14 @@ FILE *in_cru;
 // Full pathname of ASCII file containing annual CO2 values (read from ins file)
 xtring file_co2;
 
+
 using namespace GuessOutput;
 
 /// The output channel through which all output is sent
 OutputChannel* output_channel;
 
 // Output tables
-Table out_cmass, out_anpp, out_dens, out_lai, out_cflux, out_cpool, out_yield, out_firert, out_runoff, out_speciesheights;
+Table out_cmass, out_anpp, out_dens, out_lai, out_cflux, out_cpool, out_firert, out_runoff, out_speciesheights;
 
 Table out_mnpp, out_mlai, out_mgpp, out_mra, out_maet, out_mpet, out_mevap, out_mrunoff, out_mintercep;
 Table out_mrh, out_mnee, out_mwcont_upper, out_mwcont_lower;
@@ -1384,6 +1232,19 @@ double ddtr[365];
 xtring file_cru;
 xtring file_cru_misc;
 
+/// Directory of the WATCH NetCDF files
+xtring watch_dir;
+
+/// Used to find grid cell ids, given a coordinate
+std::vector<landpoint> landpoints;
+
+/// WATCH forcing data
+/** Flat arrays taken straight from the NetCDF files, same units,
+ *  but leap days taken out. Read in for the current grid cell
+ *  in getgridcell().
+ */
+std::vector<double> watch_temp, watch_swdown, watch_rainf, watch_snowf;
+
 /// Interpolates monthly data to quasi-daily values.
 void interp_climate(double mtemp[12], double mprec[12], double msun[12], double mdtr[12],
 					double dtemp[365], double dprec[365], double dsun[365], double ddtr[365]) {
@@ -1395,1506 +1256,13 @@ void interp_climate(double mtemp[12], double mprec[12], double msun[12], double 
 
 //Landuse:
 
+//#define DYNAMIC_LANDCOVER_INPUT
 #if defined DYNAMIC_LANDCOVER_INPUT
 //TimeDataD input code may be put here
-#define MAXLINE 20000	//Ändrat från 400 091227
-#define MAXRECORDS 500
-#define MAXLINESPARSE 30000
-//#define NRECORDS 26
-enum {EMPTY, GLOBAL_STATIC, GLOBAL_YEARLY, LOCAL_STATIC, LOCAL_YEARLY};
-bool ascendinglongitudes=0;
-
-class TimeDataD									//Represents a set of double data over time (years).
-{												//Data can be global or for a specific stand. Also static. set by format flag
-	FILE *ifp;
-	char *fileName;
-	bool ifheader;
-	char header_arr[MAXRECORDS][10];
-	Coord currentStand;
-	double *data;								//allocated in constructor
-	bool *checkdata;							//allocated in CheckIfPresent()
-	bool ischeckingdata;
-	int firstyear;								//110601; set in ParseNYears() to be used in FindRecord()
-
-	int ParseFormat();							//Returns 0 if wrong format, sets nRecords, ifheader and header_arr[]
-	int ParseNYears();
-	int ParseNYearsGlobal();
-	int ParseNYearsLocal();
-	int Allocate();
-	int FindRecord(Coord c) const;				//Quick version
-	int FindRecord2(Coord c) const;				//Slower version, can handle blank lines
-
-public:
-	int nRecords;
-	int nYears;
-	int *year;									//allocated in constructor
-	int format;									//EMPTY, GLOBAL_STATIC, GLOBAL_YEARLY, LOCAL_STATIC, LOCAL_YEARLY
-	bool *active;								//allocated in constructor
-	bool fileopened;
-	TimeDataD(int format=EMPTY);				//default format value can only be used with header version input files !
-	~TimeDataD();
-	int Open(char* name);						//Returns 0 if error; opens file, checks format, sets fileName, nRecords and nYears and allocates memory for data[] and year[].
-	int Load();									//Loads global data
-	int Load(Coord c);							//Loads local data for a certain coordinate.
-	int LoadNext();								//For stepping through a data file, loading each coordinate data consecutively
-	void Output(char*) const;					//test
-	double Get(int year, int column) const;		//Returns a single value
-	double Get(int year, char* name) const;		//Returns a single value for column with header string name
-	int Get(int year, double* dataX) const;		//Copies the values for one year data to the dataX array, returns 0 if wrong format.
-	int Get(double* dataX) const;				//Copies all data to the dataX array, returns 0 if wrong format.
-	double* Get(int year) const;
-	int GetnRecords() const {return nRecords;}
-	int GetHeader(char cropnames[][10]) const;
-//	int GetActive(bool *activeX) const;
-	char* GetHeader(int record) const;
-	void Rewind() {rewind(ifp);}
-	void CheckIfPresent(ListArray_id<Coord>& gridlist);
-	bool CFTPresent(int cft){return checkdata[cft];}
-};
-
-
-void TimeDataD::CheckIfPresent(ListArray_id<Coord>& gridlist)
-{
-	if(checkdata)
-	{
-		delete[] checkdata;
-		year=NULL;
-	}
-
-	checkdata=new bool[nRecords];
-	memset(checkdata, 0, nRecords*sizeof(bool));
-	ischeckingdata=true;
-
-	gridlist.firstobj();
-	while(gridlist.isobj)
-	{
-		Coord& c=gridlist.getobj();
-		if(Load(c))
-		{
-			for(int i=0;i<nYears;i++)
-			{
-				for(int j=0;j<nRecords;j++)
-				{
-					if(data[i*nRecords+j]>0.0)
-						checkdata[j]=1;
-				}
-			}
-		}
-		gridlist.nextobj();
-	}
-/*
-	dprintf("\n");
-	for(int j=0;j<nRecords;j++)
-	{
-		dprintf("%s:%d\n", header_arr[j], checkdata[j]);
-	}
-*/
-	gridlist.firstobj();
-	rewind(ifp);
-	ischeckingdata=false;
-}
-
-int TimeDataD::GetHeader(char cropnames[][10]) const	//Not used for anything yet...
-{
-	if(ifheader && header_arr)
-	{
-		for(int i=0; i<nRecords; i++)
-			strncpy(cropnames[i], header_arr[i], 10*sizeof(char));
-		return 1;
-	}
-	else
-		return 0;
-}
-
-/*
-int TimeDataD::GetActive(bool *activeX) const
-{
-	if(active)
-	{
-		memcpy(activeX, active, nRecords*sizeof(bool));
-		return 1;
-	}
-	else
-		return 0;
-}
-*/
-
-char* TimeDataD::GetHeader(int record) const
-{
-	if(ifheader && header_arr)
-	{
-//		strcpy(cropname, header_arr[record]);
-		return (char*)header_arr[record];
-	}
-	else
-		return 0;	
-}
-
-int TimeDataD::Get(double* dataX) const
-{
-	if(format==LOCAL_YEARLY || format==LOCAL_STATIC ||format==GLOBAL_YEARLY || format==GLOBAL_STATIC)
-		memcpy(dataX, data, nYears*nRecords * sizeof(double));
-	else
-	{
-		printf("Wrong usage of TimeDataD::Get(int year, double* dataX).\n");
-		return 0;
-	}
-
-	return 1;
-}
-
-int TimeDataD::Get(int yearX, double* dataX) const
-{
-	if(format==LOCAL_YEARLY || format==GLOBAL_YEARLY)
-	{
-		if(yearX>nYears)
-			memcpy(dataX, &data[(nYears-1)*nRecords], nRecords * sizeof(double));	//use last year's value if land use data miss years at the end. Bugfix 100103
-		else
-			memcpy(dataX, &data[yearX*nRecords], nRecords * sizeof(double));
-	}
-	else
-	{
-		printf("Wrong usage of TimeDataD::Get(int year, double* dataX).\n");
-		return 0;
-	}
-
-	return 1;
-}
-
-double TimeDataD::Get(int yearX, int column) const
-{
-	double dataX=0.0;
-
-	if(column>=nRecords)
-	{
-		if(yearX==0)
-			printf("WARNING: Trying to retreive more columns than available in %s. Value set to 0.0 \n", fileName);
-		return 0.0;
-	}
-
-/*	if(format==LOCAL_YEARLY || format==GLOBAL_YEARLY)
-	{
-		if(yearX>=nYears)
-			dataX=data[nRecords*(nYears-1)+column];		//Bugfixes 100103, 101231
-		else
-			dataX=data[nRecords*yearX+column];
-	}
-	else if(format==LOCAL_STATIC || format==GLOBAL_STATIC)
-		dataX=data[column];		
-*/
-	//This code handles all four formats:
-	if(yearX>=nYears)
-		dataX=data[nRecords*(nYears-1)+column];		//Bugfixes 100103, 101231
-	else
-		dataX=data[nRecords*yearX+column];
-
-//printf("yearX=%d, nYears=%d\n",yearX, nYears);	//test 100719
-	return dataX;
-}
-
-double TimeDataD::Get(int yearX, char* name) const		//Returns a single value for column with header string name
-{
-	int column=-1;
-	double dataX=-1;
-
-	for(int i=0;i<nRecords;i++)
-	{
-		if(!strncmp(name, header_arr[i], strlen(name)))
-		{
-			column=i;
-			break;
-		}
-	}
-
-	if(column==-1)
-	{
-		if(yearX==0)
-		printf("WARNING: Value for %s not found in %s. Value set to 0.0\n", name, fileName);
-		return 0.0;
-	}
-	else
-		dataX=Get(yearX,column);
-
-	return dataX;
-}
-
-int TimeDataD::Open(char* name)
-{
-	int format_parsed=EMPTY;
-
-	if(ifp)
-	{
-		fclose(ifp);
-		ifp=NULL;
-		fileopened=false;
-	}
-	if(fileName)
-	{
-		delete []fileName;
-		fileName=NULL;
-	}
-
-	ifp=fopen(name, "r");
-
-	if(ifp)
-	{
-		dprintf("\nOpened input file %s\n", name);	// Test
-		fileName=new char[strlen(name)+1];
-		fileopened=true;
-
-		if(!fileName)
-		{
-			printf("Cannot allocate memory for file name string !\n");
-			return 0;
-		}
-		else
-			strcpy(fileName,name);
-
-		format_parsed=ParseFormat();
-
-		if(format!=format_parsed)	// Checks format (sets it if header), sets nRecords, ifheader and header_arr[]
-		{
-			printf("Wrong format in file %s (failing ParseFormat()!\n", name);
-			return 0;
-		}
-		else if(format==GLOBAL_YEARLY || format==LOCAL_YEARLY)
-		{
-			nYears=ParseNYears();	// Parse numbers of years in input file
-			printf("nYears:%d\n", nYears);
-			if(nYears==0)
-			{
-				printf("Wrong format in file %s (nYears=0)!\n", name);
-				return 0;
-			}
-		}
-		else if(format==GLOBAL_STATIC || format==LOCAL_STATIC)
-		{
-			nYears=1;
-		}
-		else if(format==EMPTY)	//should be set by now
-		{
-			printf("Please set data format at initialization !\n");
-			return 0;
-		}
-
-		if(!Allocate())				//Allocate memory for dynamic data
-		{
-			printf("Could not allocate memory for data from file %s!\n", name);
-			return 0;
-		}
-	}
-	else
-	{
-		printf("TimeDataD::Open: File %s could not be opened for input !\n\n", name);
-		return 0;
-	}
-
-	return 1;
-}
-
-int TimeDataD::ParseFormat()	//Checks format, sets nRecords, ifheader and header_arr[].
-{ //Desired format must be set beforehand by program at initiation of class TimeDataD objects (if no header) !
-
-	char line[MAXLINE], *p=NULL, s1[MAXRECORDS][10]={'\0'}, s2[MAXRECORDS][10]={'\0'};
-	int count1=0, count2=0, i=0, k=0;
-	int format_local=EMPTY, offset=0;
-	float d[MAXRECORDS]={0.0};
-
-//	dprintf("Parsing format for file %s \n", fileName);
-
-//First line: 
-	do			// Just in case there is a blank line at the beginning...
-	{
-		if(fgets(line,sizeof(line),ifp))
-		{
-			p=strtok(line, "\t\n ");
-
-			if(!p)				//Fix for blank line 110531
-				continue;
-
-			strncpy(s1[count1], p, 9);
-			count1++;
-			do
-			{
-				p=strtok(NULL, "\t\n ");
-				if(p)
-				{
-					strncpy(s1[count1], p, 9);
-					count1++;
-				}
-				k++;
-			}
-			while(p);
-/*
-			dprintf("Line 1 count:%d\n", count1);
-			for(i=0;i<count1;i++)
-				dprintf("%s\t", s1[i]);
-			dprintf("\n");
-*/
-			p=NULL;
-		}
-		else return 0;
-	}
-	while(!(count1>0));
-
-	if(!strcmp(s1[0], "lon") || !strcmp(s1[0], "Lon"))
-	{
-		if(!strcmp(s1[2], "year") || !strcmp(s1[2], "Year"))
-		{
-			format_local=LOCAL_YEARLY;
-			offset=2;
-			for(i=3;i<count1;i++)
-				strncpy(header_arr[i-3],s1[i], 9);
-		}
-		else
-		{
-			format_local=LOCAL_STATIC;
-//			offset=2;
-			for(i=2;i<count1;i++)
-				strncpy(header_arr[i-2],s1[i], 9);
-		}
-	}
-	else if(!strcmp(s1[0], "year") || !strcmp(s1[0], "Year"))
-	{
-			format_local=GLOBAL_YEARLY;
-			for(i=1;i<count1;i++)
-				strncpy(header_arr[i-1],s1[i], 9);
-	}
-	else if(!strcmp(s1[0], "static"))
-	{
-			format_local=GLOBAL_STATIC;
-			for(i=1;i<count1;i++)
-				strncpy(header_arr[i-1],s1[i], 9);
-	}
-	else
-		ifheader=false;
-
-	if(ifheader)
-	{
-		dprintf("header:\n");
-		for(i=0;i<count1 && *(header_arr[i])!='/0';i++)
-			dprintf("%s\t", header_arr[i]);
-		dprintf("\n");
-	}
-
-
-//Second line:
-	do			// Just in case there is a blank line at the beginning...
-	{
-		if(fgets(line,sizeof(line),ifp))
-		{
-			p=strtok(line, "\t\n ");
-
-			if(!p)				//Fix for blank line 110531
-				continue;
-
-			strncpy(s2[count2], p, 9);
-			count2++;
-			do
-			{
-				p=strtok(NULL, "\t\n ");
-				if(p)
-				{
-					strncpy(s2[count2], p, 9);
-					count2++;
-				}
-			}
-			while(p);
-/*
-			dprintf("Line 2 count:%d\n", count2);
-			for(i=0;i<count2;i++)
-				dprintf("%s\t", s2[i]);
-			dprintf("\n");
-*/
-		}
-		else return 0;
-	}
-	while(!(count2>0));
-
-	rewind(ifp);
-
-	if(format==EMPTY)
-	{
-		if(ifheader)
-			format=format_local;
-		else
-			printf("Please set data format at initialization !\n");
-	}
-
-	switch (format)
-	{
-	case GLOBAL_YEARLY:
-		if(format_local==GLOBAL_YEARLY || count1>1 && count1==count2)
-		{
-			nRecords=count2-1;
-//			printf("Format in input file is compatible with GLOBAL_YEARLY flag\n");
-			dprintf("nRecords:%d\n", nRecords);
-			return GLOBAL_YEARLY;
-		}
-		else
-		{
-			printf("Format in input file is incompatible with GLOBAL_YEARLY flag\n");
-			return 0;
-		}
-		break;
-	case LOCAL_STATIC:
-		if(format_local==LOCAL_STATIC || count1>2 && count1==count2)
-		{
-			nRecords=count2-2;
-//			printf("Format in input file is compatible with LOCAL_STATIC flag\n");
-			dprintf("nRecords:%d\n", nRecords);
-			return LOCAL_STATIC;
-		}
-		else
-		{
-			printf("Format in input file is incompatible with LOCAL_STATIC flag\n");
-			return 0;
-		}
-		break;
-	case LOCAL_YEARLY:
-		if(format_local==LOCAL_YEARLY || count1==2 && count2>1)
-		{
-			nRecords=count2-1-offset;
-//			printf("Format in input file is compatible with LOCAL_YEARLY flag\n");
-			dprintf("nRecords:%d\n", nRecords);
-			return LOCAL_YEARLY;
-		}
-		else
-		{
-			printf("Format in input file is incompatible with LOCAL_YEARLY flag\n");
-			return 0;
-		}
-		break;
-	case GLOBAL_STATIC:
-		if(format_local==GLOBAL_STATIC || count1>1 && count1==count2)
-		{
-			nRecords=count2-1;
-//			printf("Format in input file is compatible with GLOBAL_STATIC flag\n");
-			dprintf("nRecords:%d\n", nRecords);
-			return GLOBAL_STATIC;
-		}
-	default:	// format EMPTY
-		printf("Format is not set correctly in file %s !\n", fileName);
-		return 0;
-	}
-}
-
-int TimeDataD::ParseNYears()
-{
-	int n_yearsX=0;
-
-	switch (format)
-	{
-	case GLOBAL_YEARLY:
-//		dprintf("Parsing nYears for GLOBAL_YEARLY format file\n");	// Test
-		n_yearsX=ParseNYearsGlobal();
-		break;
-	case LOCAL_YEARLY:
-//		printf("Parsing nYears for LOCAL_YEARLY format in file %s\n", fileName);	// Test
-		n_yearsX=ParseNYearsLocal();
-		break;
-	default:
-		printf("Format in is uncorrectly set by program for file %s !\n", fileName);
-		return 0;
-	}
-
-	return n_yearsX;
-}
-
-int TimeDataD::ParseNYearsLocal()
-{
-	int i=0, count1=0, prevLine=0, nyears1=0, nyears2=0, n=0;
-	char line[MAXLINE];
-	bool new_coord=false;
-	float d1=0,d2=0,d3=0, d1_prevLine=0, d2_prevLine=0;
-
-//	printf("Inside ParseNYearsLocal()\n");	// Test
-
-	for(i=0;i<MAXLINESPARSE && !feof(ifp);)
-	{
-		if(fgets(line,sizeof(line),ifp))	//OBS! behövs, annars läser scanf in gammal line igen efter sista raden
-		{
-			count1=sscanf(line,"%f%f%f", &d1,&d2,&d3);		//does not count header strings !
-			if(count1>0)			// avoids blank lines
-			{
-				if(ifheader && (d1!=d1_prevLine || d2!=d2_prevLine))	// First line of new coordinate
-				{
-					nyears2=i-prevLine;
-					new_coord=true;
-					firstyear=(int)d3;	//110601
-				}
-//				if(count1==2)
-				else if(count1==2 && d1<=180.0)		//line with coordinates	; added new condition to be able to use data files with only one value per year 100721
-				{
-					nyears2=i-prevLine-1;
-					new_coord=true;
-				}
-
-				if(new_coord)
-				{
-					if((nyears1!=nyears2) && n>1)
-					{
-						printf("FORMAT ERROR in input file %s !\n", fileName);
-						return 0;
-					}
-					nyears1=nyears2;		//NB. not set if input file has data for only one coordinate !
-					prevLine=i;
-					n++;
-
-					new_coord=false;
-//dprintf("d1=%.2f, d1=%.2f\n", d1, d2);
-				}
-				else if(!ifheader && i==prevLine+1)
-					firstyear=(int)d1;	//110601
-
-				i++;
-
-				d1_prevLine=d1;
-				d2_prevLine=d2;
-			}
-		}
-	}
-
-	if(feof(ifp))	//Sista lokalen !
-	{
-		if(ifheader)
-			nyears2=i-prevLine;
-		else
-			nyears2=i-prevLine-1;
-		if((nyears1!=nyears2) && n>1)
-		{
-			printf("FORMAT ERROR in input file %s !\n", fileName);
-			return 0;
-		}
-	}
-//dprintf("nyears=%d\n", nyears1);
-	rewind(ifp);
-	return nyears2;			//fix 101125
-}
-
-int TimeDataD::ParseNYearsGlobal()
-{
-	int count=0, nyears=0;
-	char line[MAXLINE];
-	float d1=0,d2=0,d3=0;
-
-//	dprintf("Inside ParseNYearsGlobal()\n");	// Test
-
-	if(ifheader)
-		fgets(line,sizeof(line),ifp);
-
-	while(!feof(ifp))
-	{
-		if(fgets(line,sizeof(line),ifp))	//OBS! behövs, annars läser scanf in gammal line igen efter sista raden
-		{
-			count=sscanf(line,"%f%f%f", &d1,&d2,&d3);
-			if(count>0)	// Ignore blank lines
-			{
-				if(count>=2)
-				{
-					nyears++;
-
-					if(nyears==1)				//110601
-						firstyear=(int)d1;
-				}
-				else
-				{
-					printf("FORMAT ERROR in input file %s !\n", fileName);
-					nyears=0;
-					break;
-				}
-			}
-		}
-	}
-	rewind(ifp);
-	return nyears;
-}
-
-int TimeDataD::Allocate()	// Allocates memory for dynamic data: format & nYears must be set before !
-{
-	if(year)
-	{
-		delete[] year;
-		year=NULL;
-	}
-	if(data)
-	{
-		delete[] data;
-		data=NULL;
-	}
-	if(active)
-	{
-		delete[] active;
-		data=NULL;
-	}
-//	printf("\nAllocating memory for data in TimeDataD::Allocate()\n\n");
-
-	active=new bool[nRecords];
-	memset(active, 0, nRecords*sizeof(bool));
-
-	switch(format)
-	{
-	case EMPTY:
-		break;
-	case GLOBAL_STATIC:
-		year=new int;
-		data=new double[nRecords];
-		if(year)
-			*year=0;
-		if(data)
-			*data=0;
-		break;
-	case GLOBAL_YEARLY:
-		year=new int[nYears];
-		data=new double[nRecords*nYears];
-		if(year)
-			memset(year, 0, nYears*sizeof(int));
-		if(data)
-			memset(data, 0, nRecords*nYears*sizeof(double));
-		break;
-	case LOCAL_STATIC:
-		year=new int;
-		data=new double[nRecords];
-		if(year)
-			*year=0;
-		if(data)
-			memset(data, 0, nRecords*sizeof(double));
-		break;
-	case LOCAL_YEARLY:
-		year=new int[nYears];
-		data=new double[nRecords*nYears];
-		if(year)
-			memset(year, 0, nYears*sizeof(int));
-		if(data)
-			memset(data, 0, nRecords*nYears*sizeof(double));
-		break;
-	default:
-		;
-	}
-	if(year && data)
-		return 1;
-	else
-		return 0;
-}
-
-int TimeDataD::Load()	// for GLOBAL_YEARLY and GLOBAL_STATIC data
-{
-	int i=0, count=0, yearX=0, yearX_previous, k=0;
-	char line[MAXLINE], *p=NULL;
-	double d1=0.0;
-	double d[MAXRECORDS]={0.0};
-	float extra=0.0;
-	bool error=0;
-
-//	dprintf("Loading all data from %s into memory\n", fileName);	// Test
-
-	if(ifp)
-	{
-		if(format==GLOBAL_YEARLY)
-		{
-			if(year)
-				memset(year, 0, nYears*sizeof(int));
-			if(data)
-				memset(data, 0, nRecords*nYears*sizeof(double));
-
-			yearX_previous=firstyear-1;
-
-			if(ifheader)
-				fgets(line, sizeof(line), ifp);
-
-			for(i=0;i<nYears;)
-			{
-				k=0;
-				if(fgets(line, sizeof(line), ifp))
-				{
-					memset(d, 0, nRecords*sizeof(double));
-					count=0;
-
-					p=strtok(line, "\t\n ");	//year
-					if(!p)				//Fix for blank line 110531
-						continue;
-
-					sscanf(p, "%d", &yearX);
-//printf("count=%d\n",count);
-//printf("yearX=%d\n",yearX);
-					if(yearX!=yearX_previous+1)		//110607
-					{
-						printf("FORMAT ERROR in input file %s: Load(). Wrong year in data file ! Missing line ?\n", fileName);
-						error=1;
-						break;
-					}
-					else
-						yearX_previous=yearX;
-
-					do
-					{
-						p=strtok(NULL, "\t\n ");
-						if(p)
-						{
-							count+=sscanf(p, "%lf", &d[k]);
-//printf("count=%d\n",count);
-//printf("d[%d]=%f\n",k, d[k]);
-						}
-						k++;
-					}
-					while(p);
-
-					if(count>0)
-					{
-						if(count==nRecords)
-						{
-							year[i]=yearX;
-							for(int j=0;j<nRecords;j++)
-							{
-								data[nRecords*i+j]=d[j];
-							}
-						}
-						else
-						{
-							printf("FORMAT ERROR in input file %s: Load(), count!=%d, year %d\n", fileName,i+1);
-							error=1;
-						}
-						i++;	// only count lines with something on them
-					}
-				}
-				else
-				{
-					printf("An ERROR occurred reading file %s\n", fileName);
-					error=1;
-				}
-			}
-		}
-		else if(format==GLOBAL_STATIC)
-		{
-			if(fgets(line, sizeof(line), ifp))
-			{
-				if(ifheader)
-				{
-					if(fgets(line, sizeof(line), ifp))
-						p=strtok(line," \t");	//"static"
-					else
-					{
-						printf("An ERROR occurred reading file %s\n", fileName);
-						error=1;
-					}
-				}
-				do
-				{
-					p=strtok(NULL, "\t\n ");
-					if(p)
-					{
-						count+=sscanf(p, "%lf", &d[k]);
-//printf("count=%d\n",count);
-//printf("d[%d]=%f\n",k, d[k]);
-					}
-					k++;
-				}
-				while(p);
-
-				if(count==nRecords)
-				{
-					for(i=0;i<nRecords;i++)
-						data[i]=d[i];
-				}
-				else
-				{
-					printf("FORMAT ERROR in input file %sf: Load(), count!=%d\n", fileName,nRecords+1);
-					error=1;
-				}
-			}
-			else
-			{
-				printf("An ERROR occurred reading file %s\n", fileName);
-				error=1;
-			}
-		}
-		else
-		{
-			printf("Wrong usage of Load(void)\n");
-			error=1;
-		}
-	}
-	else
-	{
-		printf("Cannot load from unopened file !\n");
-		error=1;
-	}
-
-	if(ifp)
-	{
-		fclose(ifp);
-		ifp=NULL;
-	}
-
-	if(error)
-		return 0;
-	else
-		return 1;
-}
-
-int TimeDataD::Load(Coord c)
-{
-	char line[MAXLINE], *p=NULL;
-	int i=0, j=0, k=0, count1=0, nyears=0, yearX=0, yearX_previous;
-	float lonX=0.0, latX=0.0;
-	double d[MAXRECORDS]={0.0};
-	bool error=0;
-
-//	dprintf("Inside Load(Coord)\n");	// Test
-
-	if(ifp)
-	{
-		if(format==LOCAL_YEARLY)
-		{
-			if(FindRecord(c))
-			{
-				if(year)
-					memset(year, 0, nYears*sizeof(int));
-				if(data)
-					memset(data, 0, nRecords*nYears*sizeof(double));
-
-				yearX_previous=firstyear-1;
-
-				currentStand.lon=c.lon;
-				currentStand.lat=c.lat;
-
-//				for(i=0;i<nYears ;)
-				while(i<nYears && yearX<firstyear+nYears-1)
-				{
-					k=0;
-					if(fgets(line, sizeof(line), ifp))
-					{
-						memset(d, 0, nRecords*sizeof(double));
-						count1=0;
-
-						if(ifheader)
-						{
-							p=strtok(line," \t");	//lon
-							sscanf(p, "%f", &lonX);			//110607
-							p=strtok(NULL, " \t");	//lat
-							sscanf(p, "%f", &latX);			//110607
-							p=strtok(NULL, " \t");	//year
-
-							if(lonX!=c.lon || latX!=c.lat)	//110607
-							{
-								printf("FORMAT ERROR in input file %s for stand at Coordinate %.2f,%.2f: Load(). Wrong coordinates in data file !\n", fileName,c.lon,c.lat);
-								error=1;
-								break;
-							}
-						}
-						else
-							p=strtok(line, "\t\n ");	//year
-
-						if(!p)				//Fix for blank line 110531
-							continue;
-
-						sscanf(p, "%d", &yearX);
-//printf("count1=%d\n",count1);
-//printf("yearX=%d\n",yearX);
-						if(yearX!=yearX_previous+1)		//110607
-						{
-							printf("FORMAT ERROR in input file %s for stand at Coordinate %.2f,%.2f: Load(). Wrong year in data file ! Missing line ?\n", fileName,c.lon,c.lat);
-							error=1;
-//							break;	//Don't break if missing line. Next search will begin at the start of the next coordinate.
-						}
-
-						yearX_previous=yearX;
-
-						do
-						{
-							p=strtok(NULL, "\t\n ");
-							if(p)
-							{
-									count1+=sscanf(p, "%lf", &d[k]);
-//printf("count1=%d\n",count1);
-//printf("d[%d]=%f\n",k, d[k]);
-							}
-							k++;
-						}
-						while(p);
-//printf("count1=%d\n",count1);
-						if(count1>0)
-						{
-							if(count1==nRecords)
-							{
-								year[i]=yearX;
-								for(j=0;j<nRecords;j++)
-								{
-									data[nRecords*i+j]=d[j];
-								}
-							}
-							else
-							{
-								printf("FORMAT ERROR in input file %s for stand at Coordinate %.2f,%.2f: Load(), count!=%d, year %d\n", fileName,c.lon,c.lat,nRecords+1,i+1);
-								error=1;
-								break;
-							}
-							i++;	// only count lines with something on them
-						}
-					}
-					else
-					{
-						printf("An ERROR occurred reading file %s\n", fileName);
-						error=1;
-						break;
-					}
-				}
-			}
-			else
-			{
-				printf("COULD NOT FIND DATA for %.2f, %.2f in file %s\n",c.lon,c.lat,fileName);
-				error=1;
-			}
-		}
-		else if(format==LOCAL_STATIC)
-		{
-			if(FindRecord(c))
-			{
-				if(data)
-					memset(data, 0, nRecords*sizeof(double));
-				currentStand.lon=c.lon;
-				currentStand.lat=c.lat;
-				if(fgets(line, sizeof(line), ifp))
-				{
-					memset(d, 0, nRecords*sizeof(double));
-					p=strtok(line," \t");	//lon
-					sscanf(p, "%f", &lonX);
-					p=strtok(NULL, " \t");	//lat
-					sscanf(p, "%f", &latX);
-
-					do
-					{
-						p=strtok(NULL, "\t\n ");
-						if(p)
-						{
-							count1+=sscanf(p, "%lf", &d[k]);
-//printf("count1=%d\n",count1);
-//printf("d[%d]=%f\n",k, d[k]);
-						}
-						k++;
-					}
-					while(p);
-
-					if(count1>0)
-					{
-						if(count1==nRecords)
-						{
-							for(j=0;j<nRecords;j++)
-							{
-								data[j]=d[j];
-							}
-						}
-						else
-						{
-							printf("FORMAT ERROR in input file %s for stand at Coordinate %.2f,%.2f: Load(), count!=%d, year %d\n", fileName,c.lon,c.lat,nRecords+1,i+1);
-							error=1;
-						}
-//						i++;	// only count lines with something on them
-					}
-				}
-				else
-				{
-					printf("An ERROR occurred reading file %s\n", fileName);
-					error=1;
-				}
-			}
-			else
-			{
-				printf("COULD NOT FIND DATA for %.2f, %.2f in file %s\n",c.lon,c.lat,fileName);
-				error=1;
-			}
-		}
-		else
-		{
-			printf("Wrong usage of Load(Coord)\n");
-			error=1;
-		}
-	}
-	else
-	{
-		printf("Cannot load from unopened file !\n");
-		error=1;
-	}
-
-	if(error)
-		return 0;
-	else
-	{
-//if(!SUPPRESSLARGEOUTPUT)
-		dprintf("Loading all data for %.2f,%.2f in %s into memory\n", c.lon, c.lat,fileName);
-		return 1;
-	}
-}
-
-int TimeDataD::LoadNext()	//Only implemented for LOCAL_YEARLY (100106)			; Needs to be modified to handle missing lines in data files with header ! (see Load)
-{
-
-	char line[MAXLINE], *p=NULL;
-	int count=0, i=0, j=0, k=0, count1=0, nyears=0, yearX=0, n=0;
-	double d1, d2, d3, d[MAXRECORDS]={0.0};
-	bool error=0, firstyear=true;
-	long int fpos;
-
-	if(ifp && !feof(ifp))
-	{
-		if(format==LOCAL_YEARLY)
-		{
-			if(year)
-				memset(year, 0, nYears*sizeof(int));
-			if(data)
-				memset(data, 0, nRecords*nYears*sizeof(double));
-
-			if(ifheader)
-			{
-				fpos=ftell(ifp);
-				if(fpos==0)
-					fgets(line,sizeof(line),ifp);	//ignore header line
-			}
-
-			if(fgets(line,sizeof(line),ifp))	//OBS! behövs, annars läser scanf in gammal line igen efter sista raden
-			{
-				count=sscanf(line,"%lf%lf%lf", &d1, &d2, &d3);
-				if(count>0)	// Avoid blank lines at the end of the file
-				{
-					if(count==2 || count>2 && (format==LOCAL_STATIC || ifheader))	//added LOCAL_STATIC compatibility 091207 (not used, use SoilData instead for soilcode)
-					{																//Bugfix 110607 (was =2)
-						currentStand.lon=d1;
-						currentStand.lat=d2;				
-					}
-					else
-					{
-						printf("FORMAT ERROR in input file %s: LoadNext(), count!=2, line %d\n",fileName,i);
-						error=1;
-					}
-				}
-				else
-				{
-					printf("WARNING: blank line in file %s: LoadNext(), count==0\n",fileName);
-				}	
-			}
-			else
-				error=1;
-
-			for(i=0;i<nYears && error==0;)
-			{
-				k=0;
-				count1=0;
-
-				if(ifheader && firstyear)
-					firstyear=false;
-				else
-					fgets(line, sizeof(line), ifp);
-
-				if(line)
-				{
-					memset(d, 0, nRecords*sizeof(double));
-
-					if(ifheader)
-					{
-						p=strtok(line," \t");	//lon
-						p=strtok(NULL, " \t");	//lat
-						p=strtok(NULL, " \t");	//year
-
-						//Kolla att koordinaten är samma här !
-					}
-					else
-						p=strtok(line, "\t\n ");	//year
-					if(!p)							//Fix for blank line 110531
-						continue;
-					sscanf(p, "%d", &yearX);
-//printf("count1=%d\n",count1);
-//printf("yearX=%d\n",yearX);
-					//Kolla att årtalet är rätt här !
-
-					do
-					{
-						p=strtok(NULL, "\t\n ");
-						if(p)
-						{
-							count1+=sscanf(p, "%lf", &d[k]);
-//printf("count1=%d\n",count1);
-//printf("d[%d]=%f\n",k, d[k]);
-						}
-						k++;
-					}
-					while(p);
-//printf("count1=%d\n",count1);
-
-					if(count1>0)
-					{
-						if(count1==nRecords)
-						{
-							year[i]=yearX;
-							for(j=0;j<nRecords;j++)
-							{
-								data[nRecords*i+j]=d[j];
-							}
-						}
-						else
-						{
-							printf("FORMAT ERROR in input file %s: LoadNext(), count!=%d, year %d\n", fileName,nRecords+1,i+1);
-							error=1;
-							break;
-						}
-						i++;	// only count lines with something on them
-					}
-				}
-				else
-				{
-					printf("An ERROR occurred reading file %s\n", fileName);		//dailytomonthly Fastnar här !
-					error=1;
-					break;
-				}
-			}
-		}
-	}
-	else
-		error=1;
-
-	if(error)
-	{
-		if(feof(ifp))
-			printf("End of file reached for file %s\n", fileName);
-		return 0;
-	}
-	else
-	{
-//		dprintf("Data from %s loaded for coordinate <%.2f,%.2f>\n",fileName,c.lon,c.lat);
-		return 1;
-	}
-}
-
-//Fast version. Can not handle blank lines in some cases, will call FindRecord2() in those cases.
-int TimeDataD::FindRecord(Coord c) const
-{
-
-	int i=0, count=0, n=0, lap=0, line_no=0;
-	char line[MAXLINE], *p=NULL;
-	double d1=0.0,d2=0.0,d3=0.0;
-	bool found=0, error=0, start=true;
-	long int oldpos;
-
-//	printf("Inside FindRecord(), looking for coordinate <%.3f, %.3f> in %s\n", c.lon, c.lat, fileName);	// Test
-
-	do
-	{	
-		i=0;
-		start=true;							//110531
-
-		while(!feof(ifp))
-		{
-			if(ifheader)
-			{
-//				oldpos=ftell(ifp);				// slow !
-
-				if(!(i%nYears))					// much quicker, only 3 times per coordinate.
-					oldpos=ftell(ifp);
-			}
-
-
-			if(fgets(line,sizeof(line),ifp))	//OBS! behövs, annars läser scanf in gammal line igen efter sista raden
-			{
-				if(ifheader)
-				{
-					if(start==true)
-					{
-						start=false;
-
-						if(oldpos==0)
-							continue;
-					}
-				}	
-
-				if(!(i%(nYears+1)) && !ifheader || !(i%nYears) && ifheader)		//fix 101111
-				{
-					count=sscanf(line,"%lf%lf%lf", &d1, &d2, &d3);
-					if(count>0)	// Avoid blank line at the end of the file
-					{
-						if(count==2 || count>2 && d3==firstyear && (format==LOCAL_STATIC || ifheader))	//added LOCAL_STATIC compatibility 091207 (not used, use SoilData instead for soilcode)
-						{
-							if(c.lon==d1 && c.lat==d2)
-							{
-								if(!ischeckingdata)
-									dprintf("Coordinate <%.2f,%.2f> found in %s\n", d1, d2, fileName);
-								found=1;
-								break;
-							}
-							else if(ascendinglongitudes && c.lon<d1)		//Ny kod 091126: longitudes must be ascending in dataset for this to work !	
-							{
-								dprintf("c.lon<d1; rewinding...\n");
-								break;
-							}
-						}
-						else	
-						{ 
-							if(ifheader)
-								dprintf("FORMAT ERROR in input file %s: FindRecord(), wrong firstyear, line %d\n",fileName,i);
-							else
-								dprintf("FORMAT ERROR in input file %s: FindRecord(), count!=2, line %d\n",fileName,i);
-							error=1;
-							break;
-						}
-					}
-					else
-					{
-						dprintf("WARNING: blank line in file %s: FindRecord(), count==0\n",fileName);
-						continue;
-					}
-				}		
-				i++;
-			}
-		}
-
-		if(!found)
-		{
-			lap++;
-			rewind(ifp);
-			if(error)
-				break;
-			else
-				dprintf("Rewinding and searching from the beginning of the file...\n");
-		}
-
-	}while(!found && lap<2);
-
-	if(found && !error)
-	{
-		if(ifheader)
-			fseek(ifp, oldpos, 0);	//The found line needs to be read again in Load()
-//			fseek(ifp, oldpos-newpos, SEEK_CUR);
-
-		return 1;
-	}
-	else
-		return FindRecord2(c);	//If not found, try FindRecord2()
-}
-
-//This version should handle blank or missing lines at all positions.
-int TimeDataD::FindRecord2(Coord c) const	//No need for FindRecord2()
-{
-
-	int i=0, count=0, n=0, lap=0, lastyear;
-	char line[MAXLINE], *p=NULL;
-	double d1=0.0,d2=0.0,d3=0.0;
-	bool found=0, error=0, start=true;
-	long int oldpos;
-
-//	printf("Inside FindRecord2(), looking for coordinate <%.3f, %.3f> in %s\n", c.lon, c.lat, fileName);	// Test
-
-	lastyear=firstyear+nYears-1;
-
-	do
-	{	
-		i=0;
-		start=true;							//110531
-
-		while(!feof(ifp))
-		{
-			if(ifheader)
-			{
-//				oldpos=ftell(ifp);				// Slow !
-
-				if(d3==lastyear || start)  // Quicker !
-					oldpos=ftell(ifp);				
-			}
-
-			if(fgets(line,sizeof(line),ifp))	//OBS! behövs, annars läser scanf in gammal line igen efter sista raden
-			{
-				if(ifheader)
-				{
-					if(start==true)
-					{
-						start=false;
-
-						if(oldpos==0)
-							continue;
-					}
-				}	
-
-				count=sscanf(line,"%lf%lf%lf", &d1, &d2, &d3);
-
-				if(count>0)	// Avoid blank lines at the end of the file
-				{
-//					if(!(i%(nYears+1)) && !ifheader || !(i%nYears) && ifheader)		//fix 101111	; commented out to cope with missing lines
-					{
-						if(count==2 || count>2 && d3==firstyear && (format==LOCAL_STATIC || ifheader))	//added LOCAL_STATIC compatibility 091207 (not used, use SoilData instead for soilcode)
-						{
-							if(c.lon==d1 && c.lat==d2)
-							{
-								if(!ischeckingdata)
-									dprintf("Coordinate <%.2f,%.2f> found in %s\n", d1, d2, fileName);
-								found=1;
-								break;
-							}
-							else if(ascendinglongitudes && c.lon<d1)		//Ny kod 091126: longitudes must be ascending in dataset for this to work !	
-							{
-								dprintf("c.lon<d1; rewinding...\n");
-								break;
-							}
-						}
-/*						else																		// commented out to cope with missing lines
-						{ 
-							dprintf("FORMAT ERROR in input file %s: FindRecord2(), count!=2, line %d\n",fileName,i);
-							error=1;
-							break;
-						}
-*/					}
-				}
-				else
-				{
-					dprintf("WARNING: blank line in file %s: FindRecord2(), count==0\n",fileName);
-					continue;
-				}	
-				i++;
-			}
-		}
-
-		if(!found)
-		{
-			lap++;
-			rewind(ifp);
-			if(lap<2)
-				dprintf("Rewinding and searching from the beginning of the file...\n");
-		}
-
-	}while(!found && lap<2);
-
-	if(found && !error)
-	{
-		if(ifheader)
-			fseek(ifp, oldpos, 0);
-		return 1;
-	}
-	else
-		return 0;
-}
-
-void TimeDataD::Output(char *name) const
-{
-	int i=0, j=0;
-	FILE *ofp;
-
-//	dprintf("Inside Output()\n");	// Test
-
-	if(format==GLOBAL_STATIC || format==GLOBAL_YEARLY)
-		ofp=fopen(name, "w");
-	else if(format==LOCAL_STATIC || format==LOCAL_YEARLY)
-		ofp=fopen(name, "a");
-
-	if(ifheader && header_arr)
-	{
-		fprintf(ofp, "   lon\t   lat\t  year\t");
-		   
-		for(int i=0; i<nRecords; i++)
-			fprintf(ofp, "%8s\t", header_arr[i]);
-		fprintf(ofp, "\n");
-	}
-
-
-	switch (format)
-	{
-	case GLOBAL_STATIC:
-//		ofp=fopen(name, "w");
-		fprintf(ofp, "%.3lf\n", *data);
-		break;
-	case GLOBAL_YEARLY:
-//		ofp=fopen(name, "w");
-		for(i=0;i<nYears;i++)
-			fprintf(ofp, "%d\t%.3lf\n", year[i], data[i]);
-		break;
-	case LOCAL_STATIC:
-		break;
-	case LOCAL_YEARLY:
-//		ofp=fopen(name, "a");
-		
-		if(!ifheader)
-			fprintf(ofp, "%8.2f\t%8.2f\n",currentStand.lon, currentStand.lat);
-
-		for(i=0;i<nYears;i++)
-		{
-			if(ifheader)
-				fprintf(ofp, "%6.2f\t%6.2f\t",currentStand.lon, currentStand.lat);
-
-			fprintf(ofp, "%6d ", year[i]);
-			for(j=0;j<nRecords;j++)
-				fprintf(ofp, "\t%8.3f", data[nRecords*i+j]);
-			fprintf(ofp, "\n");
-		}
-		break;
-	default:
-		;
-	}
-	if(ofp)
-		fclose(ofp);
-}
-
-// Constructor
-TimeDataD::TimeDataD(int formatX)
-{
-	ifp=NULL;
-	fileName=NULL;
-	ifheader=true;
-	memset(header_arr,0,sizeof(char)*MAXRECORDS*10);
-//	for(int i=0;i<MAXRECORDS;i++)
-//		printf("header_arr[i]=%s\n", header_arr[i]);
-	currentStand.lon=0;
-	currentStand.lat=0;
-	data=NULL;
-	checkdata=NULL;
-	ischeckingdata=false;
-	active=NULL;
-
-	nRecords=0;
-	nYears=0;
-	year=NULL;
-	format=formatX;
-	fileopened=false;
-}
-
-//Deconstructor
-TimeDataD::~TimeDataD()
-{
-//	printf("\nIn TimeDataD destructor\n");	
-	if(ifp)
-	{
-		fclose(ifp);
-		printf("Closing input file %s \n", fileName);	// Test
-	}
-	if(fileName)
-	{
-		delete []fileName;
-		fileName=NULL;
-//		printf("deleting fileName[] in TimeDataD::~TimeDataD()\n");	// Test
-	}
-	if(year)
-	{
-		delete[] year; 
-		year=NULL;
-//		printf("deleting year[] in TimeDataD::~TimeDataD()\n");	// Test
-	}
-	if(data)
-	{
-		delete[] data; 
-		data=NULL;
-//		printf("deleting data[] in TimeDataD::~TimeDataD()\n");	// Test
-	}
-	if(checkdata)
-	{
-		delete []checkdata;
-		checkdata=NULL;
-	}
-	if(active)
-	{
-		delete []active;
-		active=NULL;
-	}
-}
-
 TimeDataD LUdata(LOCAL_YEARLY);
 TimeDataD Peatdata;
-TimeDataD CFTdata(LOCAL_YEARLY);
 #endif
-xtring file_lu, file_lucrop, file_peat;
+xtring file_lu, file_peat;
 const int NYEAR_LU=103;	//only used to get LU data after historical period (after 2003) : only used in AR4-runs, but causes no harm otherwise
 //
 
@@ -3150,21 +1518,14 @@ void define_output_tables(Pftlist& pftlist) {
 	// create a vector with the pft names
 	std::vector<std::string> pfts;
 
-	// create a vector with the crop pft names
-	std::vector<std::string> crop_pfts;
-
 	pftlist.firstobj();
 	while (pftlist.isobj) {
 		 Pft& pft=pftlist.getobj();
 
 		 pfts.push_back((char*)pft.name);
 
-		 if(pft.landcover==CROPLAND)
-			 crop_pfts.push_back((char*)pft.name);
-
 		 pftlist.nextobj();
 	}
-
 
 	// create a vector with the landcover column titles
 	std::vector<std::string> landcovers;
@@ -3214,7 +1575,6 @@ void define_output_tables(Pftlist& pftlist) {
 	cflux_columns += ColumnDescriptor("Fire",    8, 3);
 	cflux_columns += ColumnDescriptor("Est",     8, 3);
 	if (run_landcover) {
-		 cflux_columns += ColumnDescriptor("Seed", 8, 3);
 		 cflux_columns += ColumnDescriptor("Harvest", 9, 3);
 	}
 	cflux_columns += ColumnDescriptor("NEE",    10, 5);
@@ -3229,10 +1589,6 @@ void define_output_tables(Pftlist& pftlist) {
 		 cpool_columns += ColumnDescriptor("HarvSlowC", 10, 3);
 	}
 	cpool_columns += ColumnDescriptor("Total", 10, 4);
-
-	//YIELD
-	ColumnDescriptors yield_columns;
-	yield_columns += ColumnDescriptors(crop_pfts, 8, 3);
 
 	// FIRERT
 	ColumnDescriptors firert_columns;
@@ -3263,8 +1619,6 @@ void define_output_tables(Pftlist& pftlist) {
 	create_output_table(out_lai,            file_lai,            lai_columns);
 	create_output_table(out_cflux,          file_cflux,          cflux_columns);
 	create_output_table(out_cpool,          file_cpool,          cpool_columns);
-	if(run_landcover && run[CROPLAND])
-		create_output_table(out_yield,          file_yield,           yield_columns);
 	create_output_table(out_firert,         file_firert,         firert_columns);
 	create_output_table(out_runoff,         file_runoff,         runoff_columns);
 	create_output_table(out_speciesheights, file_speciesheights, speciesheights_columns);
@@ -3326,7 +1680,7 @@ void initio(int argc,char* argv[],Pftlist& pftlist) {
 	bool abort;
 	xtring insfilename;
 	xtring header;
- 
+
 
 	unixtime(header);
 	header=(xtring)"[LPJ-GUESS  "+header+"]\n\n";
@@ -3360,9 +1714,6 @@ void initio(int argc,char* argv[],Pftlist& pftlist) {
 	else abort=true;
 
 	if (abort) fail("\nUsage: %s <instruction-script-filename> | -help",argv[0]);
-
-	if(run[CROPLAND] && !ifdailynpp)
-		fail("\nOnly daily npp mode possible with cropland functionality.\n");
 
 	// Print the title of this run
 	dprintf("\n\n------------------------------------\n%s\n------------------------------------\n",(char*)title);
@@ -3409,6 +1760,9 @@ void initio(int argc,char* argv[],Pftlist& pftlist) {
 
 	fclose(in_grid);
 
+	watch_dir = param["watch_dir"].str;
+	load_gridlist(watch_dir, landpoints);
+
 	// Read CO2 data from file
 	co2.load_file(param["file_co2"].str);
 
@@ -3439,59 +1793,8 @@ void initio(int argc,char* argv[],Pftlist& pftlist) {
 			}
 
 		}
-
-		if(run[CROPLAND] && !cftfrac_fixed)
-		{
-			file_lucrop=param["file_lucrop"].str;
-#if defined DYNAMIC_LANDCOVER_INPUT	
-			if(!CFTdata.Open(file_lucrop))
-				fail("initio: could not open %s for input",(char*)file_lucrop);
-			else if(minimizecftlist)
-			{
-				CFTdata.CheckIfPresent(gridlist);
-				
-				int n=0;
-				pftlist.firstobj();
-				while(pftlist.isobj)
-				{		
-					if(pftlist.getobj().cftid>=0 && !CFTdata.CFTPresent(pftlist.getobj().cftid))
-					{
-						n+=1;
-						pftlist.killobj();
-						npft--;
-						ncft--;
-					}
-					else
-					{
-						pftlist.getobj().id-=n;
-						if(pftlist.getobj().cftid>=0)
-							CFTdata.active[pftlist.getobj().cftid]=1;
-						pftlist.nextobj();
-					}			
-				}
-			}
-			else
-			{
-				pftlist.firstobj();
-				while(pftlist.isobj)
-				{
-					if(pftlist.getobj().cftid>=0)
-						CFTdata.active[pftlist.getobj().cftid]=1;
-					pftlist.nextobj();
-				}
-			}
-
-			if(CFTdata.format==LOCAL_YEARLY)
-				all_fracs_const=false;
-
-//			for(int i=0;i<CFTdata.nRecords;i++)
-//				dprintf("%s:CFTdata.active=%d\n", CFTdata.GetHeader(i), CFTdata.active[i]);
-
-			if(CFTdata.GetnRecords()!=NCROPSTANDS_MAX)
-				fail("\ninitio: NCROPSTANDS_MAX is incorrectly set in guess.h !\n");
-#endif
-		}
 	}
+
 	// We MUST have an output directory
 	if (outputdirectory=="") {
 		fail("No output directory given in the .ins file!");
@@ -3530,11 +1833,6 @@ bool loadlandcover(Gridcell& gridcell, Coord c)	{
 				dprintf("Problems with landcover fractions input file. EXCLUDING STAND at %.3f,%.3f from simulation.\n\n",c.lon,c.lat);
 				LUerror=true;		// skip this stand
 			}
-			else
-			{
-if(!SUPPRESSLARGEOUTPUT)
-				LUdata.Output("LUdata.out");
-			}
 #endif
 		}
 
@@ -3549,28 +1847,11 @@ if(!SUPPRESSLARGEOUTPUT)
 		}
 	}
 
-	if(run[CROPLAND] && !LUerror)
-	{
-		if(!cftfrac_fixed)// Crop fraction data: read from crop fraction file; dynamic, so data for all years are loaded to CFTdata object and 
-		{	// transferred to gridcell.cftfrac each year in getlandcover()
-			if(!CFTdata.Load(c))
-			{
-				dprintf("Problems with CFT fractions input file. EXCLUDING STAND at %.3f,%.3f from simulation.\n\n",c.lon,c.lat);
-				LUerror=true;	// skip this stand
-			}
-		else
-			{
-if(!SUPPRESSLARGEOUTPUT)
-				CFTdata.Output("CFTdata.out");
-			}
-		}
-	}
-
 	return LUerror;
 }
 
 /// Called by the framework at the start of the simulation for a particular grid cell
-bool getgridcell(Gridcell& gridcell) 
+bool getgridcell(Gridcell& gridcell)
 {
 	// DESCRIPTION
 	// Obtains coordinates and soil static parameters for the next grid cell to
@@ -3627,59 +1908,17 @@ bool getgridcell(Gridcell& gridcell)
 		gridfound = findnearestCRUdata(searchradius, file_cru, lon, lat, soilcode, 
 		                               hist_mtemp, hist_mprec, hist_msun);
 
-		if (gridfound) // Get more historical CRU data for this grid cell
-			gridfound = searchcru_misc(file_cru_misc, lon, lat, elevation, 
-			                           hist_mfrs, hist_mwet, hist_mdtr);
-
-		if (run_landcover) {
-			Coord& c=gridlist.getobj();
-			LUerror=loadlandcover(gridcell, c);
-		}
-		if (LUerror)
-			gridfound=false;
-
-		while (!gridfound) {
-
-			if (run_landcover && LUerror)
-				dprintf("\nError: could not find stand at (%g,%g) in landcover data file\n", gridlist.getobj().lon,gridlist.getobj().lat);
-			else
-				dprintf("\nError: could not find stand at (%g,%g) in CRU data file\n", gridlist.getobj().lon,gridlist.getobj().lat);
-
-			gridlist.nextobj();
-			if (gridlist.isobj) {
-				double lon = gridlist.getobj().lon;
-				double lat = gridlist.getobj().lat;
-				gridfound = findnearestCRUdata(searchradius, file_cru, lon, lat, soilcode,
-				                               hist_mtemp, hist_mprec, hist_msun);
-			  
-				if (gridfound) // Get more historical CRU data for this grid cell
-					gridfound = searchcru_misc(file_cru_misc, lon, lat, elevation,
-					                           hist_mfrs, hist_mwet, hist_mdtr);
-
-				if (run_landcover) {
-					Coord& c=gridlist.getobj();
-					LUerror=loadlandcover(gridcell, c);
-				}
-				if (LUerror)
-					gridfound=false;
-			}
-			else return false;
+		if (!gridfound) {
+			fail("Failed to find CRU data for (%g,%g)", lon, lat);
 		}
 
-		// Build spinup data sets
-		spinup_mtemp.get_data_from(hist_mtemp);
-		spinup_mprec.get_data_from(hist_mprec);
-		spinup_msun.get_data_from(hist_msun);
+		// Load WATCH subdaily variables
+		int cell_id = get_cell_id(lon, lat, landpoints);
 
-		// Detrend spinup temperature data
-		spinup_mtemp.detrend_data();
-
-		// guess2008 - new spinup data sets
-		spinup_mfrs.get_data_from(hist_mfrs);
-		spinup_mwet.get_data_from(hist_mwet);
-		spinup_mdtr.get_data_from(hist_mdtr);
-		spinup_mdtr.detrend_data();
-
+		load_watch_data(watch_dir, "Tair",   cell_id, watch_temp,   true);
+		load_watch_data(watch_dir, "SWdown", cell_id, watch_swdown, true);
+		load_watch_data(watch_dir, "Rainf",  cell_id, watch_rainf,  false);
+		load_watch_data(watch_dir, "Snowf",  cell_id, watch_snowf,  false);
 
 		dprintf("\nCommencing simulation for stand at (%g,%g)",gridlist.getobj().lon,
 			gridlist.getobj().lat);
@@ -3689,55 +1928,11 @@ bool getgridcell(Gridcell& gridcell)
 		
 		// Tell framework the coordinates of this grid cell
 		gridcell.set_coordinates(gridlist.getobj().lon, gridlist.getobj().lat);
-		gridcell.climate.lon=gridlist.getobj().lon;
-
-		// Set CFT-specific members of climate and gridcellpft: 
-		if (run_landcover && run[CROPLAND]) 
-		{
-			if (gridcell.climate.lat>=0) 
-			{
-				gridcell.climate.testday_temp=180;		//June 30(day 180)
-				gridcell.climate.testday_prec=364;		//Dec.31(day 364)
-				gridcell.climate.coldestday=COLDEST_DAY_NHEMISPHERE;
-				gridcell.climate.adjustlat=0;
-			}
-			else
-			{
-				gridcell.climate.testday_temp=364;		//Dec.31(day 364)
-				gridcell.climate.testday_prec=180;		//June 30(day 180)
-				gridcell.climate.coldestday=COLDEST_DAY_SHEMISPHERE;
-				gridcell.climate.adjustlat=181;
-			}
-
-			if(gridcell.climate.lat>-15.0 && gridcell.climate.lat<20.0 && gridcell.climate.lon>90.0)
-				gridcell.climate.SOAsia=true;
-			else
-				gridcell.climate.SOAsia=false;
-
-			for(int p=0;p<gridcell.pft.nobj;p++) 
-			{
-				Gridcellpft& gcpft=gridcell.pft[p];
-
-				if (gridcell.climate.lat>=0.0)
-				{
-					gcpft.sdate_default=gcpft.pft.sdatenh;
-					gcpft.hlimitdate_default=gcpft.pft.hlimitdatenh;
-				}
-				else
-				{
-					gcpft.sdate_default=gcpft.pft.sdatesh;
-					gcpft.hlimitdate_default=gcpft.pft.hlimitdatesh;
-				}
-
-				if (!strncmp(gcpft.pft.name,"TrRi", strlen("TrRi")) && gridcell.climate.lon>=60.0 && gridcell.climate.lat<=30.0)		//double cropping in China and Japan: OK ??? Bondeau sätter detta i leaf_phenology_crop
-					gcpft.singlecrop=false;
-			}
-		}
-	
+		
 		// The insolation data will be sent (in function getclimate, below)
 		// as percentage sunshine
 		
-		gridcell.climate.instype=SUNSHINE;
+		gridcell.climate.instype=NETSWRAD_TS;
 
 		// Tell framework the soil type of this grid cell
 		soilparameters(gridcell.soiltype,soilcode);
@@ -3876,8 +2071,7 @@ void getlandcover(Gridcell& gridcell,Pftlist& pftlist) {
 					}
 				}
 				else				//added scaling to sum=1.0 (sum often !=1.0)
-					if(!SUPPRESSLARGEOUTPUT)
-						dprintf("Rescaling landcover fractions year %d ! (sum is within 0.99-1.01)\n", date.year-nyear_spinup+FIRSTHISTYEAR);
+					dprintf("Rescaling landcover fractions year %d ! (sum is within 0.99-1.01)\n", date.year-nyear_spinup+FIRSTHISTYEAR);
 
 				for(i=0;i<PEATLAND;i++)
 					sum_active+=gridcell.landcoverfrac[i]/=sum_tot;
@@ -3896,9 +2090,8 @@ void getlandcover(Gridcell& gridcell,Pftlist& pftlist) {
 		//NB. These calculations are based on the assumption that the NATURAL type area is what is left after the other types are summed. 
 		if(sum_active!=1.0)		//if landcover types are turned off in the ini-file, or if more landcover types are added in other input files, can be either less or more than 1.0
 		{
-			if(!SUPPRESSLARGEOUTPUT)
-				if(date.year==0)
-					dprintf("Landcover fraction sum not 1.0 !\n");
+			if(date.year==0)
+				dprintf("Landcover fraction sum not 1.0 !\n");
 
 			if(run[NATURAL])	//Transfer landcover areas not simulated to NATURAL fraction, if simulated.
 			{
@@ -3942,114 +2135,6 @@ void getlandcover(Gridcell& gridcell,Pftlist& pftlist) {
 //					gridcell.landcoverfrac[i]/=sum_active;						// if NATURAL not simulated, rescale active fractions to 1.0
 				if(date.year==0)
 					dprintf("Non-unity fraction sum retained.\n");				// OR let sum remain non-unity
-			}
-		}
-	}
-
-	if(run[CROPLAND])
-	{
-		sum=0.0;
-		if(cftfrac_fixed)
-		{
-			if(date.year==0)
-			{
-				for(int i=0;i<npft;i++)	//changed from NCROPSTANDS_MAX to ncft 100414; changed code 100609
-				{
-					int index=-9;
-
-					if(pftlist[i].cftid>=0)
-					{
-						index=pftlist[i].cftid;
-
-						if(equal_crop_area)
-							sum+=gridcell.cftfrac[index]=1.0/(double)ncft;	//changed from NCROPSTANDS_MAX to ncft 100414
-						else
-							sum+=gridcell.cftfrac[index]=(double)cft_forc[index]/100.0;
-
-						if(gridcell.cftfrac[index]<0.0 || gridcell.cftfrac[index]>1.0)
-						{
-							dprintf("WARNING ! crop fraction size out of limits, set to 0.0\n");
-							sum-=gridcell.cftfrac[index];
-							gridcell.cftfrac[index]=0.0;
-						}
-					}
-				}
-			}
-		}
-		else
-		{
-
-			for(i=0;i<NCROPSTANDS_MAX;i++)
-			{
-				if(CFTdata.active[i])	//101104: forces rescaling of fractions of active pft:s
-				{
-					sum+=gridcell.cftfrac[i]=CFTdata.Get(year,i);
-					if(gridcell.cftfrac[i]<0.0 || gridcell.cftfrac[i]>1.0)
-					{
-						dprintf("WARNING ! crop fraction size out of limits, set to 0.0\n");
-						sum-=gridcell.cftfrac[i];
-						gridcell.cftfrac[i]=0.0;
-					}
-				}
-			}
-		}
-
-		if(!cftfrac_fixed || date.year==0)	//Fix 110317
-		{
-			if(gridcell.landcoverfrac[CROPLAND]==0.0)
-			{
-				if(sum!=0.0)
-				{
-					dprintf("WARNING ! crop landcover fraction is 0.0 for year %d while crop data exist !\n", year+FIRSTHISTYEAR);
-				}
-			}
-			else
-			{
-				if(sum==0.0)
-				{
-if(!SUPPRESSLARGEOUTPUT)
-					dprintf("WARNING ! crop fraction sum is 0.0 for year %d while LU[CROPLAND] is > 0 !\n", year+FIRSTHISTYEAR);
-
-					//	Set to most common crop according to Bondeau (ML 100104)	
-					pftlist.firstobj();
-					while(pftlist.isobj)
-					{
-						Pft& pft=pftlist.getobj();
-						if(pft.landcover==CROPLAND)
-						{
-							
-							if(!strcmp(pft.name,"TeWW") && (gridcell.climate.lat>30 || gridcell.climate.lat<-30))	//bugfix 100923
-							{
-								gridcell.cftfrac[pft.cftid]=1.0;				//bugfix 100923
-								dprintf("Wheat fraction set to 1.0.\n");
-							}
-							else if(!strcmp(pft.name,"TrMi") && (gridcell.climate.lat<=30 && gridcell.climate.lat>=-30))	//bugfix 100923, 101027
-							{
-								gridcell.cftfrac[pft.cftid]=1.0;				//bugfix 100923	
-								dprintf("Millet fraction set to 1.0.\n");
-							}
-						}
-						pftlist.nextobj();	
-					}
-					
-				}
-				else if(sum<0.99 || sum>1.01)		//fix 090612: else to avoid case of 0.0
-				{
-if(!SUPPRESSLARGEOUTPUT)
-{
-					dprintf("WARNING ! crop fraction sum is %5.3f for year %d\n", sum, date.year-nyear_spinup+FIRSTHISTYEAR);
-					dprintf("Rescaling crop fractions year %d ! (sum is beyond 0.99-1.01)\n", date.year-nyear_spinup+FIRSTHISTYEAR);
-}
-					for(i=0;i<NCROPSTANDS_MAX;i++)
-						gridcell.cftfrac[i]/=sum;
-				}
-				else if(sum!=1.0)	//added scaling to sum=1.0 (sum often !=1.0)
-				{
-if(!SUPPRESSLARGEOUTPUT)
-;//					dprintf("Rescaling crop fractions year %d ! (sum is %f)\n", date.year-nyear_spinup+FIRSTHISTYEAR, sum);
-					for(i=0;i<NCROPSTANDS_MAX;i++)
-						gridcell.cftfrac[i]/=sum;
-				}
 			}
 		}
 	}
@@ -4097,104 +2182,45 @@ bool getclimate(Gridcell& gridcell) {
 	double mwet_all[12]={31,28,31,30,31,30,31,31,30,31,30,31}; // number of rain days per month
 	Climate& climate=gridcell.climate;
 
-	if (date.day==0) {
-
-		// First day of year ...
-		
-		if (date.year<nyear_spinup) {
-
-			// During spinup period
-
-			int m;
-			double mtemp[12],mprec[12],msun[12];
-			double mfrs[12],mwet[12],mdtr[12];
-
-			for (m=0;m<12;m++) {
-				mtemp[m]=spinup_mtemp[m];
-				mprec[m]=spinup_mprec[m];
-				climate.mtemp_year[m]=spinup_mtemp[m];	
-				climate.mprec_year[m]=spinup_mprec[m];	
-				msun[m]=spinup_msun[m];
-
-				// guess2008
-				mfrs[m]=spinup_mfrs[m];
-				mwet[m]=spinup_mwet[m];
-				mdtr[m]=spinup_mdtr[m];
-			}
-
-			// Interpolate monthly spinup data to quasi-daily values
-			interp_climate(mtemp,mprec,msun,mdtr,dtemp,dprec,dsun,ddtr);
-
-			// guess2008 - only recalculate precipitation values using weather generator
-			// if rainonwetdaysonly is true. Otherwise we assume that it rains a little every day.
-			if (ifrainonwetdaysonly) { 
-				// (from Dieter Gerten 021121)
-				prdaily(mprec,dprec,mwet);
-			}
-
-			spinup_mtemp.nextyear();
-			spinup_mprec.nextyear();
-			spinup_msun.nextyear();
-
-			// guess2008
-			spinup_mfrs.nextyear();
-			spinup_mwet.nextyear();
-			spinup_mdtr.nextyear();
-
-		}
-		else if (date.year<nyear_spinup+NYEAR_HIST) {
-
-			// Historical period
-
-			// Interpolate this year's monthly data to quasi-daily values
-			interp_climate(hist_mtemp[date.year-nyear_spinup],
-				hist_mprec[date.year-nyear_spinup],hist_msun[date.year-nyear_spinup],
-					   hist_mdtr[date.year-nyear_spinup],
-				       dtemp,dprec,dsun,ddtr);
-
-			// guess2008 - only recalculate precipitation values using weather generator
-			// if ifrainonwetdaysonly is true. Otherwise we assume that it rains a little every day.
-			if (ifrainonwetdaysonly) { 
-				// (from Dieter Gerten 021121)
-				prdaily(hist_mprec[date.year-nyear_spinup],dprec,hist_mwet[date.year-nyear_spinup]);
-			}
-
-			for(int m=0;m<12;m++)	
-			{
-				climate.mtemp_year[m]=hist_mtemp[date.year-nyear_spinup][m];
-				climate.mprec_year[m]=hist_mprec[date.year-nyear_spinup][m];
-			}
-		}
-		else {
-			// Return false if last year was the last for the simulation
-			return false;
-		}
-	}
-
-	if(date.day==0)
-	{
-		climate.aprec=0.0;
-
-		for(int m=0;m<12;m++)
-		{
-			climate.aprec+=climate.mprec_year[m];
-			climate.mpet_year[m]=0.0;
-		}
-	}
-	climate.mpet_year[date.month]+=climate.eet*PRIESTLEY_TAYLOR;
-
 	// Send environmental values for today to framework
 
-	climate.co2 = co2[FIRSTHISTYEAR + date.year - nyear_spinup];
+	int year = date.year < nyear_spinup ? 
+		date.year % NYEAR_SPINUP_DATA : date.year - nyear_spinup;
 
-	climate.temp=dtemp[date.day];
-	climate.prec=dprec[date.day];
-	climate.insol=dsun[date.day];
+	size_t daily_index = year * 365 + date.day;
+	size_t subdaily_index = daily_index * SUBDAILY;
+	size_t subdaily_end = subdaily_index + SUBDAILY;
 
-	// bvoc
-	if(ifbvoc){
-	  climate.dtr=ddtr[date.day];
+	if (daily_index >= watch_rainf.size()) {
+		// no more forcing data left, so we're finished with this grid cell
+		return false;
 	}
+
+	climate.co2 = co2[FIRST_WATCH_YEAR + date.year - nyear_spinup];
+
+	climate.temps.assign(watch_temp.begin()+subdaily_index, 
+	                     watch_temp.begin()+subdaily_end);
+	climate.insols.assign(watch_swdown.begin()+subdaily_index,
+	                      watch_swdown.begin()+subdaily_end);
+
+	// Convert temperatures (K -> C)
+	for (size_t i = 0; i < SUBDAILY; ++i) {
+		climate.temps[i] -= K2degC;
+	}
+
+	climate.temp = mean(&climate.temps.front(), SUBDAILY);
+	climate.insol = mean(&climate.insols.front(), SUBDAILY);
+	climate.prec = (watch_rainf[daily_index] + watch_snowf[daily_index]);
+	climate.prec *= 24 * 3600; // mm/s -> mm/day
+
+	if (ifbvoc && !diurnal) {
+		std::vector<double>::const_iterator start, end;
+		start = climate.temps.begin();
+		end = climate.temps.end();
+		climate.dtr = std::max_element(start, end) - std::min_element(start, end);
+	}
+
+	date.subdaily = diurnal ? SUBDAILY : 1;
 
 	// First day of year only ...
 
@@ -4224,8 +2250,8 @@ void outannual(Gridcell& gridcell,Pftlist& pftlist) {
 	// provide any information to the framework.
 
 	int c, m, nclass;
-	double flux_veg,flux_soil,flux_fire,flux_est,flux_seed,flux_harvest;
-	double c_litter,c_fast,c_slow,c_harv_slow; 
+	double flux_veg, flux_soil, flux_fire, flux_est, flux_harvest;
+	double c_litter, c_fast, c_slow, c_harv_slow; 
 
 	// guess2008 - hold the monthly average across patches
 	double mnpp[12];
@@ -4247,7 +2273,7 @@ void outannual(Gridcell& gridcell,Pftlist& pftlist) {
 
 	if (vegmode==COHORT)
 		nclass=min(date.year/estinterval+1,OUTPUT_MAXAGECLASS);
-
+	
 	// guess2008 - yearly output after spinup
 		
 	// If only yearly output between, say 1961 and 1990 is requred, use: 
@@ -4262,7 +2288,6 @@ void outannual(Gridcell& gridcell,Pftlist& pftlist) {
 		// output table
 		OutputRows out(output_channel, lon, lat, date.year);
 
-
 		// guess2008 - reset monthly average across patches each year
 		for (m=0;m<12;m++)
 			mnpp[m]=mlai[m]=mgpp[m]=mra[m]=maet[m]=mpet[m]=mevap[m]=mintercep[m]=mrunoff[m]=mrh[m]=mnee[m]=mwcont_upper[m]=mwcont_lower[m]=miso[m]=mmon[m]=0.0;
@@ -4276,14 +2301,13 @@ void outannual(Gridcell& gridcell,Pftlist& pftlist) {
 		double landcover_aiso[NLANDCOVERTYPES]={0.0};
 		double landcover_amon[NLANDCOVERTYPES]={0.0};
 
-		double stand_mean_cmass=0.0;
-		double stand_mean_anpp=0.0;
-		double stand_mean_lai=0.0;
-		double stand_mean_yield=0.0;
-		double stand_mean_densindiv_total=0.0;
-		double stand_mean_densindiv_ageclass[OUTPUT_MAXAGECLASS]={0.0};
-		double stand_mean_aiso=0.0;
-		double stand_mean_amon=0.0;
+		double gcpft_cmass=0.0;
+		double gcpft_anpp=0.0;
+		double gcpft_lai=0.0;
+		double gcpft_densindiv_total=0.0;
+		double gcpft_densindiv_ageclass[OUTPUT_MAXAGECLASS]={0.0};
+		double gcpft_aiso=0.0;
+		double gcpft_amon=0.0;
 
 		double cmass_gridcell=0.0;
 		double anpp_gridcell=0.0;
@@ -4295,11 +2319,8 @@ void outannual(Gridcell& gridcell,Pftlist& pftlist) {
 		double amon_gridcell=0.0;
 
 		double standpft_cmass=0.0;
-		double standpft_ic_cmass=0.0;	//intercrop grass
 		double standpft_anpp=0.0;
-		double standpft_ic_anpp=0.0;	//intercrop grass
 		double standpft_lai=0.0;
-		double standpft_yield=0.0;	
 		double standpft_densindiv_total=0.0;
 		double standpft_densindiv_ageclass[OUTPUT_MAXAGECLASS]={0.0};
 		double standpft_aiso=0.0;
@@ -4315,13 +2336,12 @@ void outannual(Gridcell& gridcell,Pftlist& pftlist) {
 			Gridcellpft& gridcellpft=gridcell.pft[pft.id];
 
 			// Sum C biomass, NPP, LAI and BVOC fluxes across patches and PFTs		
-			stand_mean_cmass=0.0;
-			stand_mean_anpp=0.0;
-			stand_mean_lai=0.0;
-			stand_mean_yield=0.0;
-			stand_mean_densindiv_total=0.0;		
-			stand_mean_aiso=0.0;
-			stand_mean_amon=0.0;
+			gcpft_cmass=0.0;
+			gcpft_anpp=0.0;
+			gcpft_lai=0.0;
+			gcpft_densindiv_total=0.0;		
+			gcpft_aiso=0.0;
+			gcpft_amon=0.0;
 
 			double heightindiv_total = 0.0;
 
@@ -4334,11 +2354,8 @@ void outannual(Gridcell& gridcell,Pftlist& pftlist) {
 				Standpft& standpft=stand.pft[pft.id];
 				// Sum C biomass, NPP, LAI and BVOC fluxes across patches and PFTs
 				standpft_cmass=0.0;
-				standpft_ic_cmass=0.0;
 				standpft_anpp=0.0;
-				standpft_ic_anpp=0.0;
 				standpft_lai=0.0;
-				standpft_yield=0.0;
 				standpft_densindiv_total = 0.0;
 				standpft_aiso=0.0;
 				standpft_amon=0.0;
@@ -4364,53 +2381,32 @@ void outannual(Gridcell& gridcell,Pftlist& pftlist) {
 						if (indiv.id!=-1 && indiv.alive) { 
 							
 							if (indiv.pft.id==pft.id) {
-
-								if(pft.landcover==CROPLAND)
-								{
-									if(indiv.cropindiv->isintercropgrass==false)
-									{
-										standpft_cmass+=indiv.cmass_leaf+indiv.cmass_root+indiv.cmass_sap+indiv.cmass_heart-indiv.cmass_debt+indiv.cropindiv->cmass_ho+indiv.cropindiv->cmass_agpool;
-										standpft_anpp+=indiv.anpp;
-										if(pft.phenology==CROPGREEN)					
-											standpft_lai+=indiv.cropindiv->cmass_leaf_max*pft.sla;
-										else
-											standpft_lai+=indiv.lai;
-										standpft_yield+=indiv.cropindiv->yield;
-									}
-									else
-									{
-										standpft_ic_cmass+=indiv.cmass_leaf+indiv.cmass_root+indiv.cmass_sap+indiv.cmass_heart-indiv.cmass_debt+indiv.cropindiv->cmass_ho+indiv.cropindiv->cmass_agpool;
-										standpft_ic_anpp+=indiv.anpp;
-									}
-								}
-								else
-								{
-									standpft_cmass+=indiv.cmass_leaf+
-										indiv.cmass_root+indiv.cmass_sap+indiv.cmass_heart-indiv.cmass_debt;
-									standpft_anpp+=indiv.anpp;
-									standpft_lai+=indiv.lai;
+								standpft_cmass+=indiv.cmass_leaf+
+									indiv.cmass_root+indiv.cmass_sap+indiv.cmass_heart-indiv.cmass_debt;
+								standpft_anpp+=indiv.anpp;
+								standpft_lai+=indiv.lai;
 								standpft_aiso+=indiv.aiso;
 								standpft_amon+=indiv.amon;
 
-									if (vegmode==COHORT || vegmode==INDIVIDUAL) {
-										
-										// Age structure
-										
-										c=(int)(indiv.age/estinterval); // guess2008
-										if (c<OUTPUT_MAXAGECLASS)
-											standpft_densindiv_ageclass[c]+=indiv.densindiv;
+								if (vegmode==COHORT || vegmode==INDIVIDUAL) {
+									
+									// Age structure
+									
+									c=(int)(indiv.age/estinterval); // guess2008
+									if (c<OUTPUT_MAXAGECLASS)
+										standpft_densindiv_ageclass[c]+=indiv.densindiv;
 
-										// guess2008 - only count trees with a trunk above a certain diameter  
-										if (pft.lifeform==TREE && indiv.age>0) {
-											double diam=pow(indiv.height/indiv.pft.k_allom2,1.0/indiv.pft.k_allom3);
-											if (diam>0.03) {
-												standpft_densindiv_total+=indiv.densindiv; // indiv/m2
+									// guess2008 - only count trees with a trunk above a certain diameter  
+									if (pft.lifeform==TREE && indiv.age>0) {
+										double diam=pow(indiv.height/indiv.pft.k_allom2,1.0/indiv.pft.k_allom3);
+										if (diam>0.03) {
+											standpft_densindiv_total+=indiv.densindiv; // indiv/m2
 
 											heightindiv_total+=indiv.height * indiv.densindiv;
-											}
 										}
 									}
-								}						
+								}
+							
 							}
 
 						} // alive?
@@ -4429,50 +2425,29 @@ void outannual(Gridcell& gridcell,Pftlist& pftlist) {
 				heightindiv_total/=(double)stand.npatch();
 
 				//Update landcover totals
-				landcover_cmass[stand.landcover]+=(standpft_cmass+standpft_ic_cmass)*stand.get_landcover_fraction();
-				landcover_anpp[stand.landcover]+=(standpft_anpp+standpft_ic_anpp)*stand.get_landcover_fraction();
+				landcover_cmass[stand.landcover]+=standpft_cmass*stand.get_landcover_fraction();
+				landcover_anpp[stand.landcover]+=standpft_anpp*stand.get_landcover_fraction();
 				landcover_lai[stand.landcover]+=standpft_lai*stand.get_landcover_fraction();
 				landcover_densindiv_total[stand.landcover]+=standpft_densindiv_total*stand.get_landcover_fraction();
 				landcover_aiso[stand.landcover]+=standpft_aiso*stand.get_landcover_fraction();
 				landcover_amon[stand.landcover]+=standpft_amon*stand.get_landcover_fraction();
 
 				//Update pft totals
-#if defined multiple_natural_stands
-				if(pft.landcover==NATURAL && gridcell.landcoverfrac[stand.landcover]!=0.0)	//Natural landcover can now contain several stands.
-				{
-					stand_mean_cmass+=standpft_cmass*stand.get_landcover_fraction();
-					stand_mean_anpp+=standpft_anpp*stand.get_landcover_fraction();
-					stand_mean_lai+=standpft_lai*stand.get_landcover_fraction();
-					stand_mean_densindiv_total+=standpft_densindiv_total*stand.get_landcover_fraction();
-					stand_mean_aiso+=standpft_aiso*stand.get_landcover_fraction();
-					stand_mean_amon+=standpft_amon*stand.get_landcover_fraction();
+				gcpft_cmass+=standpft_cmass;
+				gcpft_anpp+=standpft_anpp;
+				gcpft_lai+=standpft_lai;
+				gcpft_densindiv_total+=standpft_densindiv_total;
+				gcpft_aiso+=standpft_aiso;
+				gcpft_amon+=standpft_amon;
 
 				if (vegmode==COHORT || vegmode==INDIVIDUAL)
 					for (c=0;c<nclass;c++)
-						stand_mean_densindiv_ageclass[c]+=standpft_densindiv_ageclass[c]*stand.get_landcover_fraction();
-
-				}
-				else
-#endif
-				{									
-					stand_mean_cmass+=standpft_cmass;		//Intercrop grass not taken into account here for crop grass pft:s.
-					stand_mean_anpp+=standpft_anpp;
-					stand_mean_lai+=standpft_lai;
-					stand_mean_yield+=standpft_yield;
-					stand_mean_densindiv_total+=standpft_densindiv_total;
-					stand_mean_aiso+=standpft_aiso;
-					stand_mean_amon+=standpft_amon;
-
-					if (vegmode==COHORT || vegmode==INDIVIDUAL)
-						for (c=0;c<nclass;c++)
-							stand_mean_densindiv_ageclass[c]+=standpft_densindiv_ageclass[c];
-				}
-
+						gcpft_densindiv_ageclass[c]+=standpft_densindiv_ageclass[c];
 
 				// Update gridcell totals
 				double fraction_of_gridcell = stand.get_gridcell_fraction();
-				cmass_gridcell+=(standpft_cmass+standpft_ic_cmass)*fraction_of_gridcell;
-				anpp_gridcell+=(standpft_anpp+standpft_ic_anpp)*fraction_of_gridcell;
+				cmass_gridcell+=standpft_cmass*fraction_of_gridcell;
+				anpp_gridcell+=standpft_anpp*fraction_of_gridcell;
 				lai_gridcell+=standpft_lai*fraction_of_gridcell;
 				dens_gridcell+=standpft_densindiv_total*fraction_of_gridcell;
 				aiso_gridcell+=standpft_aiso*fraction_of_gridcell;
@@ -4481,39 +2456,36 @@ void outannual(Gridcell& gridcell,Pftlist& pftlist) {
 				// Graphical output every 10 years
 				// (Windows shell only - "plot" statements have no effect otherwise)
 				if (!(date.year%10)) {
-					plot("cmass",pft.name,date.year,stand_mean_cmass);
-					plot("anpp",pft.name,date.year,stand_mean_anpp);
-					plot("lai",pft.name,date.year,stand_mean_lai);
+					plot("cmass",pft.name,date.year,gcpft_cmass);
+					plot("anpp",pft.name,date.year,gcpft_anpp);
+					plot("lai",pft.name,date.year,gcpft_lai);
 				}
 				gridcell.nextobj();
 			}//End of loop through stands
 
 			// Print PFT sums to files
 
-			out.add_value(out_cmass, stand_mean_cmass);
-			out.add_value(out_anpp,  stand_mean_anpp);
-			out.add_value(out_dens,  stand_mean_densindiv_total);
-			out.add_value(out_lai,   stand_mean_lai);
-
-			if (pft.landcover==CROPLAND)
-				out.add_value(out_yield,   stand_mean_yield);
+			out.add_value(out_cmass, gcpft_cmass);
+			out.add_value(out_anpp,  gcpft_anpp);
+			out.add_value(out_dens,  gcpft_densindiv_total);
+			out.add_value(out_lai,   gcpft_lai);
 
 			// print species heights
 			double height = 0.0;
-			if (stand_mean_densindiv_total > 0.0)
-				height = heightindiv_total/stand_mean_densindiv_total;
-
+			if (gcpft_densindiv_total > 0.0)
+				height = heightindiv_total/gcpft_densindiv_total;
+			
 			out.add_value(out_speciesheights, height);
 
-			out.add_value(out_aiso, stand_mean_aiso);
-			out.add_value(out_amon, stand_mean_amon);
+			out.add_value(out_aiso, gcpft_aiso);
+			out.add_value(out_amon, gcpft_amon);
 
 			pftlist.nextobj();
 		
 		} // *** End of PFT loop ***
 
 
-		flux_veg=flux_soil=flux_fire=flux_est=flux_harvest=flux_seed=0.0;
+		flux_veg=flux_soil=flux_fire=flux_est=flux_harvest=0.0;
 
 		// guess2008 - carbon pools
 		c_litter=c_fast=c_slow=c_harv_slow=0.0;
@@ -4537,7 +2509,6 @@ void outannual(Gridcell& gridcell,Pftlist& pftlist) {
 				flux_soil+=patch.fluxes.acflux_soil*to_gridcell_average;
 				flux_fire+=patch.fluxes.acflux_fire*to_gridcell_average;
 				flux_est+=patch.fluxes.acflux_est*to_gridcell_average;
-				flux_seed+=patch.fluxes.acflux_seed*to_gridcell_average;
 				flux_harvest+=patch.fluxes.acflux_harvest*to_gridcell_average;
 
 				c_fast+=patch.soil.cpool_fast*to_gridcell_average;
@@ -4616,7 +2587,7 @@ void outannual(Gridcell& gridcell,Pftlist& pftlist) {
 
 
 		// In contrast to annual NEE, monthly NEE does not include fire 
-		// or establishment fluxes 
+		// or establishment fluxes
 		for (m=0;m<12;m++) {
 			mnpp[m] = mgpp[m]-mra[m];
 			mnee[m] = mnpp[m]-mrh[m];
@@ -4646,7 +2617,6 @@ void outannual(Gridcell& gridcell,Pftlist& pftlist) {
 			}
 		}
 
-
 		// Print monthly output variables
 		for (m=0;m<12;m++) {
 			 out.add_value(out_mnpp,         mnpp[m]);
@@ -4664,7 +2634,7 @@ void outannual(Gridcell& gridcell,Pftlist& pftlist) {
 			 out.add_value(out_mwcont_lower, mwcont_lower[m]);
 			 out.add_value(out_miso,         miso[m]);
 			 out.add_value(out_mmon,         mmon[m]);
-			}
+		}
 
 
 		// Graphical output every 10 years
@@ -4692,12 +2662,10 @@ void outannual(Gridcell& gridcell,Pftlist& pftlist) {
 		out.add_value(out_cflux, flux_fire);
 		out.add_value(out_cflux, flux_est);
 		if (run_landcover) {
-			 out.add_value(out_cflux, flux_seed);
 			 out.add_value(out_cflux, flux_harvest);
 		}
-		out.add_value(out_cflux, flux_veg+flux_soil+flux_fire+flux_est+flux_seed+flux_harvest);
-if(cmass_gridcell<0.0 || cmass_gridcell>30)
-dprintf("cmass_gridcell out of bounds\n\n");
+		out.add_value(out_cflux, flux_veg+flux_soil+flux_fire+flux_est+flux_harvest);
+
 		// guess2008 - output carbon pools
 		out.add_value(out_cpool, cmass_gridcell);
 		out.add_value(out_cpool, c_litter);
@@ -4730,7 +2698,7 @@ dprintf("cmass_gridcell out of bounds\n\n");
 						for (c=0;c<nclass;c++)
 							plot("age_structure",pft.name,
 								c*estinterval+estinterval/2,
-								stand_mean_densindiv_ageclass[c]/(double)npatch);
+								gcpft_densindiv_ageclass[c]/(double)npatch);
 					}
 					
 					pftlist.nextobj();
@@ -4750,7 +2718,6 @@ void termio() {
 
 	// Performs memory deallocation, closing of files or other "cleanup" functions.
 	delete output_channel;
-
 
 	// Clean up
 	gridlist.killall();
