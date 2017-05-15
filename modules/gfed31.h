@@ -1,9 +1,9 @@
 ///////////////////////////////////////////////////////////////////////////////////////
-/// \file somdynam.h
-/// \brief Soil organic matter dynamics
+/// \file blaze.cpp
+/// \brief provide GFED 3.1 data for use in BLAZE
 ///
-/// \author Ben Smith
-/// $Date$
+/// \author Lars Nieradzik
+/// $Date: 2015-04-29 13:52:56 +0200 (Wed, 29 Apr 2015) $
 ///
 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -11,15 +11,8 @@
 // Module header files need normally contain only declarations of functions defined in
 // the module that are to be accessible to the calling framework or to other modules.
 
-#ifndef LPJ_GUESS_SOMDYNAM_H
-#define LPJ_GUESS_SOMDYNAM_H
-
+#ifndef LPJ_GUESS_GFED31_H
+#define LPJ_GUESS_GFED31_H
 #include "guess.h"
-
-double metabolic_litter_fraction(double lton);
-
-double lignin_to_n_ratio(double cmass_litter, double nmass_litter, double LIGCFRAC, double cton_avr);
-
-void som_dynamics(Patch& patch);
-
-#endif // LPJ_GUESS_SOMDYNAM_H
+double gfed31_ba(Gridcell& gridcell);
+#endif // LPJ_GUESS_GFED31_H
