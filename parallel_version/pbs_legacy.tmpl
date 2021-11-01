@@ -4,19 +4,19 @@
 #
 # Portable bash script to run LPJ-GUESS version:
 # BINARY
-# as a parallel job on a multicore system.
+# as a parallel job using PBS on Simba.
 #
-# Created automatically from multicore.tmpl on DATE 
-# by e.g. setting SYSTEM to multicore in ccmake.
+# Created automatically on DATE
 # 
 # Usage: 
 #
-#   1. Copy this script submit.sh to the directory where you want output
-#      written. This will be called the RUN DIRECTORY.
+#   1. Copy script to the directory where you want output written.
+#      This will be called the RUN DIRECTORY.
 #   2. In an editor, set appropriate values for the variables NPROCESS,
 #      INSFILE, GRIDLIST and OUTFILES (NB: no space after the = sign):
 
-NPROCESS=4
+NPROCESS=15
+WALLTIME=150:00:00
 INSFILE=guess.ins
 INPUT_MODULE=cru_ncep
 GRIDLIST=gridlist.txt
@@ -24,6 +24,7 @@ OUTFILES='*.out'
 
 #      Where:
 #      NPROCESS     = number of processes in parallel job
+#      WALLTIME     = maximum wall (real) time for job hh:mm:ss
 #      INSFILE      = path to ins file from run directory
 #      INPUT_MODULE = input module to use
 #      GRIDLIST     = path to gridlist file from run directory
@@ -34,9 +35,10 @@ OUTFILES='*.out'
 #   3. Run the script using the command:
 #        ./submit.sh
 #      or:
-#        ./submit.sh [-s <file>] [-i <ins-file>]
+#        ./submit.sh [-n <name>] [-s <file>] [-i <ins-file>]
 #
 #      All arguments are optional and interpreted as:
+#      name     = the name of the job (shown in PBS queue)
 #      file     = filename of a file which can override the variables
 #                 above
 #      ins-file = instruction file to use, overrides the INSFILE
@@ -45,9 +47,13 @@ OUTFILES='*.out'
 # Nothing to change past here
 ########################################################################
 
+# Exit if any command fails
+set -e
+
 # Handle the command line arguments
-while getopts ":s:i:" opt; do
+while getopts ":n:s:i:" opt; do
     case $opt in
+	n ) name=$OPTARG ;;
 	s ) submit_vars_file=$OPTARG ;;
 	i ) ins=$OPTARG ;;
     esac
@@ -119,72 +125,57 @@ done
 
 split_gridlist
 
-# The failed.txt file lists the processes that didn't finish properly.
-# If it exists, remove it before running again.
-rm -f failed.txt
+# Create PBS script to request place in queue
+cat <<EOF > guess.cmd
+#!/bin/bash
+#PBS -l nodes=$NPROCESS
+#PBS -l walltime=$WALLTIME
+set -e
 
-# Start all processes in the background
-for ((a=1; a <= NPROCESS ; a++))
-do
-  echo "Starting process $a..."
-  cd run$a
-  ( if ! BINARY -input $INPUT_MODULE $INSFILE 1>> ../stdout.txt 2>> ../stderr.txt ; then
-      echo -n $a" " >> ../failed.txt
-  fi ) &
-  cd ..
-done
+cd \$PBS_O_WORKDIR
 
-# Install a clean up trap to handle Ctrl-C from the user.
-# kill 0 kills all sub processes (so all GUESS instances).
-trap 'kill 0; exit 1' INT
+umask 022
 
-# Wait for them to finish
-echo "Done!"
-echo
-echo "Check progress with the progress script, either in a different shell, or"
-echo "by placing this job in the background."
-echo
-echo "Waiting for all processes to finish..."
+mpiexec -comm mpich-p4 BINARY -parallel -input $INPUT_MODULE $INSFILE
 
-wait
+EOF
 
-echo "Done!"
-echo
+cat <<EOF > append.cmd
+#!/bin/bash
+#PBS -l nodes=1
+#PBS -l walltime=$WALLTIME
+set -e
 
-# Don't append if one of the sub processes failed
-if [ -f failed.txt ]; then
-    echo "The following processes failed: " $(cat failed.txt)
-    echo "Check the log files for these processes for more information."
-
-    exit 1
-fi
-
-# Append the results
+cd \$PBS_O_WORKDIR
 function append_files {
-    local number_of_jobs=$1
-    local file=$2
+    local number_of_jobs=\$1
+    local file=\$2
 
-    cp run1/$file $file
+    cp run1/\$file \$file
 
     local i=""
     for ((i=2; i <= number_of_jobs; i++))
     do
-      if [ -f run$i/$file ]; then
-        cat run$i/$file | awk 'NR!=1 || NF==0 || $1 == $1+0 { print $0 }' >> $file
+      if [ -f run\$i/\$file ]; then
+        cat run\$i/\$file | awk 'NR!=1 || NF==0 || \$1 == \$1+0 { print \$0 }' >> \$file
       fi
     done
 }
 
 pushd run1 &> /dev/null
-outfiles_unexpanded=$OUTFILES
-outfiles_expanded=$(echo $outfiles_unexpanded)
+outfiles_unexpanded='$OUTFILES'
+outfiles_expanded=\$(echo \$outfiles_unexpanded)
 popd &> /dev/null
 
-echo "Appending results..."
-
-for file in $outfiles_expanded
+for file in \$outfiles_expanded
 do
-  append_files $NPROCESS $file
+  append_files $NPROCESS \$file
 done
+cat run*/guess.log > guess.log
+EOF
 
-echo "Done!"
+# Submit guess job
+append_dependency=$(qsub -N ${name:-"guess"} guess.cmd)
+
+# Submit append job
+qsub -W depend=afterok:$append_dependency -N ${name:-"guess"}"_append" append.cmd
