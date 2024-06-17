@@ -72,7 +72,7 @@ public:
 	bool is_reduced() const;
 
 	/// Retrieves dataset coordinates from (lon, lat)-coordinates
-	void get_index_for_coords(double lon, double lat, size_t& x, size_t& y);
+	void get_index_for_coords(double lon, double lat, int& x, int& y);
 
 	/// Retrieves actual (lon, lat)-coordinates for a given location
 	void get_coords_for(size_t x, size_t y, double& lon, double& lat) const;

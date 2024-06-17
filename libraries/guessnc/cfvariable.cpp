@@ -613,7 +613,7 @@ void GridcellOrderedVariable::cache_lonlats() {
 }
 
 void GridcellOrderedVariable::get_index_for_coords(double lon, double lat,
-                                                   size_t& x, size_t& y) {
+                                                   int& x, int& y) {
 	// Due to varying order and precision simple "brut"-forcing of lons and
 	// lats is necessary
 	const double eps = 1e-5;
