@@ -1554,7 +1554,8 @@ void disturbance(Patch& patch, double disturb_prob) {
 			if(indiv.alive)
 				patchpft.cmass_dist += indiv.ccont();
 
-			indiv.kill();
+			//indiv.kill();
+            indiv.reduce_biomass(0.5, 0);
 
 			vegetation.killobj();
 		}
