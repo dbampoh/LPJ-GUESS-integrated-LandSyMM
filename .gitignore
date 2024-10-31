@@ -1,11 +1,7 @@
 build/
 .svn/
-<<<<<<< HEAD
-*~
-=======
 *~
 cmake-build-debug
 cmake-build-release
 .idea
 tests/test_outputs/*.out
->>>>>>> remotes/origin/svn-trunk
