@@ -29,7 +29,7 @@ Please add any input and/or output that can help to illustrate the functionality
 - model output with relevant values highlighted
 - plotted output showing the results of the feature
 
-### Reprex
+### Reproducible example
 
 Please provide inputs for a minimal reproducible example:
 
