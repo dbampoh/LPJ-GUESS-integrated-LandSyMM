@@ -28,7 +28,7 @@ Please add any output that can help to illustrate the issue. This could be:
 - model output with relevant values highlighted
 - plotted output showing the issue
 
-### Reprex
+### Reproducible example
 
 Please provide inputs for a minimal reproducible example:
 
