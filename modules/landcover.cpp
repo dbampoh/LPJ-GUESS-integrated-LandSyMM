@@ -3516,6 +3516,141 @@ void landcover_change_transfer::allocate() {
 	}
 }
 
+
+///////////////////////////////////////////////////////////////////////////////////////
+// LandSyMM SIMPLIFIED LAND COVER CHANGE
+//
+// Alternative land cover change functions used when LANDSYMM_SIMPLE_FORESTRY is defined.
+// These provide simplified stand creation rules without the upstream's three-tier
+// copy_stand_type hierarchy and forestry-specific management checks.
+///////////////////////////////////////////////////////////////////////////////////////
+
+#ifdef LANDSYMM_SIMPLE_FORESTRY
+
+/// LandSyMM: Simplified rules for creation of new stands at land cover change
+int landsymm_copy_stand_type(int landcover_donor, int landcover_receptor) {
+
+	int copy_type = NONEWSTAND;
+
+	if(landcover_donor == CROPLAND) {
+		if(landcover_receptor == NATURAL || landcover_receptor == FOREST)
+			copy_type = NEWSTAND_KILLALL;
+	}
+	else if(landcover_donor == PASTURE) {
+		if(landcover_receptor == NATURAL || landcover_receptor == FOREST)
+			copy_type = CLONESTAND;
+	}
+	else if(landcover_donor == NATURAL || landcover_donor == FOREST) {
+		if(landcover_receptor == FOREST || landcover_receptor == NATURAL)
+			copy_type = CLONESTAND;
+	}
+
+	return copy_type;
+}
+
+/// LandSyMM: Simplified stand transfer at land cover change
+double landsymm_transfer_to_new_stand(Gridcell& gridcell, int stid_donor, int stid_receptor) {
+
+	double cloned_area = 0.0;
+
+	for(unsigned int i=0; i<gridcell.nbr_stands(); i++) {
+
+		Stand& stand = gridcell[i];
+		double transfer_area = stand.transfer_area_st[stid_receptor];
+
+		if(transfer_area > 0.0 && (stand.stid == stid_donor || stid_donor < 0)) {
+
+			int copy_type = landsymm_copy_stand_type(stand.landcover, stlist[stid_receptor].landcover);
+
+			if(copy_type) {
+
+				if(copy_type == CLONESTAND || copy_type == CLONESTAND_KILLTREES) {
+
+					Stand& new_stand = stand.clone(stlist[stid_receptor], transfer_area);
+
+					if(stand.landcover == NATURAL && (stlist[stid_receptor].naturalveg == ""))
+						dprintf("WARNING: cloning natural stand without allowing natural pft:s to grow in the new stand. Was this intended ?\n");
+
+					landcover_change_transfer transfer;
+
+					new_stand.cloned = true;
+					new_stand.gross_frac_increase = 0.0;
+					new_stand.frac_change = 0.0;
+					new_stand.cloned_fraction = transfer_area;
+					new_stand.lc_origin = stand.landcover;
+
+					new_stand.firstobj();
+					while(new_stand.isobj) {
+						Patch& patch = new_stand.getobj();
+						Vegetation& vegetation = patch.vegetation;
+						vegetation.firstobj();
+						while(vegetation.isobj) {
+
+							Individual& indiv = vegetation.getobj();
+							Standpft& standpft = new_stand.pft[indiv.pft.id];
+
+							if(!standpft.active) {
+								harvest_wood(indiv, 1.0, 1.0, 0.95, 0.9, true);
+								kill_remaining_vegetation(indiv);
+								vegetation.killobj();
+							}
+							else if(copy_type == CLONESTAND_KILLTREES && indiv.pft.lifeform != GRASS) {
+								harvest_wood(indiv, 1.0, 1.0, 0.95, 0.9, true);
+								vegetation.killobj();
+							}
+							else {
+								vegetation.nextobj();
+							}
+						}
+						new_stand.nextobj();
+					}
+				}
+				else if(copy_type == NEWSTAND_KILLALL) {
+
+					landcover_change_transfer transfer;
+					lc_change_harvest_params harvest_params;
+					harvest_params.harv_eff = 1.0;
+					harvest_params.res_outtake_twig = 0.95;
+					harvest_params.res_outtake_coarse_root = 0.9;
+
+					donor_stand_change(gridcell, transfer_area, transfer, -1,-1, stid_receptor, -1, stand.id, &harvest_params);
+					Stand& new_stand = gridcell.create_stand_lu(stlist[stid_receptor], transfer_area, npatch_secondarystand);
+					receiving_stand_change(gridcell, transfer, true, -1, -1, 1.0, new_stand.id);
+
+					new_stand.cloned = true;
+					new_stand.gross_frac_increase = 0.0;
+					new_stand.frac_change = 0.0;
+					new_stand.cloned_fraction = transfer_area;
+				}
+
+				cloned_area += transfer_area;
+				stand.cloned_fraction -= transfer_area;
+				gridcell.st[stid_donor].gross_frac_decrease -= transfer_area;
+				gridcell.st[stid_donor].frac_change += transfer_area;
+				stand.gross_frac_decrease -= transfer_area;
+				stand.frac_change += transfer_area;
+				stand.transfer_area_st[stid_receptor] -= transfer_area;
+				gridcell.st[stid_receptor].gross_frac_increase -= transfer_area;
+				gridcell.st[stid_receptor].frac_change -= transfer_area;
+
+				if(gridcell.st[stid_donor].gross_frac_decrease < INPUT_RESOLUTION * 0.1)
+					gridcell.st[stid_donor].gross_frac_decrease = 0.0;
+				if(stand.gross_frac_decrease < INPUT_RESOLUTION * 0.1)
+					stand.gross_frac_decrease = 0.0;
+				if(stand.transfer_area_st[stid_receptor] < INPUT_RESOLUTION * 0.1)
+					stand.transfer_area_st[stid_receptor] = 0.0;
+				if(gridcell.st[stid_receptor].gross_frac_increase < INPUT_RESOLUTION * 0.1)
+					gridcell.st[stid_receptor].gross_frac_increase = 0.0;
+			}
+		}
+	}
+
+	return cloned_area;
+}
+
+#endif // LANDSYMM_SIMPLE_FORESTRY
+
+
 //////////////////////////////////////////////////////////////////////////////////////////
 // REFERENCES
 //

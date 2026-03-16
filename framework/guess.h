@@ -101,8 +101,8 @@ typedef enum {
 typedef enum {SURFSTRUCT, SOILSTRUCT, SOILMICRO, SURFHUMUS, SURFMICRO, SURFMETA, SURFFWD, SURFCWD,
 	SOILMETA, SLOWSOM, PASSIVESOM, NSOMPOOL} pooltype;
 
-/// Irrigation type for PFTs
-typedef enum {RAINFED, IRRIGATED} hydrologytype;
+/// Hydrology type for PFTs and stands
+typedef enum {RAINFED, IRRIGATED, IRRIGATED_WILT, IRRIGATED_SAT, INUNDATED} hydrologytype;
 /// Intercrop type for PFTs
 typedef enum {NOINTERCROP, NATURALGRASS} intercroptype;
 
@@ -261,6 +261,10 @@ const int N_YEAR_BIOMEAVG = 3;
 const int FAR_FUTURE_YEAR = 100000;
 /// Default year in the past never expected to be covered during the simulation
 const int FAR_PREHISTORIC_YEAR = -100000;
+
+/// LandSyMM: Precision thresholds for land cover fraction input handling
+const double INPUT_PRECISION = 1.0e-14;
+const double INPUT_ERROR = 0.5e-6;
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // FORWARD DECLARATIONS OF CLASSES DEFINED IN THIS FILE
@@ -1567,6 +1571,17 @@ public:
 	/// Whether grass is grown in fallow
 	bool fallow;
 
+#ifdef LANDSYMM_SIMPLE_FORESTRY
+	/// LandSyMM: Rotation time in years (replaces cutinterval for simplified forestry)
+	double nyears;
+	/// LandSyMM: Whether to grow multiple crops within a rotation year
+	bool multicrop;
+#endif
+	/// LandSyMM/GGCMI: Whether this management type is for potential yield calculation
+	bool isforpotyield;
+	/// LandSyMM: Applied N fertiliser for this management type (kgN/ha)
+	double N_appfert_mt;
+
 	ManagementType() {
 
 		id = -1;
@@ -1641,6 +1656,93 @@ public:
 		nfert = -1.0;
 		tillage_fact = 1.0;
 		fallow = false;
+#ifdef LANDSYMM_SIMPLE_FORESTRY
+		nyears = 0.0;
+		multicrop = false;
+#endif
+		isforpotyield = false;
+		N_appfert_mt = 0.0;
+	}
+
+	/// LandSyMM: Copy constructor for creating stand-specific management copies
+	ManagementType(const ManagementType& from) {
+		id = from.id;
+		name = from.name;
+		firstmanageyear = from.firstmanageyear;
+		firstcutyear = from.firstcutyear;
+		firstcutyear_is_referenceyear = from.firstcutyear_is_referenceyear;
+		firstclearcutyear = from.firstclearcutyear;
+		delayduecutting = from.delayduecutting;
+		firsttargetyear = from.firsttargetyear;
+		lasttargetyear = from.lasttargetyear;
+		planting_system = from.planting_system;
+		harvest_system = from.harvest_system;
+		pftname = from.pftname;
+		plantdensity_pft = from.plantdensity_pft;
+		selection = from.selection;
+		plantdensity = from.plantdensity;
+		targetfrac = from.targetfrac;
+		file_targetfrac_pft_mt = from.file_targetfrac_pft_mt;
+		targetfrac_input_mode = from.targetfrac_input_mode;
+		targetstartage = from.targetstartage;
+		targetcutinterval = from.targetcutinterval;
+		targetcutmode = from.targetcutmode;
+		targetthinselectage = from.targetthinselectage;
+		targetthinselectdiam = from.targetthinselectdiam;
+		suppress_second_target = from.suppress_second_target;
+		cutinterval = from.cutinterval;
+		ifthin_reineke = from.ifthin_reineke;
+		alpha_st = from.alpha_st;
+		rdi_target = from.rdi_target;
+		ifclearcut_by_density = from.ifclearcut_by_density;
+		dens_target_cc = from.dens_target_cc;
+		ifclearcut_optimal_age = from.ifclearcut_optimal_age;
+		distribute_patch_ages = from.distribute_patch_ages;
+		for(int n=0;n<NTHINNINGLOOPS;n++) {
+			for(int t=0;t<NTHINNINGS;t++) {
+				thintime[n][t] = from.thintime[n][t];
+				thinstrength[n][t] = from.thinstrength[n][t];
+				thinstrength_unsel[n][t] = from.thinstrength_unsel[n][t];
+				thinselectpft[n][t] = from.thinselectpft[n][t];
+				thinselectage[n][t] = from.thinselectage[n][t];
+				thinselectdiam[n][t] = from.thinselectdiam[n][t];
+			}
+		}
+		diam_cut_low = from.diam_cut_low;
+		diam_cut_high = from.diam_cut_high;
+		adapt_diam_limit = from.adapt_diam_limit;
+		secondintervalstart = from.secondintervalstart;
+		secondcutinterval = from.secondcutinterval;
+		distribute_cuttings_among_patches = from.distribute_cuttings_among_patches;
+		woodharv_frac = from.woodharv_frac;
+		woodharv_cmass = from.woodharv_cmass;
+		relaxed_establishment = from.relaxed_establishment;
+		suppress_fire = from.suppress_fire;
+		suppress_disturbance = from.suppress_disturbance;
+		set_planting_density = from.set_planting_density;
+		cutfirstyear = from.cutfirstyear;
+		cutfirstyear_unsel = from.cutfirstyear_unsel;
+		killgrass_at_cc = from.killgrass_at_cc;
+		stochmort = from.stochmort;
+		stochestab = from.stochestab;
+		harv_eff_thin = from.harv_eff_thin;
+		res_outtake_twig_thin = from.res_outtake_twig_thin;
+		res_outtake_coarse_root_thin = from.res_outtake_coarse_root_thin;
+		harv_eff_cc = from.harv_eff_cc;
+		res_outtake_twig_cc = from.res_outtake_twig_cc;
+		res_outtake_coarse_root_cc = from.res_outtake_coarse_root_cc;
+		hydrology = from.hydrology;
+		sdate = from.sdate;
+		hdate = from.hdate;
+		nfert = from.nfert;
+		tillage_fact = from.tillage_fact;
+		fallow = from.fallow;
+#ifdef LANDSYMM_SIMPLE_FORESTRY
+		nyears = from.nyears;
+		multicrop = from.multicrop;
+#endif
+		isforpotyield = from.isforpotyield;
+		N_appfert_mt = from.N_appfert_mt;
 	}
 
 	bool is_managed() {
@@ -1708,17 +1810,37 @@ struct Rotation {
 
 	/// Number of managements in rotation
 	int nmanagements;
+	/// LandSyMM alias for nmanagements (crop-centric naming)
+	int& ncrops;
 	/// First crop rotation year
 	int firstrotyear;
 	/// Double cropping of one crop (e.g. rice)
 	bool multicrop;
 
-	Rotation() {
+	Rotation() : ncrops(nmanagements) {
 		nmanagements = 0;
 		firstrotyear = 0;
 		multicrop = false;
 	}
+
+	Rotation(const Rotation& other) : ncrops(nmanagements) {
+		nmanagements = other.nmanagements;
+		firstrotyear = other.firstrotyear;
+		multicrop = other.multicrop;
+	}
+
+	Rotation& operator=(const Rotation& other) {
+		if (this != &other) {
+			nmanagements = other.nmanagements;
+			firstrotyear = other.firstrotyear;
+			multicrop = other.multicrop;
+		}
+		return *this;
+	}
 };
+
+/// LandSyMM: Type alias for crop-centric naming
+typedef Rotation CropRotation;
 
 /// Stand type class for storing both static parameters, read from the instruction file,
 /*	and dynamic variables, updated in landcover_change()
@@ -1747,6 +1869,11 @@ public:
 	bool rotation_wait_for_cc;
 	/// Disturbance interval (years)
 	double distinterval;
+
+	/// LandSyMM: First management year (calendar year) — moved from ManagementType
+	int firstmanageyear;
+	/// LandSyMM: Whether only management-defined PFTs are allowed to establish
+	bool restrictpfts;
 
 	/// intercrop (NOINTERCROP,NATURALGRASS)
 	intercroptype intercrop;
@@ -1791,6 +1918,8 @@ public:
 		reestab = "ALL";
 		rotation_wait_for_cc = false;
 		distinterval = 1.0e10;
+		firstmanageyear = FAR_FUTURE_YEAR;
+		restrictpfts = false;
 		for(int m=0;m<NROTATIONPERIODS_MAX;m++)
 			mtstartyear[m] = -1;
 	}
@@ -2119,6 +2248,8 @@ public:
 	double harv_eff;
 	/// harvest efficiency of intercrop grass
 	double harv_eff_ic;
+	/// LandSyMM: Nitrogen harvest scaling factor for pasture
+	double n_harvest_scale;
 	/// fraction of harvested products that goes into patchpft.harvested_products_slow
 	double harvest_slow_frac;
 	/// yearly turnover fraction of patchpft.harvested_products_slow (goes to gridcell.acflux_harvest_slow)
@@ -2225,6 +2356,7 @@ public:
 		plantdensity = 0.0;
 		harv_eff = 0.0;
 		harv_eff_ic = 0.0;
+		n_harvest_scale = -1.0;
 		turnover_harv_prod = 1.0;	// default 1 year turnover time
 
 		isintercropgrass = false;
@@ -4382,6 +4514,9 @@ public:
 	void serialize(ArchiveStream& arch);
 
     double total_litter() const;
+
+	/// LandSyMM: Total litter as cached member (alternative to method call)
+	double total_litter_cached;
 };
 
 
@@ -4467,8 +4602,10 @@ public:
 	/// SIMFIRE fapar: Total fapar
 	double fapar_total_avg[N_YEAR_BIOMEAVG];
 
-	/// whether management has started on this patch (usually, no disturbance or fire)
+	/// whether management has started on this patch
 	bool managed;
+	/// LandSyMM: Hydrology type for this patch
+	hydrologytype hydrology;
 	/// whether cutting started on this patch
 	bool has_been_cut;
 	/// cutting intensity (initial fraction of trees cut, further selection at individual level is done in a separate function)
@@ -4671,6 +4808,8 @@ public:
 
 	/// Whether this PFT is irrigated in this stand
 	bool irrigated;
+	/// LandSyMM: Hydrology type for this PFT in this stand
+	hydrologytype hydrology;
 	/// sowing date specified in stand type or read from input file
 	int sdate_force;
 	/// harvest date specified in stand type or read from input file
@@ -4765,6 +4904,10 @@ public:
 	landcovertype lc_origin;
 	/// stand type origin of this stand
 	int st_origin; 
+	/// LandSyMM: Simplified origin accessor (returns lc_origin as int)
+	landcovertype origin() const { return lc_origin; }
+	/// LandSyMM: Hydrology type for this stand
+	hydrologytype hydrology;
 	//  Variables used for output from separate stands
 	/// NPP
 	double anpp;
@@ -5179,6 +5322,8 @@ struct Landcover : public Serializable {
 	/// Transfer matrices
 	double frac_transfer[NLANDCOVERTYPES][NLANDCOVERTYPES];
 	forest_lc_frac_transfer  forest_lc_subset_transfer;
+	/// LandSyMM: Primary fraction transfer matrix (simplified from forest_lc_subset_transfer)
+	double primary_frac_transfer[NLANDCOVERTYPES][NLANDCOVERTYPES];
 
 	/// Whether the land cover fractions changed for this grid cell this year
 	/** \see landcover_dynamics
@@ -5289,6 +5434,9 @@ public:
 
 	/// object for keeping track of carbon, nitrogen and water balance
 	MassBalance balance;
+
+	/// LandSyMM: Whether this is the first gridcell being processed
+	bool is_first_gridcell;
 
 	// SIMFIRE
 	/// the region index to chosose from set of optimisations

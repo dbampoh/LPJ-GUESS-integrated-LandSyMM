@@ -416,6 +416,7 @@ Patch::Patch(int i,Stand& s,Soiltype& st):
 	age = 0;
 	disturbed = false;
 	managed = false;
+	hydrology = RAINFED;
 	has_been_cut = false;
 	man_strength = 0.0;
 	harvest_to_litter = false;
@@ -776,6 +777,7 @@ Stand::Stand(int i, Gridcell* gc, Soiltype& st, landcovertype landcoverX, int np
 	infallow = false;
 	isrotationday = false;
 	isirrigated = false;
+	hydrology = RAINFED;
 	hasgrassintercrop = false;
 	gdd5_intercrop = 0.0;
 	frac = 1.0;
@@ -2721,6 +2723,7 @@ Landcover::Landcover() {
 
 		for(int j=0;j<NLANDCOVERTYPES;j++) {
 			frac_transfer[i][j] = 0.0;
+			primary_frac_transfer[i][j] = 0.0;
 		}
 
 		expand_to_new_stand[i] = (i == NATURAL || i == FOREST);
@@ -2752,7 +2755,9 @@ Gridcell::Gridcell():climate(*this) {
 		create_stand(NATURAL);
 		landcover.frac[NATURAL] = 1.0;
 	}
-	
+
+	is_first_gridcell = false;
+
 	// Initialise SIMFIRE variables
 	for (int i = 0; i<AVG_INTERVAL_FAPAR; i++) {
 		fapar_recent_max[i] = 0.5;
