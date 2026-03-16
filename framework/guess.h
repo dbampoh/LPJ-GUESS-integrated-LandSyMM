@@ -2006,6 +2006,8 @@ public:
 	int id;
 	/// name of PFT
 	xtring name;
+	/// LandSyMM/GGCMI: Alternative column name for crop phenology input files
+	xtring cropphen_col;
 	/// life form (tree or grass)
 	lifeformtype lifeform;
 	/// leaf phenology (raingreen, summergreen, evergreen, rain+summergreen, cropgreen)
@@ -2349,6 +2351,7 @@ public:
 
 		std::fill_n(gdd0, Date::MAX_YEAR_LENGTH + 1, -1.0); // value<0 signifies "unknown"; see function phenology()
 
+		cropphen_col = "";
 		root_beta = 0.0;
 
 		drought_tolerance = 0.0; // Default, means that the PFT will never be limited by drought.

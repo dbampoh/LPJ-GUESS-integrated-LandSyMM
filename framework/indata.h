@@ -287,4 +287,7 @@ public:
 
 } // namespace TextInput
 
+/// LandSyMM: Forward-compatible alias for namespace rename
+namespace InData = TextInput;
+
 #endif//INDATA_H

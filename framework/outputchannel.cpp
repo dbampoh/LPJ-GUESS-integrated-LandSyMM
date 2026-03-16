@@ -38,6 +38,10 @@ int ColumnDescriptor::precision() const {
 	 return p;
 }
 
+void ColumnDescriptor::set_width(int w_new) {
+	 w = w_new;
+}
+
 ColumnDescriptors::ColumnDescriptors(const std::vector<std::string>& titles,
                                      int width, 
                                      int precision) {
@@ -64,6 +68,10 @@ const ColumnDescriptor& ColumnDescriptors::operator[](size_t i) const {
 	 return columns[i];
 }
 
+ColumnDescriptor& ColumnDescriptors::operator()(size_t i) {
+	 return columns[i];
+}
+
 TableDescriptor::TableDescriptor(const char* name,
                                  const ColumnDescriptors& columns)
 		  : n(name),
@@ -75,6 +83,10 @@ const std::string& TableDescriptor::name() const {
 }
 
 const ColumnDescriptors& TableDescriptor::columns() const {
+	 return cols;
+}
+
+ColumnDescriptors& TableDescriptor::columns_nonconst() {
 	 return cols;
 }
 
@@ -131,6 +143,10 @@ OutputChannel::get_current_row(const Table& table) const {
 void OutputChannel::clear_current_row(const Table& table) {
 	 values[table.id()].clear();
 	 std::vector<double>().swap(values[table.id()]); // clear array memory
+}
+
+TableDescriptor& OutputChannel::get_table_descriptor(int id) {
+	 return table_descriptors[id];
 }
 
 FileOutputChannel::FileOutputChannel(const char* out_dir,
@@ -350,5 +366,149 @@ void OutputRows::add_value(const Table& table,double d) {
 	 // send the value to the output channel
 	 out->add_value(table, d);
 }
+
+
+#ifdef COMPRESS_OUTPUT
+
+GZFileOutputChannel::~GZFileOutputChannel() {
+	for (size_t i = 0; i < gzfiles.size(); i++) {
+		if (gzfiles[i] != NULL) {
+			gzclose(gzfiles[i]);
+		}
+		else {
+			if (!printed_header[i]) {
+				const TableDescriptor& descriptor = get_table_descriptor((int)i);
+				dprintf("warning! no output created for table %s\n", descriptor.name().c_str());
+			}
+		}
+	}
+}
+
+Table GZFileOutputChannel::create_table(const TableDescriptor& descriptor) {
+	Table table;
+
+	if (descriptor.name() != "") {
+		table = OutputChannel::create_table(descriptor);
+		gzfiles.push_back(NULL);
+		printed_header.push_back(false);
+	}
+
+	return table;
+}
+
+void GZFileOutputChannel::finish_row(const Table& table,
+                                   double lon, double lat,
+                                   int year) {
+	finish_row(table, lon, lat, year, -1, false);
+}
+
+void GZFileOutputChannel::finish_row(const Table& table,
+                                   double lon, double lat,
+                                   int year, int day) {
+	finish_row(table, lon, lat, year, day, true);
+}
+
+void GZFileOutputChannel::close_table(Table& table) {
+	if (table.invalid()) {
+		return;
+	}
+
+	gzFile gzfile = gzfiles[table.id()];
+	if (gzfile != NULL) {
+		gzclose(gzfile);
+		gzfiles[table.id()] = NULL;
+	}
+	else {
+		if (!printed_header[table.id()]) {
+			const TableDescriptor& descriptor = get_table_descriptor(table);
+			dprintf("warning! no output created for table %s\n", descriptor.name().c_str());
+		}
+	}
+}
+
+void GZFileOutputChannel::finish_row(const Table& table,
+                                   double lon, double lat,
+                                   int year, int day,
+                                   bool print_day) {
+	if (table.invalid()) {
+		return;
+	}
+
+	gzFile gzfile = gzfiles[table.id()];
+
+	const std::vector<double>& row = get_current_row(table);
+	const TableDescriptor& td = get_table_descriptor(table);
+
+	if (row.size() < td.columns().size()) {
+		fail("Too few values in a row in table %s", td.name().c_str());
+	}
+
+	if (!printed_header[table.id()]) {
+		FILE* file = NULL;
+		std::string full_path = output_directory + td.name() + ".hdr";
+		file = fopen(full_path.c_str(), "w");
+		if (file == NULL) {
+			fail("Could not open %s for output\n"
+			     "Close the file if it is open in another application",
+			     full_path.c_str());
+		}
+		fprintf(file, coords_title_format.c_str(), "Lon");
+		fprintf(file, coords_title_format.c_str(), "Lat");
+		fprintf(file, "%6s", "Year");
+		if (print_day) {
+			fprintf(file, "%4s", "Day");
+		}
+
+		int nbr_cols = (int)get_table_descriptor(table).columns().size();
+		for (int i = 0; i < nbr_cols; i++) {
+			fputs(format_header(table, i), file);
+		}
+		fprintf(file, "\n");
+
+		printed_header[table.id()] = true;
+		fclose(file);
+
+		full_path = output_directory + td.name() + ".gz";
+		gzfile = gzopen(full_path.c_str(), "wb");
+		if (gzfile == NULL) {
+			fail("Could not open %s for output\n"
+			     "Close the file if it is open in another application",
+			     full_path.c_str());
+		}
+		else {
+			gzfiles[table.id()] = gzfile;
+		}
+	}
+
+	xtring line(1024);
+	xtring buffer(1024);
+
+	buffer.printf(coords_format.c_str(), lon);
+	line += buffer;
+	buffer.printf(coords_format.c_str(), lat);
+	line += buffer;
+	buffer.printf("%6d", year);
+	line += buffer;
+	if (print_day) {
+		buffer.printf("%4d", day);
+		line += buffer;
+	}
+
+	for (size_t i = 0; i < row.size(); i++) {
+		buffer.printf(format(table, (int)i), row[i]);
+		line += buffer;
+	}
+	buffer.printf("\n");
+	line += buffer;
+
+	if (gzfile == NULL) {
+		fail("Problem with output file for table %s\n", td.name().c_str());
+	}
+	gzputs(gzfile, line);
+
+	clear_current_row(table);
+}
+
+#endif // COMPRESS_OUTPUT
 
 }

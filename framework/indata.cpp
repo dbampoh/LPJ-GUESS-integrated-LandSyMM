@@ -18,6 +18,12 @@
 #include "config.h"
 #include "guess.h"
 
+#ifdef __APPLE__
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
+
 using namespace TextInput;
 
 /// Default value for gridlist and text input spatial resolution.
@@ -413,11 +419,27 @@ void TimeDataD::CreateFileMap() {
 	FILE *ifp_map = fopen(mapname,"rb");
 	long lSize;
 	if(ifp_map) {
+
+		bool mapfile_is_outdated = false;
+
 		fseek(ifp_map, 0 ,SEEK_END);
 		lSize = ftell(ifp_map);
 		rewind(ifp_map);
-		if(lSize != nCells * sizeof(CoordPos)) {
-			dprintf("TimeDataD::CreateFileMap: Text data map file format is not up to date. New mapping started.\n");
+		mapfile_is_outdated = lSize != nCells * sizeof(CoordPos);
+
+#ifdef __APPLE__
+		if (!mapfile_is_outdated) {
+			struct stat result_file, result_map;
+			stat(fileName, &result_file);
+			stat(mapname, &result_map);
+			auto mtime_file = result_file.st_mtimespec.tv_sec;
+			auto mtime_map = result_map.st_mtimespec.tv_sec;
+			mapfile_is_outdated = mtime_map < mtime_file;
+		}
+#endif
+
+		if(mapfile_is_outdated) {
+			dprintf("Text data map file (%s) is not up to date. New mapping started.\n", mapname);
 			fclose(ifp_map);
 			ifp_map = NULL;
 		}

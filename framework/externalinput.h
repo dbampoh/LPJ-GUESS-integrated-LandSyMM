@@ -124,6 +124,17 @@ private:
 
 	/// Input precision set in instruction file
 	int input_precision_force;
+
+	/// LandSyMM: Number of years to increase ALL land use fractions linearly from 0 to first year's values
+	int nyears_lu_ramp;
+	/// LandSyMM: First year (calendar) that should have full LU area
+	int firstfullyear_lu;
+	/// LandSyMM: First year (calendar) that should have full cropland area
+	int firstfullyear_crop;
+	/// LandSyMM: Should ramp happen linearly to firstyear (true) or be a linear fraction reduction (false)?
+	bool force_linear_ramp;
+	/// LandSyMM: Should we ignore ramp settings and begin LU with the first year in file_LU?
+	bool start_lu_in_first_filelu_year;
 };
 
 /// Class that deals with all crop management input from text files

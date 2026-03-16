@@ -103,6 +103,8 @@ double Nfert_scale_factor = 1.0;
 double manure_cn = 30.0;
 double manure_organic_frac = 1.0;
 bool do_potyield = false;
+int fixed_nfert = 0;
+int fixed_nfert_year = 0;
 bool ifprimary_to_secondary_transfer = false;
 int transfer_level;
 bool ifdyn_phu_limit;
@@ -575,6 +577,10 @@ void plib_declarations(int id,xtring setname) {
 			"LandSyMM: Fraction of manure N in organic form");
 		declareitem("do_potyield",&do_potyield,1,CB_NONE,
 			"LandSyMM/GGCMI: Whether to run potential yield simulations");
+		declareitem("fixed_nfert",&fixed_nfert,0,3,1,CB_NONE,
+			"LandSyMM: Fix N fertilisation to a specific year (0=off, 1=fix, 2=cap at year, 3=floor at year)");
+		declareitem("fixed_nfert_year",&fixed_nfert_year,0,100000,1,CB_NONE,
+			"LandSyMM: Calendar year to use for fixed N fertilisation");
 		declareitem("harvest_secondary_to_new_stand",&harvest_secondary_to_new_stand,1,CB_NONE,
 			"Whether to create new stands at clearcut of secondary stands when using wood harvest input (LUC functionality) (1). or not (0)");
 		declareitem("transfer_level",&transfer_level,0,3,1,CB_NONE,
@@ -820,6 +826,7 @@ void plib_declarations(int id,xtring setname) {
 		declareitem("pvd",&ppft->pvd,0,100,1,CB_NONE,"number of vernalising days required");
 		declareitem("vern_lag",&ppft->vern_lag,0,100,1,CB_NONE,"lag in days after sowing before vernalization starts");
 		declareitem("isintercropgrass",&ppft->isintercropgrass,1,CB_NONE,"Whether this pft is allowed to grow in intercrop period");
+		declareitem("cropphen_col",&ppft->cropphen_col,128,CB_NONE,"LandSyMM/GGCMI: Alternative column name for crop phenology input files");
 		declareitem("psens",&ppft->psens,0.0,1.0,1,CB_NONE,"sensitivity to the photoperiod effect [0-1]");
 		declareitem("pb",&ppft->pb,0.0,24.0,1,CB_NONE,"basal photoperiod (h)");
 		declareitem("ps",&ppft->ps,0.0,24.0,1,CB_NONE,"saturating photoperiod (h)");

@@ -61,6 +61,21 @@ public:
 	/** Closes stand level output files */
 	virtual void closelocalfiles(Gridcell& gridcell) = 0;
 
+	/// LandSyMM: Called at harvest time for GGCMI output
+	virtual void outharvest(Gridcell& gridcell) {}
+
+	/// LandSyMM/GGCMI: Called at harvest for PHU/PVD-only output
+	virtual void outharvest_justphupvd(Gridcell& gridcell) {}
+
+	/// LandSyMM/GGCMI: Called annually for GGCMI-specific output
+	virtual void outannual_ggcmi(Gridcell& gridcell) {}
+
+	/// LandSyMM/GGCMI: Opens GGCMI-specific local output files
+	virtual void openlocalfiles_ggcmi(Gridcell& gridcell) {}
+
+	/// LandSyMM/GGCMI: Closes GGCMI-specific local output files
+	virtual void closelocalfiles_ggcmi(Gridcell& gridcell) {}
+
 protected:
 
 	/// Help function to define_output_tables, creates one output table
@@ -104,6 +119,21 @@ public:
 	void openlocalfiles(Gridcell& gridcell);
 
 	void closelocalfiles(Gridcell& gridcell);
+
+	/// LandSyMM: Calls outharvest on all output modules
+	void outharvest(Gridcell& gridcell);
+
+	/// LandSyMM/GGCMI: Calls outharvest_justphupvd on all output modules
+	void outharvest_justphupvd(Gridcell& gridcell);
+
+	/// LandSyMM/GGCMI: Calls outannual_ggcmi on all output modules
+	void outannual_ggcmi(Gridcell& gridcell);
+
+	/// LandSyMM/GGCMI: Calls openlocalfiles_ggcmi on all output modules
+	void openlocalfiles_ggcmi(Gridcell& gridcell);
+
+	/// LandSyMM/GGCMI: Calls closelocalfiles_ggcmi on all output modules
+	void closelocalfiles_ggcmi(Gridcell& gridcell);
 
 private:
 
