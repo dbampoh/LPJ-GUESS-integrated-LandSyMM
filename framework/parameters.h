@@ -243,6 +243,10 @@ extern double manure_cn;
 extern double manure_organic_frac;
 /// LandSyMM/GGCMI: Whether to run potential yield simulations
 extern bool do_potyield;
+/// LandSyMM: Fix N fertilisation to a specific year (0=off, 1=fix, 2=cap, 3=floor)
+extern int fixed_nfert;
+/// LandSyMM: Year to use for fixed N fertilisation
+extern int fixed_nfert_year;
 
 /// Whether to use primary-to-secondary land transition info (within land cover type) in landcover transfer input file (1). or not (0)
 extern bool ifprimary_to_secondary_transfer;

@@ -188,13 +188,25 @@ void MiscInput::getmiscinput_yearly(Gridcell& gridcell) {
 }
 
 LandcoverInput::LandcoverInput()
-	: nyears_cropland_ramp(0), input_precision_force(0) {
+	: nyears_cropland_ramp(0), input_precision_force(0),
+	  nyears_lu_ramp(0), firstfullyear_lu(-1), firstfullyear_crop(-1),
+	  force_linear_ramp(false), start_lu_in_first_filelu_year(false) {
 
 	declare_parameter("minimizecftlist", &minimizecftlist, "Whether pfts not in crop fraction input file are removed from pftlist (0,1)");
-	declare_parameter("nyears_cropland_ramp", &nyears_cropland_ramp, 0, 10000,
-		"Number of years to increase cropland fraction linearly from 0 to first year's value");
 	declare_parameter("frac_fixed_default_crops", &frac_fixed_default_crops,
 		"Whether to use all active crop stand types (0) or only stand types with suitable rainfed crops (based on crop pft tb and gridcell latitude) (1) when using fixed crop fractions");
+	declare_parameter("nyears_lu_ramp", &nyears_lu_ramp, 0, 10000,
+		"LandSyMM: Number of years to increase ALL land use fractions linearly from 0 to first year's values");
+	declare_parameter("firstfullyear_lu", &firstfullyear_lu, -1, 10000,
+		"LandSyMM: First calendar year that should have full LU area (-1 = auto-detect)");
+	declare_parameter("nyears_cropland_ramp", &nyears_cropland_ramp, 0, 10000,
+		"Number of years to increase cropland fraction linearly from 0 to first year's value. Only applies if nyears_lu_ramp unspecified or zero.");
+	declare_parameter("firstfullyear_crop", &firstfullyear_crop, -1, 10000,
+		"LandSyMM: First calendar year that should have full cropland area (-1 = auto-detect)");
+	declare_parameter("force_linear_ramp", &force_linear_ramp,
+		"LandSyMM: Ramp linearly to target year fractions (true) or apply linear fraction reduction (false)");
+	declare_parameter("start_lu_in_first_filelu_year", &start_lu_in_first_filelu_year,
+		"LandSyMM: Ignore ramp settings and begin LU with the first year in file_LU");
 	declare_parameter("input_precision_force", &input_precision_force, 3, 15, "Precision of landcover area fraction input files");
 }
 
@@ -559,7 +571,7 @@ void LandcoverInput::getlandcover(Gridcell& gridcell) {
 	int year_saved = year;
 	int first_reduction_year = first_historic_year - nyear_spinup + (int)(SOLVESOMCENT_SPINEND * (nyear_spinup - freenyears) + freenyears) + 1;
 	if(year < first_reduction_year && year > LUdata.GetFirstyear()) {
-		if(year == first_reduction_year - 1 && !nyears_cropland_ramp)
+		if(year == first_reduction_year - 1 && !nyears_cropland_ramp && !nyears_lu_ramp)
 			dprintf("Land cover change before soil spinup is not allowed, first lcc year will be %d. Using lc fractions for %d earlier.\n",
 				first_reduction_year, first_reduction_year);
 		year = first_reduction_year;
@@ -602,10 +614,13 @@ void LandcoverInput::getlandcover(Gridcell& gridcell) {
 				getLU = true;
 		}
 
-		if(getLU) {	
+		if(getLU) {
 
-			if(LUdata.Get(year, 0) < 0.0) {		// Missing data (negative values)
-				if(date.year == 1)
+			bool waiting_for_first_filelu_year = start_lu_in_first_filelu_year && date.get_calendar_year() < LUdata.GetFirstyear();
+
+			if(LUdata.Get(year, 0) < 0.0
+			   || waiting_for_first_filelu_year) {
+				if(date.year == 1 && !waiting_for_first_filelu_year)
 					dprintf("Missing landcover fraction data for year %d, natural vegetation fraction set to 1.0\n", year);
 				for(int i=0;i<NLANDCOVERTYPES;i++)
 					lc.frac[i] = 0.0;
@@ -773,18 +788,31 @@ void LandcoverInput::getlandcover(Gridcell& gridcell) {
 			}
 		}
 
-		if(nyears_cropland_ramp) {
+		if(nyears_lu_ramp || nyears_cropland_ramp) {
+
+			int nyears_ramp = nyears_lu_ramp ? nyears_lu_ramp : nyears_cropland_ramp;
 
 			bool doramp = false;
 			int firstyear;
-			if(LUdata.GetFirstyear() >= 0) {
+
+			if(nyears_lu_ramp && firstfullyear_lu >= 0) {
+				firstyear = firstfullyear_lu;
+				if(year_saved < firstyear)
+					doramp = true;
+			}
+			else if(!nyears_lu_ramp && firstfullyear_crop >= 0) {
+				firstyear = firstfullyear_crop;
+				if(year_saved < firstyear)
+					doramp = true;
+			}
+			else if(LUdata.GetFirstyear() >= 0) {
 				if(year_saved < LUdata.GetFirstyear()) {
 					doramp = true;
 					firstyear = LUdata.GetFirstyear();
 				}
 			}
-			else {			
-				if(year_saved < first_historic_year) {		
+			else {
+				if(year_saved < first_historic_year) {
 					doramp = true;
 					firstyear = first_historic_year;
 				}
@@ -792,17 +820,59 @@ void LandcoverInput::getlandcover(Gridcell& gridcell) {
 
 			if(doramp) {
 				int max_ramp_years = firstyear - first_reduction_year;
-				if(nyears_cropland_ramp > max_ramp_years && year_saved == first_reduction_year)
-					dprintf("Requested cropland ramp period too long for given nyear_spinup. Maximum is %d.\n", max_ramp_years);
+				if(nyears_ramp > max_ramp_years && year_saved == first_reduction_year)
+					dprintf("Requested ramp period too long for given nyear_spinup. Maximum is %d.\n", max_ramp_years);
 
-				double reduce_cropland = min((double)(firstyear - year_saved) / min(nyears_cropland_ramp, max_ramp_years), 1.0) * lc.frac[CROPLAND];
-				lc.frac[CROPLAND] -= reduce_cropland;
-				lc.frac[NATURAL] += reduce_cropland;
-				if(year_saved == firstyear -1)
-					dprintf("Cropland area fraction ramp from 0 to %.3f during period %d to %d\n",
-						LUdata.Get(firstyear,"CROPLAND"), max(first_reduction_year, firstyear - nyears_cropland_ramp), firstyear-1);
+				double frac2reduce = min((double)(firstyear - year_saved) / min(nyears_ramp, max_ramp_years), 1.0);
+
+				if(force_linear_ramp) {
+					double firstyear_cropland = LUdata.Get(firstyear, "CROPLAND");
+					double reduce_cropland = frac2reduce * firstyear_cropland;
+					lc.frac[CROPLAND] = firstyear_cropland - reduce_cropland;
+
+					if(nyears_lu_ramp) {
+						double firstyear_urban = LUdata.Get(firstyear, "URBAN");
+						double firstyear_pasture = LUdata.Get(firstyear, "PASTURE");
+						double firstyear_forest = LUdata.Get(firstyear, "FOREST");
+						double firstyear_natural = LUdata.Get(firstyear, "NATURAL");
+
+						double reduce_urban = frac2reduce * firstyear_urban;
+						double reduce_pasture = frac2reduce * firstyear_pasture;
+						double reduce_forest = frac2reduce * firstyear_forest;
+
+						lc.frac[URBAN] = firstyear_urban - reduce_urban;
+						lc.frac[PASTURE] = firstyear_pasture - reduce_pasture;
+						lc.frac[FOREST] = firstyear_forest - reduce_forest;
+						lc.frac[NATURAL] = firstyear_natural + reduce_urban + reduce_cropland + reduce_pasture + reduce_forest;
+					}
+					else {
+						lc.frac[NATURAL] += reduce_cropland;
+					}
+				}
+				else {
+					double reduce_cropland = frac2reduce * lc.frac[CROPLAND];
+					lc.frac[CROPLAND] -= reduce_cropland;
+
+					if(nyears_lu_ramp) {
+						double reduce_urban = frac2reduce * lc.frac[URBAN];
+						double reduce_pasture = frac2reduce * lc.frac[PASTURE];
+						double reduce_forest = frac2reduce * lc.frac[FOREST];
+
+						lc.frac[URBAN] -= reduce_urban;
+						lc.frac[PASTURE] -= reduce_pasture;
+						lc.frac[FOREST] -= reduce_forest;
+						lc.frac[NATURAL] += reduce_urban + reduce_cropland + reduce_pasture + reduce_forest;
+					}
+					else {
+						lc.frac[NATURAL] += reduce_cropland;
+					}
+				}
+
+				if(year_saved == firstyear - 1)
+					dprintf("Land use fraction ramp from 0 to first-year values during period %d to %d\n",
+						max(first_reduction_year, firstyear - nyears_ramp), firstyear - 1);
 			}
-		}	
+		}
 	}
 
 

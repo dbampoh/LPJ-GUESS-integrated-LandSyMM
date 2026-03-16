@@ -93,6 +93,36 @@ void OutputModuleContainer::closelocalfiles(Gridcell& gridcell) {
 	}
 }
 
+void OutputModuleContainer::outharvest(Gridcell& gridcell) {
+	for (size_t i = 0; i < modules.size(); ++i) {
+		modules[i]->outharvest(gridcell);
+	}
+}
+
+void OutputModuleContainer::outharvest_justphupvd(Gridcell& gridcell) {
+	for (size_t i = 0; i < modules.size(); ++i) {
+		modules[i]->outharvest_justphupvd(gridcell);
+	}
+}
+
+void OutputModuleContainer::outannual_ggcmi(Gridcell& gridcell) {
+	for (size_t i = 0; i < modules.size(); ++i) {
+		modules[i]->outannual_ggcmi(gridcell);
+	}
+}
+
+void OutputModuleContainer::openlocalfiles_ggcmi(Gridcell& gridcell) {
+	for (size_t i = 0; i < modules.size(); ++i) {
+		modules[i]->openlocalfiles_ggcmi(gridcell);
+	}
+}
+
+void OutputModuleContainer::closelocalfiles_ggcmi(Gridcell& gridcell) {
+	for (size_t i = 0; i < modules.size(); ++i) {
+		modules[i]->closelocalfiles_ggcmi(gridcell);
+	}
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////
 /// OutputModuleRegistry
 ///

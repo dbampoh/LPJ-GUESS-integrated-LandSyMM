@@ -30,6 +30,9 @@ public:
 	 /// Get the column width
 	 int width() const;
 
+	 /// LandSyMM: Set the column width dynamically
+	 void set_width(int w_new);
+
 	 /// Get the column precision
 	 int precision() const;
 
@@ -62,6 +65,9 @@ public:
 	 /// Get one ColumnDescriptor
 	 const ColumnDescriptor& operator[](size_t i) const;
 
+	 /// LandSyMM: Get a mutable ColumnDescriptor
+	 ColumnDescriptor& operator()(size_t i);
+
 private:
 	 std::vector<ColumnDescriptor> columns;
 };
@@ -80,6 +86,9 @@ public:
 
 	 /// Get the column descriptors
 	 const ColumnDescriptors& columns() const;
+
+	 /// LandSyMM: Get mutable column descriptors
+	 ColumnDescriptors& columns_nonconst();
 
 private:
 	 std::string n;
@@ -138,6 +147,9 @@ protected:
 	 /// Get the table descriptor for a table
 	 const TableDescriptor& get_table_descriptor(const Table& table) const;
 
+	 /// LandSyMM: Get a mutable table descriptor by id
+	 TableDescriptor& get_table_descriptor(int id);
+
 	 /// Get the added values for the current row
 	 const std::vector<double> get_current_row(const Table& table) const;
 
@@ -180,7 +192,7 @@ public:
 	 void finish_row(const Table& table, double lon, double lat,
 	                 int year, int day);
 
-private:
+protected:
 	 /// Help function to the two variants of finish_row above
 	 void finish_row(const Table& table, double lon, double lat,
 	                 int year, int day, bool print_day);
@@ -201,6 +213,31 @@ private:
 	 /// Whether the header has been printed for each file
 	 std::vector<bool> printed_header;
 };
+
+#ifdef COMPRESS_OUTPUT
+#include "zlib.h"
+#include <stdio.h>
+
+/// LandSyMM: An output channel that writes gzip-compressed text files
+class GZFileOutputChannel : public FileOutputChannel {
+public:
+	GZFileOutputChannel(const char* out_dir, int coords_precision)
+		: FileOutputChannel(out_dir, coords_precision) {}
+
+	~GZFileOutputChannel();
+
+	Table create_table(const TableDescriptor& descriptor);
+	void close_table(Table& table);
+	void finish_row(const Table& table, double lon, double lat, int year);
+	void finish_row(const Table& table, double lon, double lat, int year, int day);
+
+private:
+	void finish_row(const Table& table, double lon, double lat,
+	                int year, int day, bool print_day);
+
+	std::vector<gzFile> gzfiles;
+};
+#endif // COMPRESS_OUTPUT
 
 /// A convenience class for managing the output of one row to multiple tables.
 /** At the end of the life time of an object of this class, finish_row is
