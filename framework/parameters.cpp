@@ -99,6 +99,10 @@ int gross_land_transfer;
 bool gross_input_present = false;
 bool ifprimary_lc_transfer = false;
 bool use_primary_lc_transfer = false;
+double Nfert_scale_factor = 1.0;
+double manure_cn = 30.0;
+double manure_organic_frac = 1.0;
+bool do_potyield = false;
 bool ifprimary_to_secondary_transfer = false;
 int transfer_level;
 bool ifdyn_phu_limit;
@@ -563,6 +567,14 @@ void plib_declarations(int id,xtring setname) {
 			"Whether to use primary/secondary land transition info in landcover transfer input file (1). or not (0)");
 		declareitem("ifprimary_to_secondary_transfer",&ifprimary_to_secondary_transfer,1,CB_NONE,
 			"Whether to use primary-to-secondary land transition info (within land cover type) in landcover transfer input file (1). or not (0)");
+		declareitem("Nfert_scale_factor",&Nfert_scale_factor,0.0,100.0,1,CB_NONE,
+			"LandSyMM: Scaling factor for N fertiliser input");
+		declareitem("manure_cn",&manure_cn,0.0,100.0,1,CB_NONE,
+			"LandSyMM: Manure C:N ratio");
+		declareitem("manure_organic_frac",&manure_organic_frac,0.0,1.0,1,CB_NONE,
+			"LandSyMM: Fraction of manure N in organic form");
+		declareitem("do_potyield",&do_potyield,1,CB_NONE,
+			"LandSyMM/GGCMI: Whether to run potential yield simulations");
 		declareitem("harvest_secondary_to_new_stand",&harvest_secondary_to_new_stand,1,CB_NONE,
 			"Whether to create new stands at clearcut of secondary stands when using wood harvest input (LUC functionality) (1). or not (0)");
 		declareitem("transfer_level",&transfer_level,0,3,1,CB_NONE,
@@ -785,6 +797,7 @@ void plib_declarations(int id,xtring setname) {
 			"fraction of monoterpene production that goes into storage pool (-)");
 
 		declareitem("harv_eff",&ppft->harv_eff,0.0,1.0,1,CB_NONE,"Harvest efficiency");
+		declareitem("n_harvest_scale",&ppft->n_harvest_scale,-1.0,1.0,1,CB_NONE,"LandSyMM: N harvest scaling factor for pasture");
 		declareitem("harvest_slow_frac",&ppft->harvest_slow_frac,0.0,1.0,1,CB_NONE,
 			"Fraction of harvested products that goes into carbon depository for long-lived products like wood");
 		declareitem("turnover_harv_prod",&ppft->turnover_harv_prod,0.0,1.0,1,CB_NONE,"Harvested products turnover (fraction/year)");
@@ -969,6 +982,7 @@ void plib_declarations(int id,xtring setname) {
 		declareitem("sdate",&pmt->sdate,0,364,1,CB_NONE,"Sowing date of crop");
 		declareitem("hdate",&pmt->hdate,0,364,1,CB_NONE,"Harvest date of crop");
 		declareitem("nfert",&pmt->nfert,0.0,1000.0,1,CB_NONE,"Fertilization application of crop");
+		declareitem("N_appfert_mt",&pmt->N_appfert_mt,0.0,1000.0,1,CB_NONE,"LandSyMM: Applied N fertiliser for this management type (kgN/ha)");
 		declareitem("tillage_fact",&pmt->tillage_fact,1.0,4.5,1,CB_NONE,"Tillage factor");
 		declareitem("fallow",&pmt->fallow,1,CB_NONE,"Fallow in place of crop");
 		declareitem("relaxed_establishment",&pmt->relaxed_establishment,1,CB_NONE,"Whether to ignore climate establishment limits");

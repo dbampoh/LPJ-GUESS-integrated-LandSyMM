@@ -69,6 +69,11 @@ void forest_rotation(Stand& stand);
 /// Sets forest management for patch this year
 void manage_forest(Patch& patch);
 
+#ifdef LANDSYMM_SIMPLE_FORESTRY
+/// LandSyMM: Determines cutting intensity before wood harvest (simplified forestry)
+double cut_fraction(Patch& patch);
+#endif
+
 // Returns harvestable cmass for individual
 double check_harvest_cmass(Individual& indiv, bool stem_cmass_only = false, bool to_product_pool = false);
 

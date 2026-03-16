@@ -235,6 +235,15 @@ extern bool ifprimary_lc_transfer;
 /// Distinguish between primary and secondary natural stands at area reduction
 extern bool use_primary_lc_transfer;
 
+/// LandSyMM: Scaling factor for N fertiliser input
+extern double Nfert_scale_factor;
+/// LandSyMM: Manure C:N ratio
+extern double manure_cn;
+/// LandSyMM: Fraction of manure N in organic form
+extern double manure_organic_frac;
+/// LandSyMM/GGCMI: Whether to run potential yield simulations
+extern bool do_potyield;
+
 /// Whether to use primary-to-secondary land transition info (within land cover type) in landcover transfer input file (1). or not (0)
 extern bool ifprimary_to_secondary_transfer;
 

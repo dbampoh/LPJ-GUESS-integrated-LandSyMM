@@ -2959,6 +2959,80 @@ void crop_rotation(Stand& stand) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////////////
+// LandSyMM SIMPLIFIED FORESTRY
+//
+// Alternative forestry functions used when LANDSYMM_SIMPLE_FORESTRY is defined.
+// These provide a simpler management model where forest harvesting is driven by
+// externally provided land-use data (via PLUM/PLUMharm) rather than LPJ-GUESS's
+// built-in sophisticated forest management framework.
+///////////////////////////////////////////////////////////////////////////////////////
+
+#ifdef LANDSYMM_SIMPLE_FORESTRY
+
+/// LandSyMM: Simplified clearcut — harvests all tree biomass and resets patch age
+static void landsymm_clearcut(Individual& indiv, double anpp, bool& killed) {
+
+	Patch& patch = indiv.vegetation.patch;
+	Patchpft& ppft = patch.pft[indiv.pft.id];
+
+	if (indiv.pft.lifeform == TREE) {
+
+		if(indiv.alive)
+			ppft.cmass_litter_sap += anpp;
+		harvest_wood(indiv, 1.0, indiv.pft.harv_eff, indiv.pft.res_outtake);
+		indiv.kill();
+		indiv.vegetation.killobj();
+		killed = true;
+	}
+
+	patch.age = 0;
+	patch.managed = true;
+	patch.plant_this_year = true;
+}
+
+/// LandSyMM: Determines cutting intensity before wood harvest (simplified forestry)
+double cut_fraction(Patch& patch) {
+
+	Stand& stand = patch.stand;
+	xtring harvest_system = stlist[stand.stid].get_management(stand.current_rot).harvest_system;
+	if(harvest_system == "")
+		return 0.0;
+
+	int first_cutyear = nyear_spinup;
+	if(stlist[stand.stid].firstmanageyear < 100000)
+		first_cutyear = stlist[stand.stid].firstmanageyear - date.first_calendar_year;
+
+	if(date.year < first_cutyear)
+		return 0.0;
+
+	const double minbon = 2.351;
+	const double maxbon = 11.311;
+	const double bonitet = 10.0;
+	double frac = 0.0;
+
+	if(harvest_system == "CLEARCUT") {
+		if(patch.cmass_wood() / patch.age > patch.get_tree_cmass_wood_inc_5() && patch.age > 20)
+			frac = 1.0;
+	}
+	else if(harvest_system == "CONTINUOUS") {
+		int cut_int;
+		int patch_order;
+		cut_int=30-(int)(15.0*(bonitet-minbon)/(maxbon-minbon));
+		patch_order = (int)(patch.id * cut_int * 1.0 / (1.0 * stand.npatch()));
+
+		if (!((date.year - first_cutyear - patch_order) % cut_int))
+			frac = 0.40;
+	}
+
+	return frac;
+}
+
+#endif // LANDSYMM_SIMPLE_FORESTRY
+
+
+///////////////////////////////////////////////////////////////////////////////////////
 // REFERENCES
 //
 // Bellassen, V, Le Maire, G, Dhôte, JF & Viovy, N (2010) Modelling forest management within a global vegetation model

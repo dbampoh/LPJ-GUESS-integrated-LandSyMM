@@ -17,5 +17,7 @@
 
 void vegetation_dynamics(Stand& stand,Patch& patch);
 void planting(Patch& patch);
+/// LandSyMM: Exposed for external access
+bool establish(Patch& patch, const Climate& climate, Pft& pft);
 
 #endif // LPJ_GUESS_VEGDYNAM_H
