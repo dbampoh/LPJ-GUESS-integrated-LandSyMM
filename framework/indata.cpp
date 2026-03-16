@@ -93,7 +93,7 @@ void TimeDataD::CheckIfPresent(ListArray_id<Coord>& gridlist) { //Requires gutil
 
 bool TimeDataD::GetHeader(char *cropnames[MAXRECORDS]) const {
 
-	if(ifheader) {
+	if(ifheader && header_arr) {
 		for(int i=0; i<nColumns; i++)
 			strncpy(cropnames[i], header_arr[i], MAXNAMESIZE*sizeof(char));
 		return true;
@@ -105,7 +105,7 @@ bool TimeDataD::GetHeader(char *cropnames[MAXRECORDS]) const {
 
 bool TimeDataD::GetHeaderFull(char header_line[MAXLINE]) const {
 
-	if(ifheader) {
+	if(ifheader && header_arr) {
 		
 		if(format==LOCAL_YEARLY)
 			strcpy(header_line, "   Lon\t   Lat\t  Year");
@@ -129,12 +129,10 @@ bool TimeDataD::GetHeaderFull(char header_line[MAXLINE]) const {
 
 char* TimeDataD::GetHeader(int record) const {
 
-	if(ifheader && header_arr[record]) {
+	if(ifheader && header_arr)
 		return (char*)header_arr[record];
-	}
-	else {
+	else
 		return 0;
-	}
 }
 
 void TimeDataD::Get(double* dataX) const {
@@ -833,7 +831,7 @@ int TimeDataD::ParseNYearsGlobal() {
 bool TimeDataD::Allocate() {	// Allocates memory for dynamic data: format & nYears must be set before !
 
 	if(year) {
-		delete[] year;
+		delete year;
 		year = NULL;
 	}
 	if(data) {
@@ -1689,7 +1687,7 @@ void TimeDataD::Output(char *name) {
 	else if(format==LOCAL_STATIC || format==LOCAL_YEARLY)
 		ofp = fopen(name, "a");
 
-	if(ifheader && first_call) {
+	if(ifheader && header_arr && first_call) {
 
 		switch (format) {
 
@@ -1795,7 +1793,7 @@ void TimeDataD::Close() {
 		fileName = NULL;
 	}
 	if(year) {
-		delete[] year;
+		delete year;
 		year = NULL;
 	}
 	if(data) {
@@ -2008,7 +2006,7 @@ void TimeDataDmem::CopyFromTimeDataD(TimeDataD& Data, ListArray_id<Coord>& gridl
 
 	gridlistX.firstobj();
 
-	while(Data.LoadNext()) {
+	while(Data.LoadNext() && cell_no < Data.GetNCells()) {
 
 		Coord c =Data.GetCoord();
 

@@ -2744,7 +2744,7 @@ struct cropindiv_struct : public Serializable {
 		ycmass_dead_leaf = 0.0;
 		harv_cmass_leaf=0.0;
 		harv_cmass_root=0.0;
-		harv_cmass_root=0.0;
+		harv_cmass_plant=0.0;
 		harv_cmass_ho=0.0;
 		harv_yield=0.0;
 		harv_cmass_agpool=0.0;
