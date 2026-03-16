@@ -546,11 +546,13 @@ class MassBalance : public Serializable  {
 	double nflux;
 	double nflux_zero;
 
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 	double water_cont;
 	double water_cont_zero;
 	double water_cont_zero_scaled;
 	double water_flux;
 	double water_flux_zero;
+#endif
 
 public:
 	MassBalance() {
@@ -566,11 +568,13 @@ public:
 		ncont_zero_scaled = 0.0;
 		nflux = 0.0;
 		nflux_zero = 0.0;
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 		water_cont = 0.0;
 		water_cont_zero = 0.0;
 		water_cont_zero_scaled = 0.0;
 		water_flux = 0.0;
 		water_flux_zero = 0.0;
+#endif
 	}
 
 	MassBalance(int start_yearX) {
@@ -586,11 +590,13 @@ public:
 		ncont_zero_scaled = 0.0;
 		nflux = 0.0;
 		nflux_zero = 0.0;
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 		water_cont = 0.0;
 		water_cont_zero = 0.0;
 		water_cont_zero_scaled = 0.0;
 		water_flux = 0.0;
 		water_flux_zero = 0.0;
+#endif
 	}
 
 	void init(Gridcell& gridcell);
@@ -605,12 +611,16 @@ public:
 	bool check_patch(Patch& patch, bool check_harvest = false);
 	bool check_patch_C(Patch& patch, bool check_harvest = false);
 	bool check_patch_N(Patch& patch, bool check_harvest = false);
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 	bool check_patch_water(Patch& patch);
+#endif
 
 	void check_year(Gridcell& gridcell); // calls both check_year_C and check_year_N
 	void check_year_C(Gridcell& gridcell);
 	void check_year_N(Gridcell& gridcell);
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 	void check_year_water(Gridcell& gridcell);
+#endif
 	void check_period(Gridcell& gridcell);
 
 	void serialize(ArchiveStream& arch);
@@ -4582,14 +4592,18 @@ public:
 	double ccont(double scale_indiv = 1.0, bool luc = false);
 	/// Total patch nitrogen biomass and litter
 	double ncont(double scale_indiv = 1.0, bool luc = false);
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 	/// Total patch water and ice mass
 	double water_content();
+#endif
 	/// Total patch carbon fluxes so far this year
 	double cflux();
 	/// Total patch nitrogen fluxes so far this year
 	double nflux();
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 	/// Total patch water fluxes so far this year
 	double water_flux();
+#endif
 	
 	/// Get 5-year mean of tree wood C mass increase (periodic annual increment)
 	double get_tree_cmass_wood_inc_5() {
@@ -4839,14 +4853,18 @@ public:
 	double ccont(double scale_indiv = 1.0);
 	/// Total stand nitrogen biomass and litter
 	double ncont(double scale_indiv = 1.0);
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 	/// Total stand water and ice
 	double water_content();
+#endif
 	/// Total stand carbon fluxes so far this year
 	double cflux();
 	/// Total stand nitrogen fluxes so far this year
 	double nflux();
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 	/// Total stand water fluxes so far this year
 	double water_flux();
+#endif
 	/// Returns true if stand is true high-latitude peatland stand, as opposed to a wetland < PEATLAND_WETLAND_LATITUDE_LIMIT N
 	bool is_highlatitude_peatland_stand() const;
 	/// Returns true if stand is wetland stand, as opposed to a peatland >= PEATLAND_WETLAND_LATITUDE_LIMIT N
@@ -5359,14 +5377,18 @@ public:
 	double ccont();
 	/// Total gridcell nitrogen biomass and litter
 	double ncont();
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 	/// Total gridcell water and ice
 	double water_content();
+#endif
 	/// Total gridcell carbon fluxes so far this year
 	double cflux();
 	/// Total gridcell nitrogen fluxes so far this year
 	double nflux();
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 	/// Total gridcell water fluxes so far this year
 	double water_flux();
+#endif
 
 	/// Deletes the stand which the iterator is pointing at
 	/** Returns an iterator pointing to the object following the erased object.

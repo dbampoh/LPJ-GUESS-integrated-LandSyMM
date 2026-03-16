@@ -618,6 +618,7 @@ double Patch::ncont(double scale_indiv, bool luc) {
 	return ncont;
 }
 
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 /// Water content of patch
 double Patch::water_content() {
 
@@ -631,6 +632,7 @@ double Patch::water_content() {
 
 	return water_content;
 }
+#endif
 
 /// C flux of patch
 double Patch::cflux() {
@@ -675,6 +677,7 @@ double Patch::nflux() {
 	return nflux;
 }
 
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 /// water flux of patch
 double Patch::water_flux() {
 
@@ -695,6 +698,7 @@ double Patch::water_flux() {
 
 	return wflux;
 }
+#endif
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1382,6 +1386,7 @@ double Stand::ncont(double scale_indiv) {
 	return ncont;
 }
 
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 double Stand::water_content() {
 
 	double water_content = 0.0;
@@ -1391,6 +1396,7 @@ double Stand::water_content() {
 
 	return water_content;
 }
+#endif
 
 double Stand::cflux() {
 
@@ -1412,6 +1418,7 @@ double Stand::nflux() {
 	return nflux;
 }
 
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 double Stand::water_flux() {
 
 	double water_flux = 0.0;
@@ -1421,6 +1428,7 @@ double Stand::water_flux() {
 
 	return water_flux;
 }
+#endif
 
 /// Returns true if stand is true high-latitude peatland stand, as opposed to a wetland < PEATLAND_WETLAND_LATITUDE_LIMIT N
 bool Stand::is_highlatitude_peatland_stand() const {
@@ -2817,6 +2825,7 @@ double Gridcell::ncont() {
 	return ncont;
 }
 
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 double Gridcell::water_content() {
 
 	double water_content = 0.0;
@@ -2829,6 +2838,7 @@ double Gridcell::water_content() {
 
 	return water_content;
 }
+#endif
 
 double Gridcell::cflux() {
 
@@ -2864,6 +2874,7 @@ double Gridcell::nflux() {
 	return nflux;
 }
 
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 double Gridcell::water_flux() {
 
 	double water_flux = 0.0;
@@ -2876,6 +2887,7 @@ double Gridcell::water_flux() {
 
 	return water_flux;
 }
+#endif
 
 void Gridcell::serialize(ArchiveStream& arch) {
 	arch & climate
@@ -2975,14 +2987,16 @@ void MassBalance::serialize(ArchiveStream& arch) {
 		& ncont_zero
 		& ncont_zero_scaled
 		& nflux_zero
-		& water_cont_zero
-		& water_flux_zero
 		& ccont
 		& ncont
-		& water_cont
 		& cflux
-		& nflux
+		& nflux;
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
+	arch & water_cont_zero
+		& water_flux_zero
+		& water_cont
 		& water_flux;
+#endif
 }
 
 /// Should be used together with check_indiv()
@@ -3098,8 +3112,10 @@ void MassBalance::init_patch(Patch& patch) {
 	if (stand.get_gridcell_fraction())
 		nflux_zero += gridcell.landcover.anflux_harvest_slow / stand.get_gridcell_fraction();
 
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 	water_cont_zero = patch.water_content();
 	water_flux_zero = patch.water_flux();
+#endif
 }
 
 bool MassBalance::check_patch_C(Patch& patch, bool check_harvest) {
@@ -3154,6 +3170,7 @@ bool MassBalance::check_patch_N(Patch& patch, bool check_harvest) {
 	return balance;
 }
 
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 bool MassBalance::check_patch_water(Patch& patch) {
 
 	bool balance = true;
@@ -3170,6 +3187,7 @@ bool MassBalance::check_patch_water(Patch& patch) {
 
 	return balance;
 }
+#endif
 
 /// Should be preceded by init_patch() e.g. i framework()
 /** check_harvest must be true if growth_daily() is tested
@@ -3178,7 +3196,11 @@ bool MassBalance::check_patch_water(Patch& patch) {
  */
 bool MassBalance::check_patch(Patch& patch, bool check_harvest) {
 
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 	return check_patch_C(patch, check_harvest) && check_patch_N(patch, check_harvest) && check_patch_water(patch);
+#else
+	return check_patch_C(patch, check_harvest) && check_patch_N(patch, check_harvest);
+#endif
 }
 
 void MassBalance::check_year_N(Gridcell& gridcell) {
@@ -3241,6 +3263,7 @@ void MassBalance::check_year_C(Gridcell& gridcell) {
 	ccont = ccont_year;
 }
 
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 void MassBalance::check_year_water(Gridcell& gridcell) {
 
 	double water_cont_year = gridcell.water_content();
@@ -3264,6 +3287,7 @@ void MassBalance::check_year_water(Gridcell& gridcell) {
 
 	water_cont = water_cont_year;
 }
+#endif
 
 
 void MassBalance::check_year(Gridcell& gridcell) {
@@ -3277,7 +3301,9 @@ void MassBalance::check_year(Gridcell& gridcell) {
 	if (ifcentury) 
 		check_year_N(gridcell);
 
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 	check_year_water(gridcell);
+#endif
 
 }
 
@@ -3303,12 +3329,14 @@ void MassBalance::check_period(Gridcell& gridcell) {
 		dprintf("N fluxes: %.10f\n",  nflux);
 	}
 
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 	// Water balance check:
 	if (!negligible(water_cont - water_cont_zero + water_flux, -2)) { // NB! Not too strict as small errors can accumulate in time
 		dprintf("\nWARNING: (%.2f, %.2f): Period water balance: %.5f\n", gridcell.get_lon(), gridcell.get_lat(), water_cont - water_cont_zero + water_flux);
 		dprintf("Water pool change: %.6f\n", water_cont - water_cont_zero);
 		dprintf("Water fluxes: %.6f\n", water_flux);
 	}
+#endif
 }
 
 void MassBalance::init(Gridcell& gridcell) {
@@ -3318,8 +3346,10 @@ void MassBalance::init(Gridcell& gridcell) {
 	cflux_zero = gridcell.cflux();
 	ncont_zero = gridcell.ncont();
 	nflux_zero = gridcell.nflux();
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 	water_cont_zero = gridcell.water_content();
 	water_flux_zero = gridcell.water_flux();
+#endif
 }
 
 void MassBalance::check(Gridcell& gridcell) {
@@ -3341,6 +3371,7 @@ void MassBalance::check(Gridcell& gridcell) {
 		dprintf("N pool change: %.5f\n", ncont - ncont_zero);
 	}
 
+#ifndef LANDSYMM_SKIP_WATER_BALANCE
 	double water_content = gridcell.water_content();
 	double water_flux = gridcell.water_flux();
 
@@ -3349,6 +3380,7 @@ void MassBalance::check(Gridcell& gridcell) {
 		dprintf("Water pool change: %.7f\n", water_content - water_cont_zero);
 		dprintf("Water flux: %.7f\n\n", water_flux);
 	}
+#endif
 }
 
 bool ManagementType::pftinselection(const char* name) {

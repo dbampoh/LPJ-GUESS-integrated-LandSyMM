@@ -73,14 +73,17 @@ public:
 	PartitionedMapSerializer(const char* directory,
 	                         int my_rank,
 	                         ElementSerializer es,
-	                         KeySerializer ks)
+	                         KeySerializer ks,
+	                         int this_id = 0)
 		: element_serializer(es), 
 		  key_serializer(ks),
 		  file(create_path(directory, my_rank).c_str(), 
 		       std::ios::binary | std::ios::trunc) {
 		  
+		serializer_id = this_id;
+
 		if (file.fail()) {
-			throw PartitionedMapSerializerError(std::string("failed to open a file in ") + directory);
+			throw PartitionedMapSerializerError(std::string("failed to open a file in ") + directory + std::string("\n"));
 		}
 	}
 	 
@@ -99,6 +102,8 @@ public:
 	}
 
 private:
+
+	int serializer_id;
 
 	/// Simply adds a key and the current file position to the index, in memory
 	/** The index is written out to file in the destructor */
@@ -130,7 +135,11 @@ private:
 		           sizeof(number_of_elements));
 
 		if (file.fail()) {
-			throw PartitionedMapSerializerError("failed to write out index");
+			std::string msg = std::string("failed to write out index for serializer ") + std::to_string(serializer_id);
+			if (serializer_id > 0) {
+				msg += std::string(". Perhaps caused by disk filling up? You're trying to save at least ") + std::to_string(serializer_id) + std::string(" states");
+			}
+			throw PartitionedMapSerializerError(msg + std::string("\n"));
 		}
 	}
 	 
@@ -209,7 +218,7 @@ public:
 				}
 
 				if (stream->fail()) {
-					throw PartitionedMapSerializerError(std::string("failed to read index for state file: ") + path);
+					throw PartitionedMapSerializerError(std::string("failed to read index for state file: ") + path + std::string("\n"));
 				}
 
 				file->stream = stream;
@@ -219,7 +228,7 @@ public:
 		}
 
 		if (files.empty()) {
-			throw PartitionedMapSerializerError("couldn't open any state files");
+			throw PartitionedMapSerializerError("couldn't open any state files\n");
 		}
 	}
 
@@ -256,7 +265,7 @@ public:
 			}
 		}
 
-		throw PartitionedMapSerializerError("failed to find element to deserialize");
+		throw PartitionedMapSerializerError("failed to find element to deserialize\n");
 	}
 
 	/// Reads in several elements from disk
@@ -330,19 +339,19 @@ public:
 					found_elements[positions[e].second] = true;
 				}
 				else {
-					throw PartitionedMapSerializerError("failed to deserialize element from state file");
+					throw PartitionedMapSerializerError("failed to deserialize element from state file\n");
 				}
 			}
 
 			if (stream->fail()) {
-				throw PartitionedMapSerializerError("failed to deserialize elements from state file");
+				throw PartitionedMapSerializerError("failed to deserialize elements from state file\n");
 			}
 		}
 
 		// check if there are any elements not read in
 		if (std::find(found_elements.begin(), found_elements.end(), false) != 
 		    found_elements.end()) {
-			throw PartitionedMapSerializerError("failed to find some elements");
+			throw PartitionedMapSerializerError("failed to find some elements\n");
 		}
 	}
 

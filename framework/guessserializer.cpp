@@ -136,7 +136,7 @@ void verify_meta_data(const char* directory, int& num_processes) {
 	file.read((char*)&npft_from_file, sizeof(npft_from_file));
 
 	if (npft != npft_from_file) {
-		fail("State file has different number of PFTs");
+		fail("State file has different number of PFTs (%d) than this run (%d)", npft_from_file, npft);
 	}
 
 	// Verify that the PFTs have the same names
@@ -172,8 +172,8 @@ void verify_meta_data(const char* directory, int& num_processes) {
 // Contains members of GuessSerializer which we don't want in the header
 struct GuessSerializer::Impl {
 
-	Impl(const char* directory, int my_rank) 
-		: pms(directory, my_rank, GridcellSerializer(), CoordSerializer()) {
+	Impl(const char* directory, int my_rank, int this_id) 
+		: pms(directory, my_rank, GridcellSerializer(), CoordSerializer(), this_id) {
 	}
 
 	PartitionedMapSerializer<Gridcell,
@@ -183,9 +183,9 @@ struct GuessSerializer::Impl {
 };
 
 
-GuessSerializer::GuessSerializer(const char* directory, int my_rank, int num_processes) {
+GuessSerializer::GuessSerializer(const char* directory, int my_rank, int num_processes, int this_id) {
 	try {
-		pimpl = new Impl(directory, my_rank);
+		pimpl = new Impl(directory, my_rank, this_id);
 
 		// In a parallel job, only the first process creates the meta data
 		if (my_rank == 0) {

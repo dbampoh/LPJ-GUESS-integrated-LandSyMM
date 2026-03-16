@@ -53,10 +53,8 @@ const double PERCENT_TO_FRACT   = 0.01;
 const double R_EARTH            = 6371.2213; // mean earth-radius[km]
 
 const double DHUGE = std::numeric_limits<double>::max();
-const long LHUGE = std::numeric_limits<long>::max();
 const int IHUGE = std::numeric_limits<int>::max();
 const double D_EPSILON = std::numeric_limits<double>::min();
-const float R_EPSILON = std::numeric_limits<float>::min();
 
 // Freezing temperature of freshwater (K)
 const double TFREEZE = 273.15;
@@ -178,10 +176,6 @@ public:
 
 	Historic()
 		: current_index(0), full(false) {
-		
-		for (size_t i = 0; i < capacity; ++i) {
-			values[i] = 0.0;
-		}
 	}
 
 	/// Adds a value, overwriting the oldest if full

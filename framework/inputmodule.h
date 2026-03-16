@@ -33,6 +33,9 @@ public:
 	 */
 	virtual void init() = 0;
 
+	/// Resets input module state (e.g. frees dynamically allocated variables before reading new ones)
+	virtual void reset() {}
+
 	/// Obtains coordinates and soil static parameters for the next grid cell to simulate 
 	/** The function should return false if no grid cells remain to be simulated,
 	 *  otherwise true. 
@@ -88,6 +91,9 @@ public:
 
 	/// Obtains additional environmental data (e.g. disturbance) for one year
 	virtual void getmiscinput_yearly(Gridcell& gridcell) = 0;
+
+	/// Sets up multipart file information for a gridcell
+	virtual void setup_multipart() {}
 };
 
 
