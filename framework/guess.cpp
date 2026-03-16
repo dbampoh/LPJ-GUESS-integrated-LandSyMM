@@ -2027,12 +2027,13 @@ double Individual::ccont(double scale_indiv, bool luc) const {
 		}
 		else {
 
-			ccont += (cmass_leaf + cmass_root + cmass_sap + cmass_heart - cmass_debt) * scale_indiv;
+			ccont = cmass_leaf + cmass_root + cmass_sap + cmass_heart - cmass_debt;
 
 			if (pft.landcover == CROPLAND) {
-				ccont += (cropindiv->cmass_ho + cropindiv->cmass_agpool) * scale_indiv;
+				ccont += cropindiv->cmass_ho + cropindiv->cmass_agpool;
 				// Yearly allocation not defined for crops with nlim
 			}
+			ccont *= scale_indiv;
 		}
 	}
 
@@ -3187,6 +3188,7 @@ void MassBalance::check_year_N(Gridcell& gridcell) {
 
 	if (date.year == start_year) {
 		ncont_zero = ncont_year;
+		nflux = 0.0;
 	}
 	else {
 
@@ -3218,6 +3220,7 @@ void MassBalance::check_year_C(Gridcell& gridcell) {
 
 	if (date.year == start_year) {
 		ccont_zero = ccont_year;
+		cflux = 0.0;
 	}
 	else {
 
