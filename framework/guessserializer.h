@@ -21,7 +21,7 @@ public:
 	 *                       process job.
 	 *  \param num_processes The number of processes involved in the job
 	 */
-	GuessSerializer(const char* directory, int my_rank, int num_processes);
+	GuessSerializer(const char* directory, int my_rank, int num_processes, int this_id = 0);
 
 	/// Finalizes and closes the state file
 	virtual ~GuessSerializer();
