@@ -34,6 +34,7 @@
 #include "somdynam.h"
 #include "ntransform.h"
 #include "driver.h"
+#include "spitfire.h"
 #include <assert.h>
 #include <bitset>
 #include <vector>
@@ -899,6 +900,57 @@ void transfer_litter(Patch& patch) {
 		fireresist[SURFCWD]    = soil.sompool[SURFCWD].cmass    * soil.sompool[SURFCWD].fireresist;
 	}
 
+	double spf_fuelbulkdensity[NSOMPOOL] = {};
+	double spf_surfacetovolume[NSOMPOOL] = {};
+	double spf_moistureofextinction[NSOMPOOL] = {};
+	double spf_em_CO2[NSOMPOOL] = {};
+	double spf_em_CO[NSOMPOOL] = {};
+	double spf_em_CH4[NSOMPOOL] = {};
+	double spf_em_TPM[NSOMPOOL] = {};
+	double spf_em_VOC[NSOMPOOL] = {};
+
+	if (firemodel == SPITFIRE) {
+		spf_fuelbulkdensity[SURFSTRUCT] = soil.sompool[SURFSTRUCT].cmass * soil.sompool[SURFSTRUCT].fuelbulkdensity;
+		spf_fuelbulkdensity[SURFMETA]   = soil.sompool[SURFMETA].cmass   * soil.sompool[SURFMETA].fuelbulkdensity;
+		spf_fuelbulkdensity[SURFFWD]    = soil.sompool[SURFFWD].cmass * wood_fraction_1_10_100hr * soil.sompool[SURFFWD].fuelbulkdensity;
+		spf_fuelbulkdensity[SURFCWD]    = soil.sompool[SURFCWD].cmass * wood_fraction_1_10_100hr * soil.sompool[SURFCWD].fuelbulkdensity;
+
+		spf_surfacetovolume[SURFSTRUCT] = soil.sompool[SURFSTRUCT].cmass * soil.sompool[SURFSTRUCT].surfacetovolume;
+		spf_surfacetovolume[SURFMETA]   = soil.sompool[SURFMETA].cmass   * soil.sompool[SURFMETA].surfacetovolume;
+		spf_surfacetovolume[SURFFWD]    = soil.sompool[SURFFWD].cmass * wood_fraction_1_10_100hr * soil.sompool[SURFFWD].surfacetovolume;
+		spf_surfacetovolume[SURFCWD]    = soil.sompool[SURFCWD].cmass * wood_fraction_1_10_100hr * soil.sompool[SURFCWD].surfacetovolume;
+
+		spf_moistureofextinction[SURFSTRUCT] = soil.sompool[SURFSTRUCT].cmass * soil.sompool[SURFSTRUCT].moistureofextinction;
+		spf_moistureofextinction[SURFMETA]   = soil.sompool[SURFMETA].cmass   * soil.sompool[SURFMETA].moistureofextinction;
+		spf_moistureofextinction[SURFFWD]    = soil.sompool[SURFFWD].cmass * wood_fraction_1_10_100hr * soil.sompool[SURFFWD].moistureofextinction;
+		spf_moistureofextinction[SURFCWD]    = soil.sompool[SURFCWD].cmass * wood_fraction_1_10_100hr * soil.sompool[SURFCWD].moistureofextinction;
+
+		spf_em_CO2[SURFSTRUCT] = soil.sompool[SURFSTRUCT].cmass * soil.sompool[SURFSTRUCT].em_CO2;
+		spf_em_CO2[SURFMETA]   = soil.sompool[SURFMETA].cmass   * soil.sompool[SURFMETA].em_CO2;
+		spf_em_CO2[SURFFWD]    = soil.sompool[SURFFWD].cmass * soil.sompool[SURFFWD].em_CO2;
+		spf_em_CO2[SURFCWD]    = soil.sompool[SURFCWD].cmass * soil.sompool[SURFCWD].em_CO2;
+
+		spf_em_CO[SURFSTRUCT] = soil.sompool[SURFSTRUCT].cmass * soil.sompool[SURFSTRUCT].em_CO;
+		spf_em_CO[SURFMETA]   = soil.sompool[SURFMETA].cmass   * soil.sompool[SURFMETA].em_CO;
+		spf_em_CO[SURFFWD]    = soil.sompool[SURFFWD].cmass * soil.sompool[SURFFWD].em_CO;
+		spf_em_CO[SURFCWD]    = soil.sompool[SURFCWD].cmass * soil.sompool[SURFCWD].em_CO;
+
+		spf_em_CH4[SURFSTRUCT] = soil.sompool[SURFSTRUCT].cmass * soil.sompool[SURFSTRUCT].em_CH4;
+		spf_em_CH4[SURFMETA]   = soil.sompool[SURFMETA].cmass   * soil.sompool[SURFMETA].em_CH4;
+		spf_em_CH4[SURFFWD]    = soil.sompool[SURFFWD].cmass * soil.sompool[SURFFWD].em_CH4;
+		spf_em_CH4[SURFCWD]    = soil.sompool[SURFCWD].cmass * soil.sompool[SURFCWD].em_CH4;
+
+		spf_em_VOC[SURFSTRUCT] = soil.sompool[SURFSTRUCT].cmass * soil.sompool[SURFSTRUCT].em_VOC;
+		spf_em_VOC[SURFMETA]   = soil.sompool[SURFMETA].cmass   * soil.sompool[SURFMETA].em_VOC;
+		spf_em_VOC[SURFFWD]    = soil.sompool[SURFFWD].cmass * soil.sompool[SURFFWD].em_VOC;
+		spf_em_VOC[SURFCWD]    = soil.sompool[SURFCWD].cmass * soil.sompool[SURFCWD].em_VOC;
+
+		spf_em_TPM[SURFSTRUCT] = soil.sompool[SURFSTRUCT].cmass * soil.sompool[SURFSTRUCT].em_TPM;
+		spf_em_TPM[SURFMETA]   = soil.sompool[SURFMETA].cmass   * soil.sompool[SURFMETA].em_TPM;
+		spf_em_TPM[SURFFWD]    = soil.sompool[SURFFWD].cmass * soil.sompool[SURFFWD].em_TPM;
+		spf_em_TPM[SURFCWD]    = soil.sompool[SURFCWD].cmass * soil.sompool[SURFCWD].em_TPM;
+	}
+
 	double leaf_litter = 0.0;
 	double root_litter = 0.0;
 	double wood_litter = 0.0;
@@ -906,6 +958,11 @@ void transfer_litter(Patch& patch) {
 	patch.pft.firstobj();
 	while (patch.pft.isobj) {
 		Patchpft& pft=patch.pft.getobj();
+
+		double current_pft_FBD = 0.0;
+		if (firemodel == SPITFIRE) {
+			current_pft_FBD = fuel_bulk_density(pft.pft, patch.fuel.total_grass_biomass_kgDM, patch.get_climate().gdd5);
+		}
 
 		// For stands with yearly growth, drop leaf and root litter on first month of the year for northern hemisphere
 		// and first month of the second half of the year for southern hemisphere for summergreen trees. For evergreens
@@ -975,6 +1032,25 @@ void transfer_litter(Patch& patch) {
 
 				litterme[SURFMETA] += cmass_litter_leaf * fm * pft.pft.litterme;
 				fireresist[SURFMETA] += cmass_litter_leaf * fm * pft.pft.fireresist;
+			}
+			else if (firemodel == SPITFIRE) {
+				spf_fuelbulkdensity[SURFSTRUCT] += cmass_litter_leaf * (1.0 - fm) * current_pft_FBD;
+				spf_surfacetovolume[SURFSTRUCT] += cmass_litter_leaf * (1.0 - fm) * pft.pft.sigma_leaf;
+				spf_moistureofextinction[SURFSTRUCT] += cmass_litter_leaf * (1.0 - fm) * pft.pft.MoE;
+				spf_em_CO2[SURFSTRUCT] += cmass_litter_leaf * (1.0 - fm) * pft.pft.em_CO2;
+				spf_em_CO[SURFSTRUCT]  += cmass_litter_leaf * (1.0 - fm) * pft.pft.em_CO;
+				spf_em_CH4[SURFSTRUCT] += cmass_litter_leaf * (1.0 - fm) * pft.pft.em_CH4;
+				spf_em_VOC[SURFSTRUCT] += cmass_litter_leaf * (1.0 - fm) * pft.pft.em_VOC;
+				spf_em_TPM[SURFSTRUCT] += cmass_litter_leaf * (1.0 - fm) * pft.pft.em_TPM;
+
+				spf_fuelbulkdensity[SURFMETA] += cmass_litter_leaf * fm * current_pft_FBD;
+				spf_surfacetovolume[SURFMETA] += cmass_litter_leaf * fm * pft.pft.sigma_leaf;
+				spf_moistureofextinction[SURFMETA] += cmass_litter_leaf * fm * pft.pft.MoE;
+				spf_em_CO2[SURFMETA] += cmass_litter_leaf * fm * pft.pft.em_CO2;
+				spf_em_CO[SURFMETA]  += cmass_litter_leaf * fm * pft.pft.em_CO;
+				spf_em_CH4[SURFMETA] += cmass_litter_leaf * fm * pft.pft.em_CH4;
+				spf_em_VOC[SURFMETA] += cmass_litter_leaf * fm * pft.pft.em_VOC;
+				spf_em_TPM[SURFMETA] += cmass_litter_leaf * fm * pft.pft.em_TPM;
 			}
 			// NB: reproduction litter cannot contain nitrogen!!
 
@@ -1074,6 +1150,20 @@ void transfer_litter(Patch& patch) {
 				litterme[SURFFWD] += cmass_litter_sap * pft.pft.litterme;
 				fireresist[SURFFWD] += cmass_litter_sap * pft.pft.fireresist;
 			}
+			else if (firemodel == SPITFIRE) {
+				spf_fuelbulkdensity[SURFFWD] += (cmass_litter_sap * wood_fraction_1hr * current_pft_FBD)
+					+ (cmass_litter_sap * wood_fraction_10hr * current_pft_FBD * fbd_a)
+					+ (cmass_litter_sap * wood_fraction_100hr * current_pft_FBD * fbd_b);
+				spf_moistureofextinction[SURFFWD] += cmass_litter_sap * wood_fraction_1_10_100hr * pft.pft.MoE;
+				spf_surfacetovolume[SURFFWD] += (cmass_litter_sap * wood_fraction_1hr * sigma_1hr)
+					+ (cmass_litter_sap * wood_fraction_10hr * sigma_10hr)
+					+ (cmass_litter_sap * wood_fraction_100hr * sigma_100hr);
+				spf_em_CO2[SURFFWD] += cmass_litter_sap * pft.pft.em_CO2;
+				spf_em_CO[SURFFWD]  += cmass_litter_sap * pft.pft.em_CO;
+				spf_em_CH4[SURFFWD] += cmass_litter_sap * pft.pft.em_CH4;
+				spf_em_VOC[SURFFWD] += cmass_litter_sap * pft.pft.em_VOC;
+				spf_em_TPM[SURFFWD] += cmass_litter_sap * pft.pft.em_TPM;
+			}
 		}
 
 		// HEART WOOD
@@ -1108,6 +1198,20 @@ void transfer_litter(Patch& patch) {
 				litterme[SURFCWD] += cmass_litter_heart * pft.pft.litterme;
 				fireresist[SURFCWD] += cmass_litter_heart * pft.pft.fireresist;
 			}
+			else if (firemodel == SPITFIRE) {
+				spf_fuelbulkdensity[SURFCWD] += (cmass_litter_heart * wood_fraction_1hr * current_pft_FBD)
+					+ (cmass_litter_heart * wood_fraction_10hr * current_pft_FBD * fbd_a)
+					+ (cmass_litter_heart * wood_fraction_100hr * current_pft_FBD * fbd_b);
+				spf_moistureofextinction[SURFCWD] += cmass_litter_heart * pft.pft.MoE * wood_fraction_1_10_100hr;
+				spf_surfacetovolume[SURFCWD] += (cmass_litter_heart * wood_fraction_1hr * sigma_1hr)
+					+ (cmass_litter_heart * wood_fraction_10hr * sigma_10hr)
+					+ (cmass_litter_heart * wood_fraction_100hr * sigma_100hr);
+				spf_em_CO2[SURFCWD] += cmass_litter_heart * pft.pft.em_CO2;
+				spf_em_CO[SURFCWD]  += cmass_litter_heart * pft.pft.em_CO;
+				spf_em_CH4[SURFCWD] += cmass_litter_heart * pft.pft.em_CH4;
+				spf_em_VOC[SURFCWD] += cmass_litter_heart * pft.pft.em_VOC;
+				spf_em_TPM[SURFCWD] += cmass_litter_heart * pft.pft.em_TPM;
+			}
 		}
 
 		patch.pft.nextobj();
@@ -1130,6 +1234,28 @@ void transfer_litter(Patch& patch) {
 		if (soil.sompool[SURFCWD].cmass > 0.0) {
 			soil.sompool[SURFCWD].litterme    = litterme[SURFCWD]   / soil.sompool[SURFCWD].cmass;
 			soil.sompool[SURFCWD].fireresist  = fireresist[SURFCWD] / soil.sompool[SURFCWD].cmass;
+		}
+	}
+	else if (firemodel == SPITFIRE) {
+		for (int p = 0; p < 4; p++) {
+			int pool = (p == 0) ? SURFSTRUCT : (p == 1) ? SURFMETA : (p == 2) ? SURFFWD : SURFCWD;
+			double denom = soil.sompool[pool].cmass;
+			if (pool == SURFFWD || pool == SURFCWD)
+				denom *= wood_fraction_1_10_100hr;
+			if (!negligible(denom, -10)) {
+				soil.sompool[pool].fuelbulkdensity      = spf_fuelbulkdensity[pool] / denom;
+				soil.sompool[pool].surfacetovolume      = spf_surfacetovolume[pool] / denom;
+				soil.sompool[pool].moistureofextinction  = spf_moistureofextinction[pool] / denom;
+				double cdenom = soil.sompool[pool].cmass;
+				soil.sompool[pool].em_CO2 = spf_em_CO2[pool] / cdenom;
+				soil.sompool[pool].em_CO  = spf_em_CO[pool]  / cdenom;
+				soil.sompool[pool].em_CH4 = spf_em_CH4[pool] / cdenom;
+				soil.sompool[pool].em_VOC = spf_em_VOC[pool] / cdenom;
+				soil.sompool[pool].em_TPM = spf_em_TPM[pool] / cdenom;
+			}
+			else {
+				set_standard_SOM_values(soil.sompool[pool]);
+			}
 		}
 	}
 
@@ -1449,6 +1575,11 @@ void equilsom(Soil& soil) {
 	// Reset mineral nitrogen status
 	soil.NH4_mass = save_NH4_mass;
 	soil.NO3_mass = save_NO3_mass;
+
+	if (soil.sompool[SURFSTRUCT].moistureofextinction == 0.0) soil.sompool[SURFSTRUCT].moistureofextinction = 0.25;
+	if (soil.sompool[SURFMETA].moistureofextinction == 0.0)   soil.sompool[SURFMETA].moistureofextinction = 0.25;
+	if (soil.sompool[SURFFWD].moistureofextinction == 0.0)    soil.sompool[SURFFWD].moistureofextinction = 0.25;
+	if (soil.sompool[SURFCWD].moistureofextinction == 0.0)    soil.sompool[SURFCWD].moistureofextinction = 0.25;
 
 	// Reset variables for next equilsom()
 	for (int m = 0; m < 12; m++) {

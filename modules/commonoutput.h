@@ -55,9 +55,12 @@ private:
 	xtring file_nmass, file_cton_leaf, file_nsources, file_npool, file_nlitter, file_nuptake, file_vmaxnlim, file_nflux, file_ngases;
 	xtring file_soil_npool, file_soil_nflux;
 
-	// BLAZE & SIMFIRE
+	// BLAZE & SIMFIRE & SPITFIRE
 	xtring file_aburned_area_out, file_mburned_area_out;
+	xtring file_mcflux_fire_out;
 	xtring file_simfireanalysis_out;
+	xtring file_mblaze_ba, file_mblaze_FLI, file_mblaze_mean_number_fires;
+	xtring file_mblaze_tree_mortality, file_mblaze_mean_fire_size, file_mblaze_weighted_ROS;
 
 	// Soil temperature at 25cm depth
 	xtring file_msoiltempdepth5, file_msoiltempdepth15, file_msoiltempdepth25, file_msoiltempdepth35, file_msoiltempdepth45, file_msoiltempdepth55, file_msoiltempdepth65, file_msoiltempdepth75, file_msoiltempdepth85, file_msoiltempdepth95, file_msoiltempdepth105, file_msoiltempdepth115, file_msoiltempdepth125, file_msoiltempdepth135, file_msoiltempdepth145;
@@ -84,9 +87,12 @@ private:
 	Table out_nmass, out_cton_leaf, out_nsources, out_npool, out_nlitter, out_nuptake, out_vmaxnlim, out_nflux, out_ngases;
 	Table out_soil_npool, out_soil_nflux;
 
-	// BLAZE && SIMFIRE
+	// BLAZE & SIMFIRE & SPITFIRE
 	Table out_aburned_area, out_mburned_area;
+	Table out_mcflux_fire;
 	Table out_simfireanalysis;
+	Table out_mblaze_ba, out_mblaze_FLI, out_mblaze_mean_number_fires;
+	Table out_mblaze_tree_mortality, out_mblaze_mean_fire_size, out_mblaze_weighted_ROS;
 
 	// Methane, snow, water table and active layer depth
 	Table out_mch4, out_mch4diff, out_mch4plan, out_mch4ebull, out_msnow, out_mwtp, out_mald;
