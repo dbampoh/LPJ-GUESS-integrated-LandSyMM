@@ -21,4 +21,8 @@ void initial_infiltration(Patch& patch, Climate& climate);
 void irrigation(Patch& patch);
 void soilwater(Patch& patch, Climate& climate);
 
+void get_soil_water_status(Patch& patch);
+void infiltrate_upland(Patch& patch);
+void saturate_nonpeat_wetlands(Patch& patch);
+
 #endif // LPJ_GUESS_SOILWATER_H
