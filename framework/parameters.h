@@ -297,6 +297,41 @@ extern bool iffixedburntarea;
 extern bool iffixedlanduse;
 extern bool iffixedhumanpopulation;
 
+/// LandSyMM/GGCMI: Skip ALL processes except for PHU and PVD calculation
+extern bool just_phu_pvd;
+/// LandSyMM/GGCMI: GGCMI Phase 2 specific settings
+extern bool ggcmi2;
+/// LandSyMM/GGCMI: ISIMIP3 specific settings
+extern bool isimip3;
+/// LandSyMM/GGCMI: Per-growing-season crop outputs
+extern bool crop_gs_out;
+/// LandSyMM/GGCMI: Whether to read PHU from input
+extern bool readphu;
+/// LandSyMM/GGCMI: Whether to read PVD from input
+extern bool readpvd;
+/// LandSyMM/GGCMI: Whether to read growing season length from input
+extern bool readgrowseaslength;
+/// LandSyMM/GGCMI: Whether to read 2nd fertilization date from input
+extern bool readNfertdate2;
+/// LandSyMM/GGCMI: Whether fert rate not summing to 1 is an error
+extern bool fertrate_error;
+/// LandSyMM/GGCMI: Irrigation high-soil-moisture restriction threshold
+extern double restrict_irr_wcont;
+/// LandSyMM/GGCMI: Irrigation high-soil-ice restriction threshold
+extern double restrict_irr_ice;
+/// LandSyMM/GGCMI: Remove small water/ice amounts in update_ice_fraction
+extern bool remove_smallvolfrac;
+/// LandSyMM: First historic year after spinup
+extern int firsthistyear;
+/// LandSyMM: Last historic year of simulation
+extern int lasthistyear;
+/// LandSyMM: First calendar year for output
+extern int firstoutyear;
+/// LandSyMM: Last calendar year for output
+extern int lastoutyear;
+/// LandSyMM: Minimum seconds between progress messages
+extern int mutesec;
+
 /// Whether to use primary-to-secondary land transition info (within land cover type) in landcover transfer input file (1). or not (0)
 extern bool ifprimary_to_secondary_transfer;
 

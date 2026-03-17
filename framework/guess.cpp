@@ -127,7 +127,9 @@ void Climate::serialize(ArchiveStream& arch) {
 		& days_since_last_rainfall
 		& kbdi
 		& ffdi_monthly
-		& weathergenstate;
+		& weathergenstate
+		& dprec_10
+		& sprec_2;
 }
 
 void WeatherGenState::serialize(ArchiveStream& arch) {
@@ -327,7 +329,13 @@ void cropphen_struct::serialize(ArchiveStream& arch) {
 		& fertilised
 		& vdsum_alloc
 		& vd
-		& dev_stage;
+		& dev_stage
+		& planting_date
+		& growseaslength
+		& nfert
+		& bad_bioclimate
+		& nfert_manure_remaining
+		& synthfrac;
 }
 
 
@@ -369,7 +377,8 @@ void Patchpft::serialize(ArchiveStream& arch) {
 		& swindow
 		& water_deficit_y
 		& inund_count
-		& inund_stress;
+		& inund_stress
+		& cmass_ho_harvest_thisyear;
 	if (pft.landcover==CROPLAND)
 		arch & *cropphen;
 
@@ -443,6 +452,20 @@ Patch::Patch(int i,Stand& s,Soiltype& st):
 		mfirefrac[m] = 0.0;
 		mfirefrac_applied[m] = 0.0;
 	}
+	grs_n_uptake = 0.0;
+	grs_n_input = 0.0;
+	grs_n_losses = 0.0;
+	grs_w_irr = 0.0;
+	grs_w_evapo = 0.0;
+	grs_w_intercep = 0.0;
+	grs_w_transp = 0.0;
+	grs_w_runoff = 0.0;
+	snfert = 0.0;
+	semis_n2o = 0.0;
+	semis_n2 = 0.0;
+	semis_c = 0.0;
+	grs_w_irr_lastyear = -1.0;
+	grs_w_irr_thisyear = -1.0;
 	ndemand = 0.0;
 	dnfert = 0.0;
 	anfert = 0.0;
@@ -524,7 +547,19 @@ void Patch::serialize(ArchiveStream& arch) {
 		& litf_to_atm
 		& lfwd_to_atm
 		& lcwd_to_atm
-		& days_since_last_burn;
+		& days_since_last_burn
+		& grs_w_irr
+		& grs_w_irr_thisyear
+		& grs_w_evapo
+		& grs_w_transp
+		& grs_w_intercep
+		& grs_w_runoff
+		& grs_n_input
+		& grs_n_losses
+		& semis_n2o
+		& semis_n2
+		& semis_c
+		& snfert;
 		for (unsigned int i=0; i < N_YEAR_BIOMEAVG; i++)
 			arch & fapar_grass_avg[i];
 		for (unsigned int i=0; i < N_YEAR_BIOMEAVG; i++)
@@ -1630,6 +1665,7 @@ Individual::Individual(int i,Pft& p,Vegetation& v):pft(p),vegetation(v),id(i) {
 	nstore_longterm   = 0.0;
 	nstore_labile     = 0.0;
 	ndemand           = 0.0;
+	ndemand_total     = 0.0;
 	fnuptake          = 1.0;
 	anuptake          = 0.0;
 	max_n_storage     = 0.0;
@@ -2676,7 +2712,11 @@ void Gridcellpft::serialize(ArchiveStream& arch) {
 		& wintertype
 		& swindow
 		& swindow_irr
-		& sowing_restriction;
+		& sowing_restriction
+		& phu_force
+		& pvd_force
+		& growseaslength_force
+		& Nfertdate2_force;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
