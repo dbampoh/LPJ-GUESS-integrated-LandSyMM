@@ -8,7 +8,9 @@ set(headers
   landcover.h 
   bvoc.h 
   blaze.h
+  fuel.h
   simfire.h
+  spitfire.h
   q10.h 
   globalco2file.h
   ncompete.h
@@ -52,6 +54,7 @@ set(source
   cropphenology.cpp
   weathergen.cpp
   soilmethane.cpp
+  spitfire.cpp
   soil.cpp
   soilinput.cpp
   ntransform.cpp

@@ -436,6 +436,13 @@ Patch::Patch(int i,Stand& s,Soiltype& st):
 	burned = false;
 	fire_line_intensity = 0.0;
 	fireprob = 0.0;
+	rate_of_spread = 0.0;
+	days_since_last_burn = 0;
+	to_gridcell_average_flammable_only = 0.0;
+	for (int m = 0; m < 12; m++) {
+		mfirefrac[m] = 0.0;
+		mfirefrac_applied[m] = 0.0;
+	}
 	ndemand = 0.0;
 	dnfert = 0.0;
 	anfert = 0.0;
@@ -516,7 +523,8 @@ void Patch::serialize(ArchiveStream& arch) {
 		& wood_to_cwd
 		& litf_to_atm
 		& lfwd_to_atm
-		& lcwd_to_atm;
+		& lcwd_to_atm
+		& days_since_last_burn;
 		for (unsigned int i=0; i < N_YEAR_BIOMEAVG; i++)
 			arch & fapar_grass_avg[i];
 		for (unsigned int i=0; i < N_YEAR_BIOMEAVG; i++)
@@ -537,9 +545,14 @@ const Climate& Patch::get_climate() const {
 }
 
 bool Patch::has_fires() const {
-	// Since the standard fire parameterization was not developed for wetland vegetation and wetland/peatland soils, including 
-	// fires in tropical peatlands, we disallow this for now.
-	return firemodel != NOFIRE && stand.landcover != CROPLAND && stand.landcover != PEATLAND
+	if (firemodel == NOFIRE) return false;
+	if (firemodel == SPITFIRE) {
+		return stand.landcover == NATURAL
+			|| (stand.landcover == PASTURE && pasturefiremode != NO_PASTURE_BURNING)
+			|| (stand.landcover == CROPLAND && cropfiremode != NO_CROPLAND_BURNING);
+	}
+	// BLAZE / GLOBFIRM and other modes: upstream logic
+	return stand.landcover != CROPLAND && stand.landcover != PEATLAND
 		&& !(managed && (stand.get_current_management().suppress_fire || suppress_disturbance_in_forestry_stands))
 		&& (stand.landcover != PASTURE || disturb_pasture) && stand.landcover != BARREN && stand.landcover != URBAN;
 }
@@ -2776,9 +2789,21 @@ Gridcell::Gridcell():climate(*this) {
 	for (int i=0;i<12;i++) {
 		monthly_burned_area[i] = 0.0;
 		monthly_fire_risk[i] = 0.0;
-
+		blaze_monthly_weighted_fli[i] = 0.0;
+		blaze_monthly_total_no_fires[i] = 0;
+		blaze_monthly_mean_no_fires[i] = 0.0;
+		blaze_monthly_firetreemortality[i] = 0.0;
+		blaze_monthly_weighted_mean_fire_size[i] = 0.0;
+		blaze_monthly_weighted_ros[i] = 0.0;
+		for (int fc = 0; fc < 4; fc++) {
+			blaze_monthly_C_fuelClas[i][fc] = 0.0;
+			blaze_monthly_CC_fuelClas[i][fc] = 0.0;
+		}
 	}
 	burned_area = 0.0;
+	lightning = 0.0;
+	aNd = 0.0;
+	pixelsize = 0.0;
 	simfire_region = 0;
 
 	seed = 12345678;
@@ -2974,6 +2999,14 @@ void Sompool::serialize(ArchiveStream& arch) {
 		& ligcfrac
 		& fracremain
 		& ntoc
+		& surfacetovolume
+		& fuelbulkdensity
+		& moistureofextinction
+		& em_CO
+		& em_CO2
+		& em_CH4
+		& em_VOC
+		& em_TPM
 		& litterme
 		& fireresist
 		& mfracremain_mean;

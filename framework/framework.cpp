@@ -24,6 +24,7 @@
 #include "growth.h"
 #include "vegdynam.h"
 #include "blaze.h"
+#include "spitfire.h"
 #include "simfire.h"
 #include "landcover.h"
 #include "bvoc.h"
@@ -78,6 +79,9 @@ void simulate_day(Gridcell& gridcell, InputModule* input_module) {
 	// Perform forest management for all stands this year
 	manage_forests(gridcell);
 
+	// SPITFIRE: Reset burnt area fractions and calculate patch-level scaling
+	if(firemodel == SPITFIRE) dailyaccounting_gridcell_spitfire(gridcell);
+
 	Gridcell::iterator gc_itr = gridcell.begin();
 	while (gc_itr != gridcell.end()) {
 	
@@ -85,6 +89,9 @@ void simulate_day(Gridcell& gridcell, InputModule* input_module) {
 		Stand& stand = *gc_itr;
 
 		dailyaccounting_stand(stand);
+
+		// SPITFIRE: Stand-level daily accounting
+		if(firemodel == SPITFIRE) spitfire_dailyaccounting(stand, gridcell.climate);
 
 		stand.firstobj();
 		while (stand.isobj) {
@@ -132,6 +139,9 @@ void simulate_day(Gridcell& gridcell, InputModule* input_module) {
 
 			// BLAZE fire model
 			blaze_driver(patch,gridcell.climate);
+
+			// SPITFIRE: Patch-level daily fire processing
+			if(firemodel == SPITFIRE) spitfire_daily(patch, gridcell.climate);
 
 			if (date.islastday && date.islastmonth) {
 
