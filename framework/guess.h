@@ -47,6 +47,7 @@
 #include "guessmath.h"
 #include "archive.h"
 #include "parameters.h"
+#include "fuel.h"
 #include "guesscontainer.h"
 #include "soil.h"
 #include "guessstring.h"
@@ -915,6 +916,19 @@ public:
 	/// 10 m wind (m/s)
 	double u10;
 
+	/// SPITFIRE: Vapour pressure deficit (kPa)
+	double vpd;
+	/// SPITFIRE: Nesterov index
+	double nest;
+	/// SPITFIRE: Daily lightning (flashes/km2/day)
+	double lightning;
+	/// SPITFIRE: Prescribed burnt area per day
+	double burntarea[365];
+	/// SPITFIRE: Monthly mean number of iterations for fire allocation
+	double monthly_mean_num_iterations[12];
+	/// SPITFIRE: Monthly number of fails in allocation procedure
+	int monthly_num_fails[12];
+
 	/// rel. humidity (fract.)
 	double relhum;
 
@@ -1317,6 +1331,22 @@ public:
 		CH4C_PLAN,
 		/// CH4 flux to atmosphere from peatland soils due to ebullition (gC/m2).
 		CH4C_EBUL,
+		/// SPITFIRE: CO2 from fire
+		CO2_FIRE,
+		/// SPITFIRE: CO from fire
+		CO_FIRE,
+		/// SPITFIRE: CH4 from fire
+		CH4_FIRE,
+		/// SPITFIRE: VOC from fire
+		VOC_FIRE,
+		/// SPITFIRE: TPM from fire
+		TPM_FIRE,
+		/// SPITFIRE: CO2 from fire (secondary tracking)
+		CO2s_FIRE,
+		/// SPITFIRE: CO from fire (secondary tracking)
+		COs_FIRE,
+		/// SPITFIRE: CH4 from fire (secondary tracking)
+		CH4s_FIRE,
 		/// Number of types, must be last
 		NPERPATCHFLUXTYPES
 	};
@@ -1341,6 +1371,10 @@ public:
 		MT_TRIC,
 		MT_TBOC,
 		MT_OTHR,
+		/// SPITFIRE: Burnt area fraction
+		BA,
+		/// SPITFIRE: Carbon flux from fires
+		C_FIRE,
 		/// Number of types, must be last
 		NPERPFTFLUXTYPES
 	};
@@ -2252,6 +2286,24 @@ public:
 	double harv_eff_ic;
 	/// LandSyMM: Nitrogen harvest scaling factor for pasture
 	double n_harvest_scale;
+
+	/// SPITFIRE PFT parameters
+	double dens_fuel;
+	double em_CO2;
+	double em_CO;
+	double em_CH4;
+	double em_VOC;
+	double em_TPM;
+	double em_NOx;
+	double crown_l;
+	double flame;
+	double barka;
+	double barkb;
+	double r_ck;
+	double p;
+	double MoE;
+	double sigma_leaf;
+
 	/// fraction of harvested products that goes into patchpft.harvested_products_slow
 	double harvest_slow_frac;
 	/// yearly turnover fraction of patchpft.harvested_products_slow (goes to gridcell.acflux_harvest_slow)
@@ -2360,6 +2412,23 @@ public:
 		harv_eff = 0.0;
 		harv_eff_ic = 0.0;
 		n_harvest_scale = -1.0;
+
+		sigma_leaf = 66.0;
+		dens_fuel = -99999.0;
+		em_CO2 = -99999.0;
+		em_CO = -99999.0;
+		em_CH4 = -99999.0;
+		em_NOx = -99999.0;
+		em_VOC = -99999.0;
+		em_TPM = -99999.0;
+		crown_l = -99999.0;
+		flame = -99999.0;
+		barka = -99999.0;
+		barkb = -99999.0;
+		r_ck = -99999.0;
+		p = -99999.0;
+		MoE = -99999.0;
+
 		turnover_harv_prod = 1.0;	// default 1 year turnover time
 
 		isintercropgrass = false;
@@ -2645,6 +2714,23 @@ public:
 
 		// Current value of pstemp_low for tropical trees and warm (C4) grass in global.ins and europe.ins is 20; may be changed.
 		return pstemp_low > 20;
+	}
+
+	/// SPITFIRE: Validates that all required PFT parameters are set
+	void check_spitfire_pft_settings() {
+		if (dens_fuel < -9999.0) fail("SPITFIRE: supply dens_fuel for PFT %s", (char*)name);
+		if (em_CO2 < -9999.0)   fail("SPITFIRE: supply em_CO2 for PFT %s", (char*)name);
+		if (em_CO < -9999.0)    fail("SPITFIRE: supply em_CO for PFT %s", (char*)name);
+		if (em_CH4 < -9999.0)   fail("SPITFIRE: supply em_CH4 for PFT %s", (char*)name);
+		if (em_NOx < -9999.0)   fail("SPITFIRE: supply em_NOx for PFT %s", (char*)name);
+		if (em_VOC < -9999.0)   fail("SPITFIRE: supply em_VOC for PFT %s", (char*)name);
+		if (em_TPM < -9999.0)   fail("SPITFIRE: supply em_TPM for PFT %s", (char*)name);
+		if (crown_l < -9999.0)  fail("SPITFIRE: supply crown_l for PFT %s", (char*)name);
+		if (flame < -9999.0)    fail("SPITFIRE: supply flame for PFT %s", (char*)name);
+		if (barka < -9999.0)    fail("SPITFIRE: supply barka for PFT %s", (char*)name);
+		if (barkb < -9999.0)    fail("SPITFIRE: supply barkb for PFT %s", (char*)name);
+		if (r_ck < -9999.0)     fail("SPITFIRE: supply r_ck for PFT %s", (char*)name);
+		if (MoE < -9999.0)      fail("SPITFIRE: supply inflame (MoE) for PFT %s", (char*)name);
 	}
 };
 
@@ -3509,6 +3595,14 @@ public:
 		litterme = 0.0;
 		fireresist = 0.0;
 		ntoc = 0.0;
+		fuelbulkdensity = 0.0;
+		surfacetovolume = 0.0;
+		moistureofextinction = 0.25;
+		em_CO2 = 0.0;
+		em_CO = 0.0;
+		em_CH4 = 0.0;
+		em_TPM = 0.0;
+		em_VOC = 0.0;
 
 		for (int m = 0; m < 12; m++) {
 			mfracremain_mean[m] = 0.0;
@@ -3531,6 +3625,23 @@ public:
 	double fracremain;
 	/// nitrogen to carbon ratio
 	double ntoc;
+
+	/// SPITFIRE: fuel bulk density
+	double fuelbulkdensity;
+	/// SPITFIRE: surface to volume ratio
+	double surfacetovolume;
+	/// SPITFIRE: moisture of extinction
+	double moistureofextinction;
+	/// SPITFIRE: emission factor CO2
+	double em_CO2;
+	/// SPITFIRE: emission factor CO
+	double em_CO;
+	/// SPITFIRE: emission factor CH4
+	double em_CH4;
+	/// SPITFIRE: emission factor TPM
+	double em_TPM;
+	/// SPITFIRE: emission factor VOC
+	double em_VOC;
 
 	// Fire
 	/// soil litter moisture flammability threshold (fraction of AWC)
@@ -4520,6 +4631,15 @@ public:
 
 	/// LandSyMM: Total litter as cached member (alternative to method call)
 	double total_litter_cached;
+
+	/// SPITFIRE: Total fuel consumed for this PFT (gC)
+	double annual_fuel_consumed_gC;
+	/// SPITFIRE: Fractional projective cover for burnt fraction tracking
+	double fpc;
+	/// SPITFIRE: Total area of this PFT burned per month
+	double monthly_ba_frac[12];
+	/// SPITFIRE: Monthly NPP
+	double monthly_npp[12];
 };
 
 
@@ -4725,6 +4845,19 @@ public:
 
 	/// Returns whether we should model fire in this patch
 	bool has_fires() const;
+
+	/// SPITFIRE/BLAZE: Fire rate of spread (m/s)
+	double rate_of_spread;
+	/// SPITFIRE: Fuel object for this patch
+	Fuel_patch fuel;
+	/// SPITFIRE: Days since last burn
+	int days_since_last_burn;
+	/// SPITFIRE: Scaling factor for patch to gridcell (flammable land covers only)
+	double to_gridcell_average_flammable_only;
+	/// SPITFIRE: Monthly burned fractions (calculated)
+	double mfirefrac[12];
+	/// SPITFIRE: Monthly burned fractions (applied after stochastic determination)
+	double mfirefrac_applied[12];
 
 	/// Returns whether we should model disturbances in this patch
 	bool has_disturbances() const;
@@ -5134,6 +5267,9 @@ public:
 	/// flag to preclude crop sowing during fallow
 	bool sowing_restriction;
 
+	/// SPITFIRE/BLAZE: Monthly burned area per PFT
+	double blaze_burned_area[12];
+
 	// MEMBER FUNCTIONS
 
 	/// Constructs a Gridcellpft object
@@ -5164,6 +5300,9 @@ public:
 		hdate_force=-1;
 		Nfert_read=-1;
 		Nfert_man_read=-1;
+		for(int m=0;m<12;m++) {
+			blaze_burned_area[m] = 0.0;
+		}
 		sdatecalc_temp=-1;
 		sdatecalc_prec=-1;
 		hlimitdate_default=-1;
@@ -5440,6 +5579,23 @@ public:
 
 	/// LandSyMM: Whether this is the first gridcell being processed
 	bool is_first_gridcell;
+
+	/// SPITFIRE: Lightning strokes (count/km2/day)
+	double lightning;
+	/// SPITFIRE: Tendency for people to start fires, a(Nd)
+	double aNd;
+
+	/// SPITFIRE/BLAZE/FireMIP: Monthly output arrays
+	double blaze_monthly_weighted_fli[12];
+	double blaze_monthly_C_fuelClas[12][4];
+	double blaze_monthly_CC_fuelClas[12][4];
+	int blaze_monthly_total_no_fires[12];
+	double blaze_monthly_mean_no_fires[12];
+	double blaze_monthly_firetreemortality[12];
+	double blaze_monthly_weighted_mean_fire_size[12];
+	double blaze_monthly_weighted_ros[12];
+	/// SPITFIRE: Pixel size (km2)
+	double pixelsize;
 
 	// SIMFIRE
 	/// the region index to chosose from set of optimisations

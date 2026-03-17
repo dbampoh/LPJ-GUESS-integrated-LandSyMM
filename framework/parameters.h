@@ -62,9 +62,26 @@ typedef enum {APIN, BPIN, LIMO, MYRC, SABI, CAMP, TRIC, TBOC, OTHR, NMTCOMPOUNDT
  *	BLAZE 		Use the BLAZE model to generate fire fluxes 
  *                      (must be accompanied by ignitionmode; DEFAULT)
  *	GLOBFIRM	fire parameterization following Thonicke et al. 2001
- *	NOFIRE		no fire model	
+ *	NOFIRE		no fire model
+ *	SPITFIRE	SPITFIRE fire model (Thonicke et al. 2010)
+ *	STAT_BURNT_AREA		prescribed burnt area from statistical model
+ *	PRESCR_BURNT_AREA	prescribed burnt area from input file
+ *	PRESCR_NUMBER_FIRES	prescribed number of fires from input file
+ *	FIXED_FIRE_RETURN	fixed fire return interval
+ *	RANDOM_FIRE_RETURN	random fire with fixed mean return interval
  */
-typedef enum {BLAZE, GLOBFIRM, NOFIRE} firemodeltype;
+typedef enum {BLAZE, GLOBFIRM, NOFIRE, SPITFIRE, STAT_BURNT_AREA, PRESCR_BURNT_AREA, PRESCR_NUMBER_FIRES, FIXED_FIRE_RETURN, RANDOM_FIRE_RETURN} firemodeltype;
+
+/// LandSyMM/SPITFIRE: Ignition mode
+typedef enum {BOTH, HUMAN, LIGHTNING_ONLY, NOIGNITIONS} ignitionmodetype;
+/// LandSyMM/SPITFIRE: Fuel moisture model
+typedef enum {ORIGINAL, DAILY_VPD} fuelmoisturemodeltype;
+/// LandSyMM/SPITFIRE: Pasture fire mode
+typedef enum {NO_PASTURE_BURNING, FULL_PASTURE_BURNING, LIGHTNING_PASTURE_BURNING, PRESCRIBED_PASTURE_BURNING, MODELLED_PASTURE_BURNING} pasturefiretype;
+/// LandSyMM/SPITFIRE: Cropland fire mode
+typedef enum {NO_CROPLAND_BURNING, FULL_CROPLAND_BURNING, LIGHTNING_CROPLAND_BURNING, PRESCRIBED_CROPLAND_BURNING, MODELLED_CROPLAND_BURNING} cropfiretype;
+/// LandSyMM/SPITFIRE: Wind speed limit model
+typedef enum {NOLIMIT, LASSLOP, ROTHERMEL, ANDREWS} windlimittype;
 
 /// Type of weathergenerator used 
 /**     One of:
@@ -247,6 +264,38 @@ extern bool do_potyield;
 extern int fixed_nfert;
 /// LandSyMM: Year to use for fixed N fertilisation
 extern int fixed_nfert_year;
+
+/// LandSyMM/SPITFIRE: Control parameters
+extern bool ifburnfullcell;
+extern bool ifnesterovdistr;
+extern double firereturninterval;
+extern double pixeldegree;
+extern double sapsizedecrease;
+extern int fixburnday;
+extern double fuelthreshold;
+extern double mouillotmultiplier;
+extern bool ifPandRresidencetime;
+extern bool ifallocatebytreecover;
+extern int min_days_between_burns;
+extern double human_ignition_constant;
+extern double fractionsoilmoistureinfuel;
+extern int max_fire_duration;
+extern int min_fire_duration;
+extern bool ifpopulationsuppression;
+extern double lightning_ctg_factor;
+extern double crop_fraction_suppression_exponent;
+/// LandSyMM/SPITFIRE: Mode enums
+extern ignitionmodetype ignitionmode;
+extern fuelmoisturemodeltype fuelmoisturemodel;
+extern pasturefiretype pasturefiremode;
+extern cropfiretype cropfiremode;
+extern windlimittype windlimit;
+/// LandSyMM/FireMIP: Experiment control flags
+extern bool iffixedco2;
+extern bool iffixedlightning;
+extern bool iffixedburntarea;
+extern bool iffixedlanduse;
+extern bool iffixedhumanpopulation;
 
 /// Whether to use primary-to-secondary land transition info (within land cover type) in landcover transfer input file (1). or not (0)
 extern bool ifprimary_to_secondary_transfer;

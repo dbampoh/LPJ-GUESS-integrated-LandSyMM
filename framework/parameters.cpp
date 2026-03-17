@@ -105,6 +105,34 @@ double manure_organic_frac = 1.0;
 bool do_potyield = false;
 int fixed_nfert = 0;
 int fixed_nfert_year = 0;
+bool ifburnfullcell = true;
+bool ifnesterovdistr = true;
+double firereturninterval = 0.0;
+double pixeldegree = 0.5;
+double sapsizedecrease = 1.0;
+int fixburnday = 150;
+double fuelthreshold = 0.2;
+double mouillotmultiplier = 1.0;
+bool ifPandRresidencetime = false;
+bool ifallocatebytreecover = false;
+int min_days_between_burns = 180;
+double human_ignition_constant = 0.35;
+double fractionsoilmoistureinfuel = 0.0;
+int max_fire_duration = 12;
+int min_fire_duration = 4;
+bool ifpopulationsuppression = true;
+double lightning_ctg_factor = 2.0;
+double crop_fraction_suppression_exponent = 0.0;
+ignitionmodetype ignitionmode;
+fuelmoisturemodeltype fuelmoisturemodel;
+pasturefiretype pasturefiremode;
+cropfiretype cropfiremode;
+windlimittype windlimit;
+bool iffixedco2 = false;
+bool iffixedlightning = false;
+bool iffixedburntarea = false;
+bool iffixedlanduse = false;
+bool iffixedhumanpopulation = false;
 bool ifprimary_to_secondary_transfer = false;
 int transfer_level;
 bool ifdyn_phu_limit;
@@ -203,7 +231,8 @@ enum {CB_NONE,CB_VEGMODE,CB_CHECKGLOBAL,CB_LIFEFORM,CB_LANDCOVER,CB_PHENOLOGY,CB
 	CB_MTSELECTION, CB_MTPLANTDENSITY, CB_MTTARGETFRAC, CB_MTTARGETFRACFILENAME, CB_MTHYDROLOGY, CB_PLANTINGSYSTEM, CB_HARVESTSYSTEM,
 	CB_PFT, CB_STSELECTION, CB_STPLANTDENSITY, CB_STTARGETFRAC, CB_STTARGETFRACFILENAME, CB_STHYDROLOGY, CB_MANAGEMENT1, 
 	CB_MANAGEMENT2, CB_MANAGEMENT3,	CB_PATHWAY, CB_ROOTDISTRIBUTION, CB_ROOTFRAC, CB_EST, CB_CHECKPFT, CB_STRPARAM, CB_NUMPARAM, 
-	CB_WATERUPTAKE, CB_MTCOMPOUND, CB_FIREMODEL,CB_WEATHERGENERATOR};
+	CB_WATERUPTAKE, CB_MTCOMPOUND, CB_FIREMODEL,CB_WEATHERGENERATOR,
+	CB_IGNITIONMODE, CB_FMMODEL, CB_PASTUREMODE, CB_CROPMODE, CB_WINDLIMIT};
 
 // File local variables
 namespace {
@@ -265,6 +294,23 @@ void initsettings() {
 	textured_soil = true;
 	disturb_pasture = false;
 	grassforcrop = false;
+
+	sapsizedecrease = 1;
+	ignitionmode = BOTH;
+	lightning_ctg_factor = 0.2;
+	ifpopulationsuppression = false;
+	max_fire_duration = 4;
+	min_fire_duration = 4;
+	crop_fraction_suppression_exponent = 0;
+	fuelmoisturemodel = ORIGINAL;
+	pasturefiremode = NO_PASTURE_BURNING;
+	cropfiremode = NO_CROPLAND_BURNING;
+	windlimit = NOLIMIT;
+	iffixedco2 = false;
+	iffixedlightning = false;
+	iffixedburntarea = false;
+	iffixedlanduse = false;
+	iffixedhumanpopulation = false;
 }
 
 void initpft(Pft& pft,xtring& setname) {
@@ -467,8 +513,64 @@ void plib_declarations(int id,xtring setname) {
 			"Interval for establishment of new cohorts (years)");
 		declareitem("distinterval",&distinterval,1.0,1.0e10,1,CB_NONE,
 			"Generic patch-destroying disturbance interval (years)");
-		declareitem("firemodel",&strparam,12,CB_FIREMODEL,
-			"Fire model mode (\"BLAZE\", \"GLOBFIRM\", \"NOFIRE\" , \"\")" );
+		declareitem("firemodel",&strparam,30,CB_FIREMODEL,
+			"Fire model mode (\"BLAZE\", \"GLOBFIRM\", \"NOFIRE\", \"SPITFIRE\", etc.)" );
+		declareitem("ifburnfullcell",&ifburnfullcell,1,CB_NONE,
+			"SPITFIRE: Whether to burn the full cell or just the patch");
+		declareitem("ifnesterovdistr",&ifnesterovdistr,1,CB_NONE,
+			"SPITFIRE: Whether to use Nesterov-based fire distribution");
+		declareitem("firereturninterval",&firereturninterval,0.0,1.0e10,1,CB_NONE,
+			"SPITFIRE: Fire return interval in years");
+		declareitem("pixeldegree",&pixeldegree,0.0,10.0,1,CB_NONE,
+			"SPITFIRE: Pixel size in degrees");
+		declareitem("sapsizedecrease",&sapsizedecrease,0.0,10.0,1,CB_NONE,
+			"SPITFIRE: Sapwood size decrease factor");
+		declareitem("fixburnday",&fixburnday,0,365,1,CB_NONE,
+			"SPITFIRE: Fixed burn day of year");
+		declareitem("fuelthreshold",&fuelthreshold,0.0,100.0,1,CB_NONE,
+			"SPITFIRE: Fuel threshold for fire (kgC/m2)");
+		declareitem("mouillotmultiplier",&mouillotmultiplier,0.0,100.0,1,CB_NONE,
+			"SPITFIRE: Mouillot multiplier for fire size");
+		declareitem("ifPandRresidencetime",&ifPandRresidencetime,1,CB_NONE,
+			"SPITFIRE: Whether to use Payette and Rowe residence time");
+		declareitem("ifallocatebytreecover",&ifallocatebytreecover,1,CB_NONE,
+			"SPITFIRE: Whether to allocate fire by tree cover");
+		declareitem("min_days_between_burns",&min_days_between_burns,0,365,1,CB_NONE,
+			"SPITFIRE: Minimum days between burns");
+		declareitem("human_ignition_constant",&human_ignition_constant,0.0,100.0,1,CB_NONE,
+			"SPITFIRE: Human ignition constant");
+		declareitem("fractionsoilmoistureinfuel",&fractionsoilmoistureinfuel,0.0,1.0,1,CB_NONE,
+			"SPITFIRE: Fraction of soil moisture contributing to fuel moisture");
+		declareitem("max_fire_duration",&max_fire_duration,0,100,1,CB_NONE,
+			"SPITFIRE: Maximum fire duration in hours");
+		declareitem("min_fire_duration",&min_fire_duration,0,100,1,CB_NONE,
+			"SPITFIRE: Minimum fire duration in hours");
+		declareitem("ifpopulationsuppression",&ifpopulationsuppression,1,CB_NONE,
+			"SPITFIRE: Whether population density suppresses fire");
+		declareitem("lightning_ctg_factor",&lightning_ctg_factor,0.0,100.0,1,CB_NONE,
+			"SPITFIRE: Cloud-to-ground lightning conversion factor");
+		declareitem("crop_fraction_suppression_exponent",&crop_fraction_suppression_exponent,0.0,100.0,1,CB_NONE,
+			"SPITFIRE: Exponent for crop fraction fire suppression");
+		declareitem("ignition_mode",&strparam,30,CB_IGNITIONMODE,
+			"SPITFIRE: Ignition mode (\"BOTH\", \"HUMAN\", \"LIGHTNING\", \"NOIGNITIONS\")");
+		declareitem("fuel_moisture_model",&strparam,30,CB_FMMODEL,
+			"SPITFIRE: Fuel moisture model (\"ORIGINAL\", \"DAILY_VPD\")");
+		declareitem("pasture_fire_mode",&strparam,30,CB_PASTUREMODE,
+			"SPITFIRE: Pasture fire mode");
+		declareitem("crop_fire_mode",&strparam,30,CB_CROPMODE,
+			"SPITFIRE: Crop fire mode");
+		declareitem("wind_limit",&strparam,30,CB_WINDLIMIT,
+			"SPITFIRE: Wind speed limit model (\"NOLIMIT\", \"LASSLOP\", \"ROTHERMEL\", \"ANDREWS\")");
+		declareitem("iffixedco2",&iffixedco2,1,CB_NONE,
+			"FireMIP: Fix CO2 concentration");
+		declareitem("iffixedlightning",&iffixedlightning,1,CB_NONE,
+			"FireMIP: Fix lightning input");
+		declareitem("iffixedburntarea",&iffixedburntarea,1,CB_NONE,
+			"FireMIP: Fix burnt area input");
+		declareitem("iffixedlanduse",&iffixedlanduse,1,CB_NONE,
+			"FireMIP: Fix land use");
+		declareitem("iffixedhumanpopulation",&iffixedhumanpopulation,1,CB_NONE,
+			"FireMIP: Fix human population density");
 		declareitem("ifdisturb",&ifdisturb,1,CB_NONE,
 			"Whether generic patch-destroying disturbance enabled (0,1)");
 		declareitem("ifcalcsla",&ifcalcsla,1,CB_NONE,
@@ -827,6 +929,21 @@ void plib_declarations(int id,xtring setname) {
 		declareitem("vern_lag",&ppft->vern_lag,0,100,1,CB_NONE,"lag in days after sowing before vernalization starts");
 		declareitem("isintercropgrass",&ppft->isintercropgrass,1,CB_NONE,"Whether this pft is allowed to grow in intercrop period");
 		declareitem("cropphen_col",&ppft->cropphen_col,128,CB_NONE,"LandSyMM/GGCMI: Alternative column name for crop phenology input files");
+		declareitem("dens_fuel",&ppft->dens_fuel,-100.0,100.0,1,CB_NONE,"SPITFIRE: fuel bulk density (kg/m2)");
+		declareitem("em_CO2",&ppft->em_CO2,0.001,10000.0,1,CB_NONE,"SPITFIRE: emission factor CO2");
+		declareitem("em_CO",&ppft->em_CO,0.001,1000.0,1,CB_NONE,"SPITFIRE: emission factor CO");
+		declareitem("em_CH4",&ppft->em_CH4,0.001,100.0,1,CB_NONE,"SPITFIRE: emission factor CH4");
+		declareitem("em_NOx",&ppft->em_NOx,0.001,100.0,1,CB_NONE,"SPITFIRE: emission factor NOx");
+		declareitem("em_VOC",&ppft->em_VOC,0.001,100.0,1,CB_NONE,"SPITFIRE: emission factor VOC");
+		declareitem("em_TPM",&ppft->em_TPM,0.001,100.0,1,CB_NONE,"SPITFIRE: emission factor TPM");
+		declareitem("crown_l",&ppft->crown_l,0.0,1.0,1,CB_NONE,"SPITFIRE: proportion of tree height as crown");
+		declareitem("flame",&ppft->flame,0.0,1.0,1,CB_NONE,"SPITFIRE: f parameter for flame length");
+		declareitem("barka",&ppft->barka,-1000.0,100.0,1,CB_NONE,"SPITFIRE: param1 for bark thickness");
+		declareitem("barkb",&ppft->barkb,-1000.0,100.0,1,CB_NONE,"SPITFIRE: param2 for bark thickness");
+		declareitem("r_ck",&ppft->r_ck,0.0,10.0,1,CB_NONE,"SPITFIRE: r(ck) crown damage postfire mortality");
+		declareitem("p",&ppft->p,0.0,10.0,1,CB_NONE,"SPITFIRE: p crown damage postfire mortality");
+		declareitem("inflame",&ppft->MoE,0.0,10.0,1,CB_NONE,"SPITFIRE: moisture of extinction");
+		declareitem("sigma_leaf",&ppft->sigma_leaf,0.0,500.0,1,CB_NONE,"SPITFIRE: leaf surface area to volume ratio (cm2/cm3)");
 		declareitem("psens",&ppft->psens,0.0,1.0,1,CB_NONE,"sensitivity to the photoperiod effect [0-1]");
 		declareitem("pb",&ppft->pb,0.0,24.0,1,CB_NONE,"basal photoperiod (h)");
 		declareitem("ps",&ppft->ps,0.0,24.0,1,CB_NONE,"saturating photoperiod (h)");
@@ -1292,9 +1409,65 @@ void plib_callback(int callback) {
 		if (strparam.upper()=="BLAZE") firemodel=BLAZE;
 		else if (strparam.upper()=="GLOBFIRM") firemodel=GLOBFIRM;
 		else if (strparam.upper()=="NOFIRE" || strparam=="") firemodel=NOFIRE;
+		else if (strparam.upper()=="SPITFIRE") firemodel=SPITFIRE;
+		else if (strparam.upper()=="STAT_BURNT_AREA") firemodel=STAT_BURNT_AREA;
+		else if (strparam.upper()=="PRESCR_BURNT_AREA") firemodel=PRESCR_BURNT_AREA;
+		else if (strparam.upper()=="PRESCR_NUMBER_FIRES") firemodel=PRESCR_NUMBER_FIRES;
+		else if (strparam.upper()=="FIXED_FIRE_RETURN") firemodel=FIXED_FIRE_RETURN;
+		else if (strparam.upper()=="RANDOM_FIRE_RETURN") firemodel=RANDOM_FIRE_RETURN;
 		else {
 			sendmessage("Error",
-				"Unknown fire model setting (valid types: \"BLAZE\", \"GLOBFIRM\", \"NOFIRE\", \"nil\" , \"\")" );
+				"Unknown fire model setting (valid types: \"BLAZE\", \"GLOBFIRM\", \"NOFIRE\", \"SPITFIRE\", \"STAT_BURNT_AREA\", \"PRESCR_BURNT_AREA\", \"PRESCR_NUMBER_FIRES\", \"FIXED_FIRE_RETURN\", \"RANDOM_FIRE_RETURN\", \"nil\", \"\")" );
+			plibabort();
+		}
+		break;
+	case CB_IGNITIONMODE:
+		if (strparam.upper()=="BOTH") ignitionmode=BOTH;
+		else if (strparam.upper()=="HUMAN") ignitionmode=HUMAN;
+		else if (strparam.upper()=="LIGHTNING") ignitionmode=LIGHTNING_ONLY;
+		else if (strparam.upper()=="NOIGNITIONS") ignitionmode=NOIGNITIONS;
+		else {
+			sendmessage("Error", "Unknown ignition mode");
+			plibabort();
+		}
+		break;
+	case CB_FMMODEL:
+		if (strparam.upper()=="ORIGINAL") fuelmoisturemodel=ORIGINAL;
+		else if (strparam.upper()=="DAILY_VPD") fuelmoisturemodel=DAILY_VPD;
+		else {
+			sendmessage("Error", "Unknown fuel moisture model");
+			plibabort();
+		}
+		break;
+	case CB_PASTUREMODE:
+		if (strparam.upper()=="NO_PASTURE_BURNING") pasturefiremode=NO_PASTURE_BURNING;
+		else if (strparam.upper()=="FULL_PASTURE_BURNING") pasturefiremode=FULL_PASTURE_BURNING;
+		else if (strparam.upper()=="LIGHTNING_PASTURE_BURNING") pasturefiremode=LIGHTNING_PASTURE_BURNING;
+		else if (strparam.upper()=="PRESCRIBED_PASTURE_BURNING") pasturefiremode=PRESCRIBED_PASTURE_BURNING;
+		else if (strparam.upper()=="MODELLED_PASTURE_BURNING") pasturefiremode=MODELLED_PASTURE_BURNING;
+		else {
+			sendmessage("Error", "Unknown pasture fire mode");
+			plibabort();
+		}
+		break;
+	case CB_CROPMODE:
+		if (strparam.upper()=="NO_CROPLAND_BURNING") cropfiremode=NO_CROPLAND_BURNING;
+		else if (strparam.upper()=="FULL_CROPLAND_BURNING") cropfiremode=FULL_CROPLAND_BURNING;
+		else if (strparam.upper()=="LIGHTNING_CROPLAND_BURNING") cropfiremode=LIGHTNING_CROPLAND_BURNING;
+		else if (strparam.upper()=="PRESCRIBED_CROPLAND_BURNING") cropfiremode=PRESCRIBED_CROPLAND_BURNING;
+		else if (strparam.upper()=="MODELLED_CROPLAND_BURNING") cropfiremode=MODELLED_CROPLAND_BURNING;
+		else {
+			sendmessage("Error", "Unknown crop fire mode");
+			plibabort();
+		}
+		break;
+	case CB_WINDLIMIT:
+		if (strparam.upper()=="NOLIMIT") windlimit=NOLIMIT;
+		else if (strparam.upper()=="LASSLOP") windlimit=LASSLOP;
+		else if (strparam.upper()=="ROTHERMEL") windlimit=ROTHERMEL;
+		else if (strparam.upper()=="ANDREWS") windlimit=ANDREWS;
+		else {
+			sendmessage("Error", "Unknown wind limit type");
 			plibabort();
 		}
 		break;
@@ -2073,10 +2246,13 @@ void plib_callback(int callback) {
 					if (!itemparsed("est_max")) badins("est_max");
 				}
 			}
-			if (firemodel==GLOBFIRM) {
-				if (!itemparsed("litterme")) badins("litterme");
-				if (!itemparsed("fireresist")) badins("fireresist");
-			}
+		if (firemodel==GLOBFIRM) {
+			if (!itemparsed("litterme")) badins("litterme");
+			if (!itemparsed("fireresist")) badins("fireresist");
+		}
+		if (firemodel==SPITFIRE) {
+			ppft->check_spitfire_pft_settings();
+		}
 			if (ifcalcsla) {
 				if (!itemparsed("leaflong")) {
 					sendmessage("Error",
