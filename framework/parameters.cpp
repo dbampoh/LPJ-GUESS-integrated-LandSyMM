@@ -133,6 +133,23 @@ bool iffixedlightning = false;
 bool iffixedburntarea = false;
 bool iffixedlanduse = false;
 bool iffixedhumanpopulation = false;
+bool just_phu_pvd = false;
+bool ggcmi2 = false;
+bool isimip3 = false;
+bool crop_gs_out = false;
+bool readphu = false;
+bool readpvd = false;
+bool readgrowseaslength = false;
+bool readNfertdate2 = false;
+bool fertrate_error = false;
+double restrict_irr_wcont = 2.0;
+double restrict_irr_ice = 0.05;
+bool remove_smallvolfrac = false;
+int firsthistyear = -1;
+int lasthistyear = -1;
+int firstoutyear = -1;
+int lastoutyear = -1;
+int mutesec = 20;
 bool ifprimary_to_secondary_transfer = false;
 int transfer_level;
 bool ifdyn_phu_limit;
@@ -571,6 +588,30 @@ void plib_declarations(int id,xtring setname) {
 			"FireMIP: Fix land use");
 		declareitem("iffixedhumanpopulation",&iffixedhumanpopulation,1,CB_NONE,
 			"FireMIP: Fix human population density");
+		declareitem("just_phu_pvd",&just_phu_pvd,1,CB_NONE,
+			"GGCMI: Whether to skip ALL processes except for PHU and PVD calculation");
+		declareitem("ggcmi2",&ggcmi2,1,CB_NONE,
+			"GGCMI: Whether to do GGCMI2-specific stuff");
+		declareitem("isimip3",&isimip3,1,CB_NONE,
+			"GGCMI: Whether to do ISIMIP3-specific stuff");
+		declareitem("crop_gs_out",&crop_gs_out,1,CB_NONE,
+			"GGCMI: Whether to save per-growing-season outputs for each crop");
+		declareitem("restrict_irr_wcont",&restrict_irr_wcont,0.0,2.0,1,CB_NONE,
+			"GGCMI: Threshold for upper soil moisture above which irrigation disabled");
+		declareitem("restrict_irr_ice",&restrict_irr_ice,0.0,2.0,1,CB_NONE,
+			"GGCMI: Threshold for upper soil ice above which irrigation disabled");
+		declareitem("remove_smallvolfrac",&remove_smallvolfrac,1,CB_NONE,
+			"GGCMI: Remove small water/ice amounts in update_ice_fraction()");
+		declareitem("firsthistyear",&firsthistyear,0,100000,1,CB_NONE,
+			"LandSyMM: First historic year after spinup");
+		declareitem("lasthistyear",&lasthistyear,0,100000,1,CB_NONE,
+			"LandSyMM: Last historic year of simulation");
+		declareitem("firstoutyear",&firstoutyear,1,100000,1,CB_NONE,
+			"LandSyMM: First calendar year for output");
+		declareitem("lastoutyear",&lastoutyear,1,100000,1,CB_NONE,
+			"LandSyMM: Last calendar year for output");
+		declareitem("mutesec",&mutesec,1,25200,1,CB_NONE,
+			"LandSyMM: Minimum seconds between progress messages");
 		declareitem("ifdisturb",&ifdisturb,1,CB_NONE,
 			"Whether generic patch-destroying disturbance enabled (0,1)");
 		declareitem("ifcalcsla",&ifcalcsla,1,CB_NONE,
@@ -944,6 +985,26 @@ void plib_declarations(int id,xtring setname) {
 		declareitem("p",&ppft->p,0.0,10.0,1,CB_NONE,"SPITFIRE: p crown damage postfire mortality");
 		declareitem("inflame",&ppft->MoE,0.0,10.0,1,CB_NONE,"SPITFIRE: moisture of extinction");
 		declareitem("sigma_leaf",&ppft->sigma_leaf,0.0,500.0,1,CB_NONE,"SPITFIRE: leaf surface area to volume ratio (cm2/cm3)");
+		declareitem("isforpotyield",&ppft->isforpotyield,1,CB_NONE,"GGCMI: Is PFT for potential yield simulation");
+		declareitem("n_fixer",&ppft->fixer,1,CB_NONE,"GGCMI: Whether PFT is a nitrogen fixer");
+		declareitem("bnf_ds_min",&ppft->bnf_ds_min,-1.0,2.0,1,CB_NONE,"GGCMI/BNF: dev stage when BNF can start");
+		declareitem("bnf_ds_max",&ppft->bnf_ds_max,-1.0,2.0,1,CB_NONE,"GGCMI/BNF: dev stage after which no BNF");
+		declareitem("bnf_ds_opt_low",&ppft->bnf_ds_opt_low,-1.0,2.0,1,CB_NONE,"GGCMI/BNF: dev stage optimal BNF low");
+		declareitem("bnf_ds_opt_high",&ppft->bnf_ds_opt_high,-1.0,2.0,1,CB_NONE,"GGCMI/BNF: dev stage optimal BNF high");
+		declareitem("bnf_wcont_min",&ppft->bnf_wcont_min,-1.0,2.0,1,CB_NONE,"GGCMI/BNF: water content min for BNF");
+		declareitem("bnf_wcont_max",&ppft->bnf_wcont_max,-1.0,2.0,1,CB_NONE,"GGCMI/BNF: water content max for BNF");
+		declareitem("bnf_wcont_intercept",&ppft->bnf_wcont_intercept,-1.0,2.0,1,CB_NONE,"GGCMI/BNF: constant in wcont effect function");
+		declareitem("bnf_wcont_rate",&ppft->bnf_wcont_rate,-1.0,2.0,1,CB_NONE,"GGCMI/BNF: rate in wcont effect function");
+		declareitem("bnf_t_min",&ppft->bnf_t_min,-1.0,100.0,1,CB_NONE,"GGCMI/BNF: temperature min for BNF");
+		declareitem("bnf_t_max",&ppft->bnf_t_max,-1.0,100.0,1,CB_NONE,"GGCMI/BNF: temperature max for BNF");
+		declareitem("bnf_t_opt_low",&ppft->bnf_t_opt_low,-1.0,100.0,1,CB_NONE,"GGCMI/BNF: temp optimal low for BNF");
+		declareitem("bnf_t_opt_high",&ppft->bnf_t_opt_high,-1.0,100.0,1,CB_NONE,"GGCMI/BNF: temp optimal high for BNF");
+		declareitem("bnf_max",&ppft->bnf_max,-1.0,2.0,1,CB_NONE,"GGCMI/BNF: maximum BNF (kgN/m-1d-1)");
+		declareitem("a_fphu_ds_1",&ppft->a_fphu_ds_1,-1000.0,1000.0,1,CB_NONE,"GGCMI: linear interp fphu-ds segment 1 slope");
+		declareitem("a_fphu_ds_2",&ppft->a_fphu_ds_2,-1000.0,1000.0,1,CB_NONE,"GGCMI: linear interp fphu-ds segment 2 slope");
+		declareitem("b_fphu_ds_1",&ppft->b_fphu_ds_1,-1000.0,1000.0,1,CB_NONE,"GGCMI: linear interp fphu-ds segment 1 intercept");
+		declareitem("b_fphu_ds_2",&ppft->b_fphu_ds_2,-1000.0,1000.0,1,CB_NONE,"GGCMI: linear interp fphu-ds segment 2 intercept");
+		declareitem("fphu_anthesis",&ppft->fphu_anthesis,0.0,1000.0,1,CB_NONE,"GGCMI: fphu at which to switch segments");
 		declareitem("psens",&ppft->psens,0.0,1.0,1,CB_NONE,"sensitivity to the photoperiod effect [0-1]");
 		declareitem("pb",&ppft->pb,0.0,24.0,1,CB_NONE,"basal photoperiod (h)");
 		declareitem("ps",&ppft->ps,0.0,24.0,1,CB_NONE,"saturating photoperiod (h)");
@@ -1107,6 +1168,7 @@ void plib_declarations(int id,xtring setname) {
 		declareitem("hdate",&pmt->hdate,0,364,1,CB_NONE,"Harvest date of crop");
 		declareitem("nfert",&pmt->nfert,0.0,1000.0,1,CB_NONE,"Fertilization application of crop");
 		declareitem("N_appfert_mt",&pmt->N_appfert_mt,0.0,1000.0,1,CB_NONE,"LandSyMM: Applied N fertiliser for this management type (kgN/ha)");
+		declareitem("isforpotyield",&pmt->isforpotyield,1,CB_NONE,"GGCMI: potential yield flag for management type");
 		declareitem("tillage_fact",&pmt->tillage_fact,1.0,4.5,1,CB_NONE,"Tillage factor");
 		declareitem("fallow",&pmt->fallow,1,CB_NONE,"Fallow in place of crop");
 		declareitem("relaxed_establishment",&pmt->relaxed_establishment,1,CB_NONE,"Whether to ignore climate establishment limits");
@@ -1702,6 +1764,15 @@ void plib_callback(int callback) {
 			sendmessage("Error", "ifcentury have to be true for N transformation to work");
 			plibabort();
 		}
+
+		if (ggcmi2 && isimip3) {
+			fail("ggcmi2 and isimip3 can't both be true");
+		}
+		if (fixed_nfert > 0 && !itemparsed("fixed_nfert_year")) {
+			fail("fixed_nfert > 0 but fixed_nfert_year not specified");
+		}
+		if (!itemparsed("firstoutyear") && firsthistyear > 0) { firstoutyear = firsthistyear; }
+		if (!itemparsed("lastoutyear") && lasthistyear > 0) { lastoutyear = lasthistyear; }
 		if (!itemparsed("f_denitri_max")) badins ("f_denitri_max");
 		if (!itemparsed("f_denitri_gas_max")) badins ("f_denitri_gas_max");
 		if (!itemparsed("f_nitri_max")) badins ("f_nitri_max");

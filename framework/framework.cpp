@@ -74,10 +74,14 @@ void simulate_day(Gridcell& gridcell, InputModule* input_module) {
 
 	// Update dynamic landcover and crop fraction data during historical
 	// period and create/kill stands.
-	landcover_dynamics(gridcell, input_module);
+	if (!just_phu_pvd || date.year < 2) {
+		landcover_dynamics(gridcell, input_module);
+	}
 
 	// Perform forest management for all stands this year
-	manage_forests(gridcell);
+	if (!just_phu_pvd || date.year < 2) {
+		manage_forests(gridcell);
+	}
 
 	// SPITFIRE: Reset burnt area fractions and calculate patch-level scaling
 	if(firemodel == SPITFIRE) dailyaccounting_gridcell_spitfire(gridcell);
@@ -105,7 +109,7 @@ void simulate_day(Gridcell& gridcell, InputModule* input_module) {
 			dailyaccounting_patch(patch);
 
 			// Determine nitrogen fertilisation amount 
-			if(run_landcover)
+			if(run_landcover && (!just_phu_pvd || date.year < 2))
 				nfert(patch);
 
 			// Calculate crop sowing dates
@@ -113,59 +117,68 @@ void simulate_day(Gridcell& gridcell, InputModule* input_module) {
 			// Crop phenology
 			crop_phenology(patch);
 
-			// Leaf phenology for PFTs and individuals
-			leaf_phenology(patch, gridcell.climate);
+			if (!just_phu_pvd || date.year < 2) {
 
-			// Interception
-			interception(patch, gridcell.climate);
-			initial_infiltration(patch, gridcell.climate);
+				// Leaf phenology for PFTs and individuals
+				leaf_phenology(patch, gridcell.climate);
 
-			// Photosynthesis, respiration, evapotranspiration
-			canopy_exchange(patch, gridcell.climate);
+				// Interception
+				interception(patch, gridcell.climate);
+				initial_infiltration(patch, gridcell.climate);
 
-			// Sum total required irrigation
-			irrigation(patch);
-			// Soil water accounting, snow pack accounting
-			soilwater(patch, gridcell.climate);
+				// Photosynthesis, respiration, evapotranspiration
+				canopy_exchange(patch, gridcell.climate);
 
-			// Daily C allocation (cropland)
-			growth_daily(patch);
+				// Sum total required irrigation
+				irrigation(patch);
+				// Soil water accounting, snow pack accounting
+				soilwater(patch, gridcell.climate);
 
-			// Soil organic matter and litter dynamics
-			som_dynamics(patch, gridcell.climate);
+				// Daily C allocation (cropland)
+				growth_daily(patch);
 
-			// Methane production/consumption on wetlands and peatlands (no methane dynamics for other stand types at present) 
-			methane_dynamics(patch);
+				// Soil organic matter and litter dynamics
+				som_dynamics(patch, gridcell.climate);
 
-			// BLAZE fire model
-			blaze_driver(patch,gridcell.climate);
+				// Methane production/consumption on wetlands and peatlands (no methane dynamics for other stand types at present) 
+				methane_dynamics(patch);
 
-			// SPITFIRE: Patch-level daily fire processing
-			if(firemodel == SPITFIRE) spitfire_daily(patch, gridcell.climate);
+				// BLAZE fire model
+				blaze_driver(patch,gridcell.climate);
+
+				// SPITFIRE: Patch-level daily fire processing
+				if(firemodel == SPITFIRE) spitfire_daily(patch, gridcell.climate);
+			}
 
 			if (date.islastday && date.islastmonth) {
 
 				// LAST DAY OF YEAR
-				// Tissue turnover, allocation to new biomass and reproduction,
-				// updated allometry
-				growth(stand, patch);
+				if (!just_phu_pvd || date.year < 2) {
+					// Tissue turnover, allocation to new biomass and reproduction,
+					// updated allometry
+					growth(stand, patch);
+				}
 			}
 			stand.nextobj();
 		}// End of loop through patches
 
 		// Update crop rotation status
-		crop_rotation(stand);
+		if (!just_phu_pvd || date.year < 2) {
+			crop_rotation(stand);
+		}
 
 		if (date.islastday && date.islastmonth) {
 			// LAST DAY OF YEAR
-			stand.firstobj();
-			while (stand.isobj) {
+			if (!just_phu_pvd || date.year < 2) {
+				stand.firstobj();
+				while (stand.isobj) {
 
-				// For each patch ...
-				Patch& patch = stand.getobj();
-				// Establishment, mortality and disturbance by fire
-				vegetation_dynamics(stand, patch);
-				stand.nextobj();
+					// For each patch ...
+					Patch& patch = stand.getobj();
+					// Establishment, mortality and disturbance by fire
+					vegetation_dynamics(stand, patch);
+					stand.nextobj();
+				}
 			}
 		}
 
@@ -267,14 +280,33 @@ int framework(const CommandLineArguments& args) {
 
 			output_modules.outdaily(gridcell);
 
+			if (crop_gs_out) {
+				if (just_phu_pvd) {
+					output_modules.outharvest_justphupvd(gridcell);
+				} else {
+					output_modules.outharvest(gridcell);
+				}
+			}
+
 			if (date.islastday && date.islastmonth) {
 				// LAST DAY OF YEAR
 				output_modules.openlocalfiles(gridcell);
+				if (crop_gs_out) {
+					output_modules.openlocalfiles_ggcmi(gridcell);
+				}
 				// Call output module to output results for end of year
 				// or end of simulation for this grid cell
-				output_modules.outannual(gridcell);
+				if (!just_phu_pvd || date.year < 2) {
+					output_modules.outannual(gridcell);
+				}
 
-				gridcell.balance.check_year(gridcell);
+				if (crop_gs_out && !just_phu_pvd) {
+					output_modules.outannual_ggcmi(gridcell);
+				}
+
+				if (!just_phu_pvd || date.year < 2) {
+					gridcell.balance.check_year(gridcell);
+				}
 
 				// Time to save state?
 				if (date.year == state_year-1 && save_state) {
@@ -294,6 +326,9 @@ int framework(const CommandLineArguments& args) {
 		}	//while (getclimate())
 
 		output_modules.closelocalfiles(gridcell);
+		if (crop_gs_out) {
+			output_modules.closelocalfiles_ggcmi(gridcell);
+		}
 
 		gridcell.balance.check_period(gridcell);
 

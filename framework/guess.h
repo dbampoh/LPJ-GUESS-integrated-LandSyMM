@@ -929,6 +929,11 @@ public:
 	/// SPITFIRE: Monthly number of fails in allocation procedure
 	int monthly_num_fails[12];
 
+	/// GGCMI: Daily precipitations for last 10 days (mm)
+	double dprec_10[10];
+	/// GGCMI: 10-day precipitation sums for today and yesterday (mm)
+	double sprec_2[2];
+
 	/// rel. humidity (fract.)
 	double relhum;
 
@@ -1361,6 +1366,8 @@ public:
 		RA,
 		/// Isoprene (mgC/m2)
 		ISO,
+		/// GGCMI/BNF: Nitrogen fixation (kgN/m2)
+		NFIX,
 		/// Monoterpene (mgC/m2)
 		MT_APIN,
 		MT_BPIN,
@@ -2304,6 +2311,35 @@ public:
 	double MoE;
 	double sigma_leaf;
 
+	/// GGCMI: Is PFT for potential yield simulation
+	bool isforpotyield;
+	/// GGCMI: Whether PFT is a nitrogen fixer
+	bool fixer;
+	/// GGCMI: N-limited version of this PFT
+	bool nlim;
+	/// GGCMI: Whether each fertilization event has occurred
+	bool fertilised[2];
+	/// GGCMI/BNF: Development stage parameters for biological nitrogen fixation
+	double bnf_ds_min;
+	double bnf_ds_max;
+	double bnf_ds_opt_low;
+	double bnf_ds_opt_high;
+	double bnf_wcont_min;
+	double bnf_wcont_max;
+	double bnf_wcont_intercept;
+	double bnf_wcont_rate;
+	double bnf_t_min;
+	double bnf_t_max;
+	double bnf_t_opt_low;
+	double bnf_t_opt_high;
+	double bnf_max;
+	/// GGCMI: Linear interpolation parameters for fphu↔ds relationship
+	double a_fphu_ds_1;
+	double a_fphu_ds_2;
+	double b_fphu_ds_1;
+	double b_fphu_ds_2;
+	double fphu_anthesis;
+
 	/// fraction of harvested products that goes into patchpft.harvested_products_slow
 	double harvest_slow_frac;
 	/// yearly turnover fraction of patchpft.harvested_products_slow (goes to gridcell.acflux_harvest_slow)
@@ -2428,6 +2464,30 @@ public:
 		r_ck = -99999.0;
 		p = -99999.0;
 		MoE = -99999.0;
+
+		isforpotyield = false;
+		fixer = false;
+		nlim = false;
+		fertilised[0] = false;
+		fertilised[1] = false;
+		bnf_ds_min = -1.0;
+		bnf_ds_max = -1.0;
+		bnf_ds_opt_low = -1.0;
+		bnf_ds_opt_high = -1.0;
+		bnf_wcont_min = -1.0;
+		bnf_wcont_max = -1.0;
+		bnf_wcont_intercept = -1.0;
+		bnf_wcont_rate = -1.0;
+		bnf_t_min = -1.0;
+		bnf_t_max = -1.0;
+		bnf_t_opt_low = -1.0;
+		bnf_t_opt_high = -1.0;
+		bnf_max = -1.0;
+		a_fphu_ds_1 = -0.07;
+		a_fphu_ds_2 = 0.2247;
+		b_fphu_ds_1 = 2.45;
+		b_fphu_ds_2 = 1.7753;
+		fphu_anthesis = 0.4367;
 
 		turnover_harv_prod = 1.0;	// default 1 year turnover time
 
@@ -2935,6 +2995,17 @@ struct cropindiv_struct : public Serializable {
 	/// set to true if pft.isintercropgrass is true and the stand's main crop pft.intercrop is "naturalgrass"
 	bool isintercropgrass;
 
+	/// GGCMI: N mass uptake at harvest
+	double nmass_uptake_harvest;
+	/// GGCMI: Aboveground C at harvest
+	double cmass_ag_harvest;
+	/// GGCMI: Belowground C at harvest
+	double cmass_bg_harvest;
+	/// GGCMI: Harvestable organ C (GGCMI accounting)
+	double cmass_ho_harvest_ggcmi;
+	/// GGCMI: Harvestable organ N (GGCMI accounting)
+	double nmass_ho_harvest_ggcmi;
+
 	cropindiv_struct() {
 		cmass_ho=0.0;
 		cmass_agpool=0.0;
@@ -3006,6 +3077,11 @@ struct cropindiv_struct : public Serializable {
 		isprimarycovegetation=false;
 //		issecondarycrop=false;
 		isintercropgrass=false;
+		nmass_uptake_harvest=0.0;
+		cmass_ag_harvest=0.0;
+		cmass_bg_harvest=0.0;
+		cmass_ho_harvest_ggcmi=0.0;
+		nmass_ho_harvest_ggcmi=0.0;
 	}
 
 	void serialize(ArchiveStream& arch);
@@ -3169,6 +3245,8 @@ public:
 	double nstore_labile_luc;
 	/// daily total nitrogen demand
 	double ndemand;
+	/// GGCMI: Daily total nitrogen demand (distinct from ndemand)
+	double ndemand_total;
 	/// fraction of individual nitrogen demand available for uptake
 	double fnuptake;
 	/// annual nitrogen uptake
@@ -4250,6 +4328,13 @@ private:
 	double calculate_tiller_areas(double r_frac[NLAYERS], double t_area[NLAYERS]);
 	bool calculate_gas_ebullition(double& ebull_today);
 
+	/// GGCMI: Monthly growing-season soil moisture top 1m
+	double grs_mwcont_top1m[12];
+	/// GGCMI: Day counter for monthly averaging
+	int grs_days_thismonth;
+	/// GGCMI: Growing-season leaching from available N pool
+	double sminleach;
+
 	void serialize(ArchiveStream& arch);
 };
 
@@ -4364,7 +4449,38 @@ struct cropphen_struct : public Serializable {
 	// A variable holding the memory of whether this field was fertilised or not.
 	bool fertilised[3];
 
+	/// GGCMI: Planting date
+	int planting_date;
+	/// GGCMI: Days after planting to anthesis
+	int dap_anth;
+	/// GGCMI: Days after planting to maturity
+	int dap_mat;
+	/// GGCMI: Growing season length
+	int growseaslength;
+	/// GGCMI: 2nd N fertilization date
+	int Nfertdate2;
+	/// GGCMI: Per-season N fertilization (kgN/m2)
+	double nfert;
+	/// GGCMI: Bioclimatic sowing restriction
+	bool bad_bioclimate;
+	/// GGCMI: Manure remaining
+	double nfert_manure_remaining;
+	/// GGCMI: Synthetic fraction of N fert
+	double synthfrac;
+	/// GGCMI/BNF: BNF modifier
+	double f2_mod;
+
 	cropphen_struct() {
+		planting_date=0;
+		dap_anth=-1;
+		dap_mat=-1;
+		growseaslength=-1;
+		Nfertdate2=-1;
+		nfert=0.0;
+		bad_bioclimate=false;
+		nfert_manure_remaining=0.0;
+		synthfrac=1.0;
+		f2_mod=0.0;
 		sdate=-1;
 		sdate_harv=-1;
 		nsow=0;
@@ -4610,6 +4726,8 @@ public:
 		cmass_wood_clearcut = 0.0;
 		cmass_harv_tolitter = 0.0;
 		cmass_harv_killed = 0.0;
+		cmass_ho_harvest_lastyear = -1.0;
+		cmass_ho_harvest_thisyear = -1.0;
 	}
 
 	~Patchpft() {
@@ -4640,6 +4758,11 @@ public:
 	double monthly_ba_frac[12];
 	/// SPITFIRE: Monthly NPP
 	double monthly_npp[12];
+
+	/// GGCMI: Previous year harvestable organ C
+	double cmass_ho_harvest_lastyear;
+	/// GGCMI: Current year harvestable organ C
+	double cmass_ho_harvest_thisyear;
 };
 
 
@@ -4859,6 +4982,35 @@ public:
 	/// SPITFIRE: Monthly burned fractions (applied after stochastic determination)
 	double mfirefrac_applied[12];
 
+	/// GGCMI: Growing-season N uptake
+	double grs_n_uptake;
+	/// GGCMI: Growing-season N input
+	double grs_n_input;
+	/// GGCMI: Growing-season N losses
+	double grs_n_losses;
+	/// GGCMI: Growing-season irrigation water
+	double grs_w_irr;
+	/// GGCMI: Growing-season evaporation
+	double grs_w_evapo;
+	/// GGCMI: Growing-season interception
+	double grs_w_intercep;
+	/// GGCMI: Growing-season transpiration
+	double grs_w_transp;
+	/// GGCMI: Growing-season runoff
+	double grs_w_runoff;
+	/// GGCMI: Growing-season N fertilization (kgN/m2/season)
+	double snfert;
+	/// GGCMI: Growing-season N2O emissions
+	double semis_n2o;
+	/// GGCMI: Growing-season N2 emissions
+	double semis_n2;
+	/// GGCMI: Growing-season C emissions
+	double semis_c;
+	/// GGCMI: Last year irrigation (for steady-state check)
+	double grs_w_irr_lastyear;
+	/// GGCMI: This year irrigation (for steady-state check)
+	double grs_w_irr_thisyear;
+
 	/// Returns whether we should model disturbances in this patch
 	bool has_disturbances() const;
 	/// Total patch carbon biomass and litter
@@ -4950,6 +5102,14 @@ public:
 	int sdate_force;
 	/// harvest date specified in stand type or read from input file
 	int hdate_force;
+	/// GGCMI: PHU sum from stand type or input file
+	double phu_force;
+	/// GGCMI: PVD sum from stand type or input file
+	int pvd_force;
+	/// GGCMI: Growing season length from input
+	int growseaslength_force;
+	/// GGCMI: 2nd fertilization date from input
+	int Nfertdate2_force;
 
 	// MEMBER FUNCTIONS
 
@@ -4966,6 +5126,10 @@ public:
 		irrigated = false;
 		sdate_force = -1;
 		hdate_force = -1;
+		phu_force = -1.0;
+		pvd_force = -1;
+		growseaslength_force = -1;
+		Nfertdate2_force = -1;
 		cmass_repr = 0.0;
 	}
 
@@ -5270,6 +5434,15 @@ public:
 	/// SPITFIRE/BLAZE: Monthly burned area per PFT
 	double blaze_burned_area[12];
 
+	/// GGCMI: PHU sum from input file
+	double phu_force;
+	/// GGCMI: PVD sum from input file
+	int pvd_force;
+	/// GGCMI: Growing season length from input
+	int growseaslength_force;
+	/// GGCMI: 2nd fertilization date from input
+	int Nfertdate2_force;
+
 	// MEMBER FUNCTIONS
 
 	/// Constructs a Gridcellpft object
@@ -5303,6 +5476,10 @@ public:
 		for(int m=0;m<12;m++) {
 			blaze_burned_area[m] = 0.0;
 		}
+		phu_force=-1.0;
+		pvd_force=-1;
+		growseaslength_force=-1;
+		Nfertdate2_force=-1;
 		sdatecalc_temp=-1;
 		sdatecalc_prec=-1;
 		hlimitdate_default=-1;
