@@ -90,6 +90,8 @@ void nh3_volatilization(Patch& patch, Soil& soil, Climate& climate, double& n_bu
 
 	patch.fluxes.report_flux(Fluxes::NH3_SOIL, nh3_inc);
 
+	patch.grs_n_losses += nh3_inc;
+
 	// N budget check
 	// N lost as NH3 gas
 	n_budget_check -= nh3_inc;
@@ -296,6 +298,10 @@ void n_gas_emission(Patch& patch, Fluxes& fluxes, Soil& soil, double& n_budget_c
 	// Daily N2 gas released from soil to atmosphere (table 10, eqn 2, Xu-Ri 2008)
 	n2_flux_inc     = ftemp * (1.0 - min(1.0, wcont)) * soil.N2_mass;
 	soil.N2_mass   -= n2_flux_inc;
+
+	patch.semis_n2o += n2o_d_flux_inc + n2o_w_flux_inc;
+	patch.grs_n_losses += no_d_flux_inc + no_w_flux_inc + n2o_d_flux_inc + n2o_w_flux_inc;
+	patch.semis_n2 += n2_flux_inc;
 
 	patch.fluxes.report_flux(Fluxes::NO_SOIL,     no_d_flux_inc + no_w_flux_inc);
 	patch.fluxes.report_flux(Fluxes::N2O_SOIL,    n2o_d_flux_inc + n2o_w_flux_inc);

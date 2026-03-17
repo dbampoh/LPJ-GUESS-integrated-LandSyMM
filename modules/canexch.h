@@ -18,6 +18,9 @@
 
 #include "guess.h"
 
+#define MAXBNFNPP
+//#undef MAXBNFNPP
+
 void interception(Patch& patch, Climate& climate);
 void canopy_exchange(Patch& patch, Climate& climate);
 void photosynthesis(const PhotosynthesisEnvironment& ps_env, 

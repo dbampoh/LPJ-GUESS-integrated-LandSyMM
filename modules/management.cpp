@@ -2697,6 +2697,97 @@ void yield_pasture(Individual& indiv, double cmass_leaf_inc) {
  *  \param patch					reference to a Patch containing the following public members:
  *   - dnfert 						nitrogen fertilization today (kgN/m2)
  */
+
+/// Apportions manure C and N to various soil pools, synthetic N to dnfert
+void add_fertilizer_manure(Patch& patch, cropphen_struct& ppftcrop, double nfert) {
+
+	double nfert_manure = min(nfert, ppftcrop.nfert_manure_remaining);
+	double nfert_synth = nfert - nfert_manure;
+
+	if (nfert_synth > 0.0) {
+		patch.dnfert += nfert_synth;
+		patch.fluxes.report_flux(Fluxes::NFERT, nfert_synth);
+	}
+
+	if (nfert_manure > 0.0) {
+		patch.dnfert += nfert_manure * (1.0 - manure_organic_frac);
+
+		patch.soil.sompool[SOILMETA].nmass += nfert_manure * manure_organic_frac * 0.5;
+		patch.soil.sompool[SOILSTRUCT].nmass += nfert_manure * manure_organic_frac * 0.5;
+		patch.anfert += nfert_manure * manure_organic_frac;
+		patch.snfert += nfert_manure * manure_organic_frac;
+
+		patch.soil.sompool[SOILMETA].cmass += nfert_manure * manure_cn * 0.25;
+		patch.soil.sompool[SOILSTRUCT].cmass += nfert_manure * manure_cn * 0.75;
+		patch.fluxes.report_flux(Fluxes::MANUREC, -nfert_manure * manure_cn);
+
+		patch.fluxes.report_flux(Fluxes::MANUREN, nfert_manure);
+
+		ppftcrop.nfert_manure_remaining -= nfert_manure;
+	}
+}
+
+/// Pasture fertilization routine
+void nfert_pasture(Patch& patch) {
+
+	Stand& stand = patch.stand;
+	StandType& st = stlist[stand.stid];
+	Gridcell& gridcell = stand.get_gridcell();
+	Gridcellst& gridcellst = gridcell.st[stand.stid];
+
+	if (stand.landcover != PASTURE)
+		return;
+
+	double nfert = 0.0;
+	Pft& pft = pftlist[patch.stand.stid];
+
+	if (pft.fertrate[0] == 0.0) pft.fertrate[0] = -1.0;
+	if (pft.fertrate[1] == 1.0) pft.fertrate[1] = -1.0;
+	if (pft.fertdates[0] == 0) pft.fertdates[0] = -1.0;
+	if (pft.fertdates[1] == 30) pft.fertdates[1] = -1.0;
+
+	if (st.get_management().N_appfert_mt < 0) {
+		st.get_management().N_appfert_mt = 0.0;
+	}
+	else {
+		if (pft.fertrate[0] == -1 && pft.fertrate[1] == -1 && pft.fertdates[0] != -1 && pft.fertdates[1] != -1) {
+			pft.fertrate[0] = 0.5;
+			pft.fertrate[1] = 0.5;
+		}
+
+		if (pft.fertdates[0] == -1 && pft.fertdates[1] == -1 && pft.fertrate[0] != -1 && pft.fertrate[1] != -1) {
+			pft.fertdates[0] = 120;
+			pft.fertdates[1] = 240;
+		}
+
+		if ((pft.fertrate[0] == -1 && pft.fertrate[1] == -1) && (pft.fertdates[0] == -1 && pft.fertdates[1] == -1)) {
+			nfert = st.get_management().N_appfert_mt / date.year_length();
+		}
+
+		if (pft.fertdates[0] != -1 && pft.fertdates[1] != -1 && (pft.fertrate[0] != -1 && pft.fertrate[1] != -1)) {
+			if (pft.fertrate[0] + pft.fertrate[1] != 1.0) {
+				double total_rate = pft.fertrate[0] + pft.fertrate[1];
+				pft.fertrate[0] /= total_rate;
+				pft.fertrate[1] /= total_rate;
+			}
+		}
+
+		if (date.day == pft.fertdates[0]) {
+			nfert = st.get_management().N_appfert_mt * pft.fertrate[0];
+			gridcellst.nfert = nfert;
+		}
+
+		if (date.day == pft.fertdates[1]) {
+			nfert = st.get_management().N_appfert_mt * pft.fertrate[1];
+			gridcellst.nfert = nfert;
+		}
+	}
+
+	patch.dnfert = nfert;
+	patch.anfert += patch.dnfert;
+	patch.snfert += patch.dnfert;
+}
+
 void nfert_crop(Patch& patch) {
 
 	Gridcell& gridcell = patch.stand.get_gridcell();
@@ -2765,6 +2856,7 @@ void nfert_crop(Patch& patch) {
 		pftlist.nextobj();
 	}
 	patch.anfert += patch.dnfert;
+	patch.snfert += patch.dnfert;
 }
 
 /// Function that determines amount of nitrogen applied today. General, both StandType-based and Pft-based, calling function nfert_crop().
@@ -2794,6 +2886,11 @@ void nfert(Patch& patch) {
 		return;
 	}
 
+	if (stand.landcover == PASTURE) {
+		nfert_pasture(patch);
+		return;
+	}
+
 	// General code for applying nitrogen to other land cover types, an equal amount every day.
 	double nfert;
 	if(gridcell.st[st.id].nfert >= 0.0) {	// todo: management type variable (mt.nfert)
@@ -2804,6 +2901,7 @@ void nfert(Patch& patch) {
 	}
 	patch.dnfert = nfert / date.year_length();
 	patch.anfert += patch.dnfert;
+	patch.snfert += patch.dnfert;
 	patch.fluxes.report_flux(Fluxes::NFERT, patch.dnfert);
 }
 

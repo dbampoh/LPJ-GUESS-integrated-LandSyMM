@@ -2951,4 +2951,277 @@ void MiscOutput::closelocalfiles(Gridcell& gridcell) {
 	}
 }
 
+void MiscOutput::outharvest(Gridcell& gridcell) {
+
+	if (date.get_calendar_year() < firstoutyear)
+		return;
+
+	double lon = gridcell.get_lon();
+	double lat = gridcell.get_lat();
+
+	if (!crop_gs_out)
+		return;
+
+	Gridcell::iterator gc_itr = gridcell.begin();
+	while (gc_itr != gridcell.end()) {
+
+		Stand& stand = *gc_itr;
+		if (stand.landcover != CROPLAND) {
+			++gc_itr;
+			continue;
+		}
+
+		stand.firstobj();
+		while (stand.isobj) {
+			Patch& patch = stand.getobj();
+			int st = stand.stid;
+			Vegetation& vegetation = patch.vegetation;
+
+			vegetation.firstobj();
+			if (!vegetation.isobj) {
+				stand.nextobj();
+				continue;
+			}
+			Individual& indiv = vegetation.getobj();
+
+			cropphen_struct& cropphen = *(patch.pft[indiv.pft.id].cropphen);
+			cropindiv_struct& cropindiv = *(indiv.cropindiv);
+			bool is_harvest_date = cropphen.hdate == date.day;
+			bool save_at_end_of_last_year = cropphen.growingseason && date.islastday && date.islastmonth && date.get_calendar_year() == lasthistyear;
+
+			if (is_harvest_date || save_at_end_of_last_year) {
+
+				int year = date.get_calendar_year();
+				if (is_harvest_date && Date::stepfromdate(cropphen.planting_date, cropphen.dap_mat - 1) < cropphen.planting_date)
+					year = year - 1;
+
+				if (year < firstoutyear || year > lastoutyear) {
+					stand.nextobj();
+					continue;
+				}
+
+				OutputRows out(output_channel, lon, lat, year, date.day);
+				out.add_value(out_misc_stand[st], !cropphen.bad_bioclimate);
+				out.add_value(out_misc_stand[st], cropindiv.cmass_ho_harvest_ggcmi / 0.446 * 10.0);
+				out.add_value(out_misc_stand[st], cropindiv.nmass_ho_harvest_ggcmi > 0.0 ? cropindiv.cmass_ho_harvest_ggcmi / cropindiv.nmass_ho_harvest_ggcmi : 0.0);
+				out.add_value(out_misc_stand[st], cropindiv.cmass_ag_harvest / 0.446 * 10.0);
+				out.add_value(out_misc_stand[st], cropphen.planting_date);
+				out.add_value(out_misc_stand[st], cropphen.dap_anth);
+				out.add_value(out_misc_stand[st], cropphen.dap_mat);
+				out.add_value(out_misc_stand[st], patch.grs_w_irr);
+				out.add_value(out_misc_stand[st], patch.grs_w_evapo + patch.grs_w_transp + patch.grs_w_intercep);
+				out.add_value(out_misc_stand[st], patch.grs_w_transp);
+				out.add_value(out_misc_stand[st], patch.grs_w_evapo);
+				out.add_value(out_misc_stand[st], patch.grs_w_runoff);
+				out.add_value(out_misc_stand[st], cropindiv.cmass_bg_harvest / 0.446 * 10.0);
+				out.add_value(out_misc_stand[st], cropindiv.nmass_uptake_harvest * 10000.0);
+				out.add_value(out_misc_stand[st], patch.grs_n_input * 10000.0);
+				out.add_value(out_misc_stand[st], patch.grs_n_losses * 10000.0);
+				out.add_value(out_misc_stand[st], patch.soil.sminleach * 1000.0);
+				out.add_value(out_misc_stand[st], patch.semis_n2o * 1000.0);
+				out.add_value(out_misc_stand[st], patch.semis_n2 * 1000.0);
+				out.add_value(out_misc_stand[st], patch.semis_c * 1000.0);
+				out.add_value(out_misc_stand[st], cropphen.husum);
+				out.add_value(out_misc_stand[st], cropphen.vdsum);
+				out.add_value(out_misc_stand[st], cropphen.phu);
+				out.add_value(out_misc_stand[st], cropphen.pvd);
+				out.add_value(out_misc_stand[st], patch.snfert * 10000.0);
+			}
+
+			stand.nextobj();
+			break;
+		}
+		++gc_itr;
+	}
+}
+
+void MiscOutput::outannual_ggcmi(Gridcell& gridcell) {
+
+	if (date.get_calendar_year() < firstoutyear || date.get_calendar_year() > lastoutyear)
+		return;
+
+	double lon = gridcell.get_lon();
+	double lat = gridcell.get_lat();
+
+	if (!crop_gs_out)
+		return;
+
+	Gridcell::iterator gc_itr = gridcell.begin();
+	while (gc_itr != gridcell.end()) {
+
+		Stand& stand = *gc_itr;
+		if (stand.landcover != CROPLAND || stand.npatch() > 1) {
+			++gc_itr;
+			continue;
+		}
+
+		stand.firstobj();
+		while (stand.isobj) {
+			Patch& patch = stand.getobj();
+			int st = stand.stid;
+
+			OutputRows out(output_channel, lon, lat, date.get_calendar_year());
+			for (int m = 0; m < 12; m++) {
+				out.add_value(out_rootmoistm_stand[st], patch.soil.grs_mwcont_top1m[m]);
+			}
+
+			stand.nextobj();
+		}
+		++gc_itr;
+	}
+}
+
+void MiscOutput::outharvest_justphupvd(Gridcell& gridcell) {
+
+	if (date.get_calendar_year() < firstoutyear)
+		return;
+
+	double lon = gridcell.get_lon();
+	double lat = gridcell.get_lat();
+
+	if (!crop_gs_out)
+		return;
+
+	Gridcell::iterator gc_itr = gridcell.begin();
+	while (gc_itr != gridcell.end()) {
+
+		Stand& stand = *gc_itr;
+		if (stand.landcover != CROPLAND || stand.npatch() > 1) {
+			++gc_itr;
+			continue;
+		}
+
+		stand.firstobj();
+		while (stand.isobj) {
+			Patch& patch = stand.getobj();
+			int st = stand.stid;
+			Vegetation& vegetation = patch.vegetation;
+
+			vegetation.firstobj();
+			if (!vegetation.isobj) {
+				stand.nextobj();
+				continue;
+			}
+			Individual& indiv = vegetation.getobj();
+
+			cropphen_struct& cropphen = *(patch.pft[indiv.pft.id].cropphen);
+			bool is_harvest_date = cropphen.hdate == date.day;
+			bool save_at_end_of_last_year = cropphen.growingseason && date.islastday && date.islastmonth && date.get_calendar_year() == lasthistyear;
+
+			if (is_harvest_date || save_at_end_of_last_year) {
+
+				int year = date.get_calendar_year();
+				if (is_harvest_date && Date::stepfromdate(cropphen.planting_date, cropphen.dap_mat - 1) < cropphen.planting_date)
+					year = year - 1;
+
+				if (year < firstoutyear || year > lastoutyear) {
+					stand.nextobj();
+					continue;
+				}
+
+				OutputRows out(output_channel, lon, lat, year, date.day);
+				out.add_value(out_phupvd_stand[st], cropphen.husum);
+				out.add_value(out_phupvd_stand[st], cropphen.vdsum);
+				out.add_value(out_phupvd_stand[st], cropphen.phu);
+				out.add_value(out_phupvd_stand[st], cropphen.pvd);
+			}
+
+			stand.nextobj();
+		}
+		++gc_itr;
+	}
+}
+
+void MiscOutput::openlocalfiles_ggcmi() {
+
+	ColumnDescriptors misc_columns;
+	misc_columns += ColumnDescriptor("okbc", 5, 0);
+	misc_columns += ColumnDescriptor("yield", 10, 4);
+	misc_columns += ColumnDescriptor("cnyield", 10, 4);
+	misc_columns += ColumnDescriptor("biom", 10, 4);
+	misc_columns += ColumnDescriptor("plantday", 10, 0);
+	misc_columns += ColumnDescriptor("anthday", 10, 0);
+	misc_columns += ColumnDescriptor("matyday", 10, 0);
+	misc_columns += ColumnDescriptor("pirrww", 12, 3);
+	misc_columns += ColumnDescriptor("aet", 12, 3);
+	misc_columns += ColumnDescriptor("transp", 12, 3);
+	misc_columns += ColumnDescriptor("evap", 12, 3);
+	misc_columns += ColumnDescriptor("runoff", 12, 3);
+	misc_columns += ColumnDescriptor("rootm", 12, 3);
+	misc_columns += ColumnDescriptor("tnrup", 12, 5);
+	misc_columns += ColumnDescriptor("tnrin", 12, 5);
+	misc_columns += ColumnDescriptor("tnrloss", 12, 5);
+	misc_columns += ColumnDescriptor("nleach", 12, 5);
+	misc_columns += ColumnDescriptor("n2oemis", 12, 5);
+	misc_columns += ColumnDescriptor("n2emis", 12, 5);
+	misc_columns += ColumnDescriptor("tcemis", 12, 5);
+	misc_columns += ColumnDescriptor("husum", 10, 2);
+	misc_columns += ColumnDescriptor("vdsum", 10, 2);
+	misc_columns += ColumnDescriptor("phu", 10, 2);
+	misc_columns += ColumnDescriptor("pvd", 10, 2);
+	misc_columns += ColumnDescriptor("nfert", 12, 6);
+
+	ColumnDescriptors phupvd_columns;
+	phupvd_columns += ColumnDescriptor("husum", 10, 2);
+	phupvd_columns += ColumnDescriptor("vdsum", 10, 2);
+	phupvd_columns += ColumnDescriptor("phu", 10, 2);
+	phupvd_columns += ColumnDescriptor("pvd", 10, 2);
+
+	ColumnDescriptors month_columns;
+	xtring months[] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
+	for (int i = 0; i < 12; i++) {
+		month_columns += ColumnDescriptor(months[i], 8, 3);
+	}
+
+	std::string filename;
+
+	stlist.firstobj();
+	while (stlist.isobj) {
+		StandType& st = stlist.getobj();
+
+		if (just_phu_pvd) {
+			filename = "phupvd_";
+			filename += st.name;
+			filename += ".out";
+			if (out_phupvd_stand[st.id].invalid())
+				create_output_table(out_phupvd_stand[st.id], filename.c_str(), phupvd_columns);
+		} else {
+			filename = "misc_";
+			filename += st.name;
+			filename += ".out";
+			if (out_misc_stand[st.id].invalid())
+				create_output_table(out_misc_stand[st.id], filename.c_str(), misc_columns);
+
+			filename = "rootmoistm_";
+			filename += st.name;
+			filename += ".out";
+			if (out_rootmoistm_stand[st.id].invalid())
+				create_output_table(out_rootmoistm_stand[st.id], filename.c_str(), month_columns);
+		}
+
+		stlist.nextobj();
+	}
+}
+
+void MiscOutput::closelocalfiles_ggcmi() {
+
+	stlist.firstobj();
+	while (stlist.isobj) {
+		StandType& st = stlist.getobj();
+		int id = st.id;
+
+		if (just_phu_pvd) {
+			if (!out_phupvd_stand[id].invalid())
+				close_output_table(out_phupvd_stand[id]);
+		} else {
+			if (!out_misc_stand[id].invalid())
+				close_output_table(out_misc_stand[id]);
+			if (!out_rootmoistm_stand[id].invalid())
+				close_output_table(out_rootmoistm_stand[id]);
+		}
+
+		stlist.nextobj();
+	}
+}
+
 } // namespace

@@ -43,13 +43,28 @@ void phu_init(cropphen_struct& ppftcrop, Gridcellpft& gridcellpft, Patch& patch)
 	ppftcrop.vdsum = 0;
 	ppftcrop.prf = 1.0;
 
-	ppftcrop.pvd = pft.pvd;		// default; kept for TrMi, TePu, TeSb, TrMa, TeSo, TrPe
-	ppftcrop.phu = pft.phu;
+	if (readpvd) {
+		ppftcrop.pvd = gridcellpft.pvd_force;
+	} else {
+		ppftcrop.pvd = pft.pvd;		// default; kept for TrMi, TePu, TeSb, TrMa, TeSo, TrPe
+	}
+	if (readphu) {
+		ppftcrop.phu = gridcellpft.phu_force;
+	} else {
+		ppftcrop.phu = pft.phu;
+	}
+
+	ppftcrop.nfert = 0.0;
+	ppftcrop.nfert_manure_remaining = 0.0;
+	ppftcrop.synthfrac = 1.0;
+
 	ppftcrop.tb = pft.tb;
 
 	ppftcrop.vdsum_alloc=0.0;
 	ppftcrop.vd=0.0;
 	ppftcrop.dev_stage=0.0;
+
+	if (!(readphu && readpvd)) {
 
 	// Calculation of phu and pvd according to Bondeau et al. 2007
 	if (pft.ifsdautumn) {	// TeWW,TeRa
@@ -152,6 +167,8 @@ void phu_init(cropphen_struct& ppftcrop, Gridcellpft& gridcellpft, Patch& patch)
 		if (ifdyn_phu_limit && date.year >= patch.stand.first_year + min_phu_sample_period && date.year >= nyear_spinup + nyear_dyn_phu)
 			ppftcrop.phu = phu_last_year;
 	}
+
+	} // end if (!(readphu && readpvd))
 }
 
 /// Calculation of harvest index
@@ -363,25 +380,52 @@ void crop_phenology(Patch& patch) {
 
 					ppftcrop.growingseason = true;
 					ppftcrop.growingdays = 0;
-					ppftcrop.nsow++;
+				ppftcrop.nsow++;
 
-					if (ppftcrop.nsow == 1)
+				patch.grs_w_evapo = 0.0;
+				patch.grs_w_intercep = 0.0;
+				patch.grs_w_transp = 0.0;
+				patch.grs_w_irr = 0.0;
+				patch.grs_w_runoff = 0.0;
+				patch.grs_n_input = 0.0;
+				patch.grs_n_losses = 0.0;
+				patch.grs_n_uptake = 0.0;
+				ppftcrop.dap_anth = 0;
+				ppftcrop.dap_mat = 0;
+				ppftcrop.planting_date = ppftcrop.sdate;
+				patch.snfert = 0.0;
+				patch.semis_n2o = 0.0;
+				patch.semis_n2 = 0.0;
+				patch.semis_c = 0.0;
+				patch.soil.sminleach = 0.0;
+
+				if (ppftcrop.nsow == 1)
 						ppftcrop.sdate_thisyear[0] = ppftcrop.sdate;
-					else if (ppftcrop.nsow == 2)
-						ppftcrop.sdate_thisyear[1] = ppftcrop.sdate;
+				else if (ppftcrop.nsow == 2)
+					ppftcrop.sdate_thisyear[1] = ppftcrop.sdate;
 
-					// calculate pvd, phu & tb
-					phu_init(ppftcrop, gridcellpft, patch);
+				patch.hydrology = standpft.hydrology;
+
+				// calculate pvd, phu & tb
+				phu_init(ppftcrop, gridcellpft, patch);
+
+				if (date.year > 0) {
+					ppftcrop.bad_bioclimate = !patch.can_establish(pftlist[patch.stand.pftid]);
+				} else {
+					ppftcrop.bad_bioclimate = false;
 				}
+			}
 
 				// Calculation of accumulated heat units and harvest index from sowing to maturity
 				if (ppftcrop.growingseason) {
 
-					ppftcrop.senescence_ystd = ppftcrop.senescence;
-					ppftcrop.intercropseason = false;
-					ppftcrop.growingdays++;
+				ppftcrop.senescence_ystd = ppftcrop.senescence;
+				ppftcrop.intercropseason = false;
+				ppftcrop.growingdays++;
 
-					// check if harvest is prescribed
+				patch.soil.grs_days_thismonth++;
+
+				// check if harvest is prescribed
 					bool force_harvest = date.day == standpft.hdate_force;
 
 					// before maturity is reached
@@ -403,10 +447,14 @@ void crop_phenology(Patch& patch) {
 							ppftcrop.senescence = true;
 						}
 
-						// calculated harvest index
-						harvest_index(patch, pft);
+					// calculated harvest index
+					harvest_index(patch, pft);
 
+					if (ppftcrop.dap_anth <= 0 && ppftcrop.dev_stage >= 1.0) {
+						ppftcrop.dap_anth = ppftcrop.growingdays;
 					}
+
+				}
 					else {	// harvest
 
 						// save today as harvest day
@@ -429,10 +477,11 @@ void crop_phenology(Patch& patch) {
 						// Save phenological values and dates at harvest:
 						ppftcrop.fphu_harv = ppftcrop.fphu;
 						ppftcrop.fhi_harv = ppftcrop.fhi;
-						ppftcrop.sdate_harv = ppftcrop.sdate;
-						ppftcrop.lgp = ppftcrop.growingdays;
+					ppftcrop.sdate_harv = ppftcrop.sdate;
+					ppftcrop.lgp = ppftcrop.growingdays;
+					ppftcrop.dap_mat = ppftcrop.growingdays;
 
-						// allowing saving at two harvests per year
+					// allowing saving at two harvests per year
 						if (ppftcrop.nharv == 1) {
 							ppftcrop.sdate_harvest[0] = ppftcrop.sdate;
 							ppftcrop.hdate_harvest[0] = date.day;
@@ -446,9 +495,11 @@ void crop_phenology(Patch& patch) {
 
 						ppftcrop.demandsum_crop = 0.0;
 						ppftcrop.supplysum_crop = 0.0;
-						ppftcrop.sdate = -1;
-						ppftcrop.eicdate = -1;
-					} //end harvest
+					ppftcrop.sdate = -1;
+					ppftcrop.eicdate = -1;
+
+					patch.hydrology = RAINFED;
+				} //end harvest
 				}  //from sowing has taken place until harvest day
 
 				// continue sampling heat units from hdate until last sampling date
@@ -587,7 +638,7 @@ void leaf_phenology_crop(Pft& pft, Patch& patch) {
 // REFERENCES
 //
 // Bondeau A, Smith PC, Zaehle S, Schaphoff S, Lucht W, Cramer W, Gerten D, Lotze-Campen H,
-//   Müller C, Reichstein M & Smith B 2007. Modelling the role of agriculture for the
+//   Mï¿½ller C, Reichstein M & Smith B 2007. Modelling the role of agriculture for the
 //   20th century global terrestrial carbon balance. Global Change Biology, 13:679-706.
 // Lindeskog M, Arneth A, Bondeau A, Waha K, Seaquist J, Olin S, & Smith B 2013.
 //   Implications of accounting for land use in simulations of ecosystem carbon cycling

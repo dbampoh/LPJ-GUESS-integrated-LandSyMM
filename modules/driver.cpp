@@ -809,6 +809,15 @@ void dailyaccounting_gridcell(Gridcell& gridcell) {
 	climate.aprec += climate.prec;
 	climate.ainsol += climate.insol;
 
+	if (date.dayofmonth == 0) {
+		climate.montemp[date.month] = 0.0;
+		climate.monprec[date.month] = 0.0;
+		climate.mongdd5[date.month] = 0.0;
+	}
+	climate.montemp[date.month] += climate.temp / date.ndaymonth[date.month];
+	climate.monprec[date.month] += max(0.0, climate.prec);
+	climate.mongdd5[date.month] += max(0.0, climate.temp - 5.0);
+
 	// Update GDD counters and chill day count
 	climate.gdd5 += max(0.0, climate.temp - 5.0);
 	climate.agdd5 += max(0.0, climate.temp - 5.0);
@@ -961,6 +970,14 @@ void dailyaccounting_patch(Patch& patch) {
 		patch.aintercep = 0.0;
 		patch.apet = 0.0;
 
+		for (unsigned int i = 0; i < pftlist.nobj; i++) {
+			Patchpft& ppft = patch.pft[i];
+			ppft.cmass_ho_harvest_lastyear = ppft.cmass_ho_harvest_thisyear;
+			ppft.cmass_ho_harvest_thisyear = -1.0;
+		}
+		patch.grs_w_irr_lastyear = patch.grs_w_irr_thisyear;
+		patch.grs_w_irr_thisyear = -1.0;
+
 		// Calculate total FPC
 		patch.fpc_total = 0;
 		Vegetation& vegetation = patch.vegetation;
@@ -1008,6 +1025,8 @@ void dailyaccounting_patch(Patch& patch) {
 		patch.maet[date.month] = 0.0;
 		patch.mintercep[date.month] = 0.0;
 		patch.mpet[date.month]=0.0;
+
+		soil.grs_days_thismonth = 0;
 	}
 
 	if(run_landcover)

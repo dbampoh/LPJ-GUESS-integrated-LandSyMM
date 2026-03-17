@@ -749,6 +749,20 @@ double Patch::water_flux() {
 }
 #endif
 
+bool Patch::can_establish(Pft& pft) const {
+
+	const Climate& climate = stand.get_climate();
+
+	double snow_djf = (soil.msnowdepth[0] + soil.msnowdepth[1] + soil.dec_snowdepth) / 3.0;
+	double snow_jja = (soil.msnowdepth[5] + soil.msnowdepth[6] + soil.msnowdepth[7]) / 3.0;
+	bool too_little_snow = (climate.lat >= 0.0 && snow_djf < pft.min_snow) ||
+	                       (climate.lat < 0.0 && snow_jja < pft.min_snow);
+
+	return !(too_little_snow ||
+	         climate.agdd0_20.mean() <= pft.gdd0_min ||
+	         climate.agdd0_20.mean() >= pft.gdd0_max);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation of Standpft member functions
