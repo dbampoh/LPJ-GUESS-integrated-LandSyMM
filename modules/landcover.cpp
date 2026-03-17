@@ -1924,6 +1924,8 @@ void receiving_stand_change(Gridcell& gridcell, landcover_change_transfer& from,
 					patch.soil.cpool_slow = (patch.soil.cpool_slow * old_frac + from.transfer_cpool_slow * added_frac) / new_frac;
 
 					for(int i=0; i<NSOMPOOL; i++) {
+						double patch_cmass = patch.soil.sompool[i].cmass;
+						double transfer_cmass = from.transfer_sompool[i].cmass;
 						patch.soil.sompool[i].cmass = 
 							(patch.soil.sompool[i].cmass * old_frac + from.transfer_sompool[i].cmass * added_frac) / new_frac;
 						patch.soil.sompool[i].fireresist = 
@@ -1938,6 +1940,27 @@ void receiving_stand_change(Gridcell& gridcell, landcover_change_transfer& from,
 							(patch.soil.sompool[i].nmass * old_frac + from.transfer_sompool[i].nmass * added_frac) / new_frac;
 						patch.soil.sompool[i].ntoc = 
 							(patch.soil.sompool[i].ntoc * old_frac + from.transfer_sompool[i].ntoc * added_frac) / new_frac;
+
+						if (!negligible(patch.soil.sompool[i].cmass)) {
+							patch.soil.sompool[i].fuelbulkdensity = (patch.soil.sompool[i].fuelbulkdensity * old_frac * patch_cmass + from.transfer_sompool[i].fuelbulkdensity * added_frac * transfer_cmass) / (new_frac * patch.soil.sompool[i].cmass);
+							patch.soil.sompool[i].surfacetovolume = (patch.soil.sompool[i].surfacetovolume * old_frac * patch_cmass + from.transfer_sompool[i].surfacetovolume * added_frac * transfer_cmass) / (new_frac * patch.soil.sompool[i].cmass);
+							patch.soil.sompool[i].moistureofextinction = (patch.soil.sompool[i].moistureofextinction * old_frac * patch_cmass + from.transfer_sompool[i].moistureofextinction * added_frac * transfer_cmass) / (new_frac * patch.soil.sompool[i].cmass);
+							patch.soil.sompool[i].em_CO2 = (patch.soil.sompool[i].em_CO2 * old_frac * patch_cmass + from.transfer_sompool[i].em_CO2 * added_frac * transfer_cmass) / (new_frac * patch.soil.sompool[i].cmass);
+							patch.soil.sompool[i].em_CO = (patch.soil.sompool[i].em_CO * old_frac * patch_cmass + from.transfer_sompool[i].em_CO * added_frac * transfer_cmass) / (new_frac * patch.soil.sompool[i].cmass);
+							patch.soil.sompool[i].em_CH4 = (patch.soil.sompool[i].em_CH4 * old_frac * patch_cmass + from.transfer_sompool[i].em_CH4 * added_frac * transfer_cmass) / (new_frac * patch.soil.sompool[i].cmass);
+							patch.soil.sompool[i].em_VOC = (patch.soil.sompool[i].em_VOC * old_frac * patch_cmass + from.transfer_sompool[i].em_VOC * added_frac * transfer_cmass) / (new_frac * patch.soil.sompool[i].cmass);
+							patch.soil.sompool[i].em_TPM = (patch.soil.sompool[i].em_TPM * old_frac * patch_cmass + from.transfer_sompool[i].em_TPM * added_frac * transfer_cmass) / (new_frac * patch.soil.sompool[i].cmass);
+						}
+						else {
+							patch.soil.sompool[i].fuelbulkdensity = 0.0;
+							patch.soil.sompool[i].surfacetovolume = 0.0;
+							patch.soil.sompool[i].moistureofextinction = 0.25;
+							patch.soil.sompool[i].em_CO2 = 0.0;
+							patch.soil.sompool[i].em_CO = 0.0;
+							patch.soil.sompool[i].em_CH4 = 0.0;
+							patch.soil.sompool[i].em_VOC = 0.0;
+							patch.soil.sompool[i].em_TPM = 0.0;
+						}
 					}
 
 					patch.soil.NH4_mass = (patch.soil.NH4_mass * old_frac + from.transfer_NH4_mass * added_frac) / new_frac;

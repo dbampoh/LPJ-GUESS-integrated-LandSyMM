@@ -85,10 +85,18 @@ CommonOutput::CommonOutput() {
 	declare_parameter("file_mmon_mt1", &file_mmon_mt1, 300, "monthly endocyclic monoterpene flux output file");
 	declare_parameter("file_mmon_mt2", &file_mmon_mt2, 300, "monthly other monoterpene flux output file");
 
-	if ( firemodel == BLAZE ) {
-		declare_parameter("file_aburned_area_out", &file_aburned_area_out, 300, "BLAZE burned area output file");
-		declare_parameter("file_mburned_area_out", &file_mburned_area_out, 300, "BLAZE monthly burned area output file");
-		declare_parameter("file_simfireanalysis_out", &file_simfireanalysis_out, 300, "SIMFIRE analytics output");
+	if (firemodel == BLAZE || firemodel == SPITFIRE) {
+		declare_parameter("file_aburned_area_out", &file_aburned_area_out, 300, "BLAZE/SPITFIRE burned area output file");
+		declare_parameter("file_mburned_area_out", &file_mburned_area_out, 300, "BLAZE/SPITFIRE monthly burned area output file");
+		declare_parameter("file_mcflux_fire_out", &file_mcflux_fire_out, 300, "BLAZE/SPITFIRE monthly fire C emissions file");
+		if (firemodel == BLAZE)
+			declare_parameter("file_simfireanalysis_out", &file_simfireanalysis_out, 300, "SIMFIRE analytics output");
+		declare_parameter("file_mblaze_ba",                &file_mblaze_ba,                300, "Monthly burned area file");
+		declare_parameter("file_mblaze_FLI",               &file_mblaze_FLI,               300, "Monthly fire line intensity file");
+		declare_parameter("file_mblaze_mean_number_fires", &file_mblaze_mean_number_fires, 300, "Monthly mean number of fires file");
+		declare_parameter("file_mblaze_tree_mortality",    &file_mblaze_tree_mortality,    300, "Monthly tree mortality file");
+		declare_parameter("file_mblaze_mean_fire_size",    &file_mblaze_mean_fire_size,    300, "Monthly mean fire size file");
+		declare_parameter("file_mblaze_weighted_ROS",      &file_mblaze_weighted_ROS,      300, "Monthly weighted rate-of-spread file");
 	}
 
 	declare_parameter("file_msoiltempdepth5", &file_msoiltempdepth5, 300, "Soil temperature output file (5cm depth)");
@@ -184,11 +192,13 @@ void CommonOutput::define_output_tables() {
 	ColumnDescriptors month_columns;
 	ColumnDescriptors month_columns_wide;
 	ColumnDescriptors month_columns_wide_prec6;
+	ColumnDescriptors ba_frac_month_columns;
 	xtring months[] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
 	for (int i = 0; i < 12; i++) {
 		month_columns      += ColumnDescriptor(months[i], 8,  3);
 		month_columns_wide += ColumnDescriptor(months[i], 10, 3);
 		month_columns_wide_prec6 += ColumnDescriptor(months[i], 10, 6);
+		ba_frac_month_columns += ColumnDescriptor(months[i], 8, 5);
 	}
 
 	// Create the columns for each output file
@@ -488,8 +498,18 @@ void CommonOutput::define_output_tables() {
 	create_output_table(out_mmon,           file_mmon,           month_columns_wide);
 	create_output_table(out_mmon_mt1,       file_mmon_mt1,       month_columns_wide);
 	create_output_table(out_mmon_mt2,       file_mmon_mt2,       month_columns_wide);
-	create_output_table(out_mburned_area,   file_mburned_area_out, month_columns);
-    
+	create_output_table(out_mburned_area,   file_mburned_area_out, ba_frac_month_columns);
+	create_output_table(out_mcflux_fire,    file_mcflux_fire_out,  month_columns);
+
+	if (firemodel == BLAZE || firemodel == SPITFIRE) {
+		create_output_table(out_mblaze_ba,                file_mblaze_ba,                ba_frac_month_columns);
+		create_output_table(out_mblaze_FLI,               file_mblaze_FLI,               month_columns_wide);
+		create_output_table(out_mblaze_mean_number_fires, file_mblaze_mean_number_fires, ba_frac_month_columns);
+		create_output_table(out_mblaze_tree_mortality,    file_mblaze_tree_mortality,    ba_frac_month_columns);
+		create_output_table(out_mblaze_mean_fire_size,    file_mblaze_mean_fire_size,    month_columns_wide);
+		create_output_table(out_mblaze_weighted_ROS,      file_mblaze_weighted_ROS,      month_columns);
+	}
+
 	// Methane
 	// high precision output needed for case of low peatland fraction
 	create_output_table(out_mch4,           file_mch4,           month_columns_wide_prec6); // maybe: revert all later to month_columns???
@@ -771,6 +791,8 @@ void CommonOutput::outannual(Gridcell& gridcell) {
 	double mmon_mt1[12];
 	double mmon_mt2[12];
 
+	double mcflux_fire[12];
+
 	double msoilt[12][SOILTEMPOUT];
 	double mch4[12];
 	double mch4_diff[12];
@@ -790,6 +812,7 @@ void CommonOutput::outannual(Gridcell& gridcell) {
 	// guess2008 - reset monthly and annual sums across patches each year
 	for (m = 0; m < 12; m++) {
 		mnpp[m] = mlai[m] = mgpp[m] = mra[m] = maet[m] = mpet[m] = mevap[m] = mintercep[m] = mrunoff[m] = mrh[m] = mnee[m] = mwcont_upper[m] = mwcont_lower[m] = miso[m] = mmon[m] = mmon_mt1[m] = mmon_mt2[m] = 0.0;
+		mcflux_fire[m] = 0.0;
 
 		for (int sl = 0; sl < SOILTEMPOUT; sl++) msoilt[m][sl] = 0.0;
 		mch4[m] = mch4_diff[m] = mch4_ebull[m] = mch4_plant[m] = msnowdepth[m] = mwtp[m] = mald[m] = 0.0;
@@ -1404,7 +1427,9 @@ void CommonOutput::outannual(Gridcell& gridcell) {
 				mch4_diff[m] += patch.fluxes.get_monthly_flux(Fluxes::CH4C_DIFF, m)*to_gridcell_average;	// g CH4-C/m2
 				mch4_plant[m] += patch.fluxes.get_monthly_flux(Fluxes::CH4C_PLAN, m)*to_gridcell_average;	// g CH4-C/m2
 				mch4_ebull[m] += patch.fluxes.get_monthly_flux(Fluxes::CH4C_EBUL, m)*to_gridcell_average;	// g CH4-C/m2
-				
+
+				mcflux_fire[m] += patch.fluxes.get_monthly_flux(Fluxes::FIREC, m)*to_gridcell_average;
+
 				for (int sl = 0; sl < SOILTEMPOUT; sl++) {
 					msoilt[m][sl] += patch.soil.T_soil_monthly[m][sl] * to_gridcell_average;
 				}
@@ -1553,6 +1578,20 @@ void CommonOutput::outannual(Gridcell& gridcell) {
 		outlimit(out,out_mmon_mt1,     mmon_mt1[m]);
 		outlimit(out,out_mmon_mt2,     mmon_mt2[m]);
 		outlimit(out,out_mburned_area, (float)gridcell.monthly_burned_area[m]);
+		outlimit(out,out_mcflux_fire,  mcflux_fire[m]);
+
+		outlimit(out,out_mblaze_ba,    gridcell.monthly_burned_area[m]);
+		double mfli = 0.0;
+		double mros = 0.0;
+		if (gridcell.monthly_burned_area[m] > 0.0) {
+			mfli = gridcell.blaze_monthly_weighted_fli[m] / gridcell.monthly_burned_area[m];
+			mros = gridcell.blaze_monthly_weighted_ros[m] / gridcell.monthly_burned_area[m];
+		}
+		outlimit(out,out_mblaze_FLI,               mfli);
+		outlimit(out,out_mblaze_mean_number_fires, gridcell.blaze_monthly_total_no_fires[m] / (double)date.ndaymonth[m] / gridcell.pixelsize);
+		outlimit(out,out_mblaze_tree_mortality,    gridcell.blaze_monthly_firetreemortality[m]);
+		outlimit(out,out_mblaze_mean_fire_size,    gridcell.monthly_burned_area[m] / (double)date.ndaymonth[m] * gridcell.pixelsize);
+		outlimit(out,out_mblaze_weighted_ROS,      mros);
 
 		aaet += maet[m];
 		apet += mpet[m];

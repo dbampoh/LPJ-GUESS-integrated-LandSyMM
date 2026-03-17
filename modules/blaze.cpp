@@ -231,7 +231,7 @@ void get_fireline_intensity(Patch& patch, Climate& climate) {
 	// Readily available fuel  [g/m2]
 	double avail_fuel;                      
 	// Rate of spread          [m/s]
-	double rate_of_spread;                    
+	double rate_of_spread = 0.0;
 	// Fire-line intensity     [kW/m]
 	double fire_line_intensity;                  
 	// Fire intensity category index
@@ -253,6 +253,7 @@ void get_fireline_intensity(Patch& patch, Climate& climate) {
 		fire_line_intensity = HEAT_YIELD * avail_fuel * rate_of_spread;
 	}
 	patch.fire_line_intensity = fire_line_intensity;
+	patch.rate_of_spread = rate_of_spread;
 }
  
 // Survival probability for boreal trees based on Dalziel et al. 2008
@@ -1002,8 +1003,26 @@ void blaze_accounting_gridcell(Climate& climate) {
 		gridcell.simfire_annual_burned_area = 0.0;
 		climate.rainfall_cur                = 0.0;
 
-		for (int i = 0; i < 12; i++) {
-			gridcell.monthly_burned_area[i] = 0.0;
+		for (int m = 0; m < 12; m++) {
+			gridcell.monthly_burned_area[m] = 0.0;
+
+			gridcell.blaze_monthly_weighted_fli[m]            = 0.0;
+			gridcell.blaze_monthly_total_no_fires[m]          = 0;
+			gridcell.blaze_monthly_mean_no_fires[m]           = 0.0;
+			gridcell.blaze_monthly_firetreemortality[m]       = 0.0;
+			gridcell.blaze_monthly_weighted_mean_fire_size[m] = 0.0;
+			gridcell.blaze_monthly_weighted_ros[m]            = 0.0;
+			for (int fc = 0; fc < 4; fc++) {
+				gridcell.blaze_monthly_C_fuelClas[m][fc]  = 0.0;
+				gridcell.blaze_monthly_CC_fuelClas[m][fc] = 0.0;
+			}
+			pftlist.firstobj();
+			while (pftlist.isobj) {
+				Pft& pft = pftlist.getobj();
+				Gridcellpft& gridcellpft = gridcell.pft[pft.id];
+				gridcellpft.blaze_burned_area[m] = 0.0;
+				pftlist.nextobj();
+			}
 		}
 
 		double lat = climate.gridcell.get_lat();
@@ -1164,7 +1183,8 @@ void blaze_driver(Patch& patch, Climate& climate) {
 	}
 
 	Gridcell& gridcell = climate.gridcell;
-	
+	gridcell.pixelsize = pixelsize(gridcell.get_lat(), 0.5, 0.5, 0);
+
 	// Today's potential firelineintensity
 	get_fireline_intensity(patch, climate);
 
@@ -1184,6 +1204,11 @@ void blaze_driver(Patch& patch, Climate& climate) {
 		gridcell.effective_burned_area           += gridcell_fraction;
 		gridcell.annual_burned_area              += gridcell_fraction;
 		gridcell.monthly_burned_area[date.month] += gridcell_fraction;
+
+		int m = date.month;
+		gridcell.blaze_monthly_weighted_fli[m]   += patch.fire_line_intensity * gridcell_fraction;
+		gridcell.blaze_monthly_total_no_fires[m] += 1;
+		gridcell.blaze_monthly_weighted_ros[m]   += patch.rate_of_spread * gridcell_fraction;
 	}
 }
 

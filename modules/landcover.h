@@ -171,6 +171,7 @@ struct landcover_change_transfer {
 
 			// sum soil C & N:
 			for(int i=0; i<NSOMPOOL; i++) {
+				double initial_cmass = transfer_sompool[i].cmass;
 				transfer_sompool[i].cmass += patch.soil.sompool[i].cmass * scale;
 				transfer_sompool[i].fireresist += patch.soil.sompool[i].fireresist * scale;
 				transfer_sompool[i].fracremain += patch.soil.sompool[i].fracremain * scale;
@@ -178,6 +179,27 @@ struct landcover_change_transfer {
 				transfer_sompool[i].litterme += patch.soil.sompool[i].litterme * scale;
 				transfer_sompool[i].nmass += patch.soil.sompool[i].nmass * scale;
 				transfer_sompool[i].ntoc += patch.soil.sompool[i].ntoc * scale;
+
+				if (!negligible(transfer_sompool[i].cmass)) {
+					transfer_sompool[i].moistureofextinction = (transfer_sompool[i].moistureofextinction * initial_cmass + patch.soil.sompool[i].moistureofextinction * patch.soil.sompool[i].cmass * scale) / transfer_sompool[i].cmass;
+					transfer_sompool[i].fuelbulkdensity = (transfer_sompool[i].fuelbulkdensity * initial_cmass + patch.soil.sompool[i].fuelbulkdensity * patch.soil.sompool[i].cmass * scale) / transfer_sompool[i].cmass;
+					transfer_sompool[i].surfacetovolume = (transfer_sompool[i].surfacetovolume * initial_cmass + patch.soil.sompool[i].surfacetovolume * patch.soil.sompool[i].cmass * scale) / transfer_sompool[i].cmass;
+					transfer_sompool[i].em_CO2 = (transfer_sompool[i].em_CO2 * initial_cmass + patch.soil.sompool[i].em_CO2 * patch.soil.sompool[i].cmass * scale) / transfer_sompool[i].cmass;
+					transfer_sompool[i].em_CO = (transfer_sompool[i].em_CO * initial_cmass + patch.soil.sompool[i].em_CO * patch.soil.sompool[i].cmass * scale) / transfer_sompool[i].cmass;
+					transfer_sompool[i].em_CH4 = (transfer_sompool[i].em_CH4 * initial_cmass + patch.soil.sompool[i].em_CH4 * patch.soil.sompool[i].cmass * scale) / transfer_sompool[i].cmass;
+					transfer_sompool[i].em_VOC = (transfer_sompool[i].em_VOC * initial_cmass + patch.soil.sompool[i].em_VOC * patch.soil.sompool[i].cmass * scale) / transfer_sompool[i].cmass;
+					transfer_sompool[i].em_TPM = (transfer_sompool[i].em_TPM * initial_cmass + patch.soil.sompool[i].em_TPM * patch.soil.sompool[i].cmass * scale) / transfer_sompool[i].cmass;
+				}
+				else {
+					transfer_sompool[i].moistureofextinction = 0.25;
+					transfer_sompool[i].fuelbulkdensity = 0.0;
+					transfer_sompool[i].surfacetovolume = 0.0;
+					transfer_sompool[i].em_CO2 = 0.0;
+					transfer_sompool[i].em_CO = 0.0;
+					transfer_sompool[i].em_CH4 = 0.0;
+					transfer_sompool[i].em_VOC = 0.0;
+					transfer_sompool[i].em_TPM = 0.0;
+				}
 			}
 
 			transfer_NH4_mass += patch.soil.NH4_mass * scale;
@@ -279,6 +301,14 @@ struct landcover_change_transfer {
 			transfer_sompool[i].litterme = from.transfer_sompool[i].litterme;
 			transfer_sompool[i].nmass = from.transfer_sompool[i].nmass;
 			transfer_sompool[i].ntoc = from.transfer_sompool[i].ntoc;
+			transfer_sompool[i].fuelbulkdensity = from.transfer_sompool[i].fuelbulkdensity;
+			transfer_sompool[i].surfacetovolume = from.transfer_sompool[i].surfacetovolume;
+			transfer_sompool[i].moistureofextinction = from.transfer_sompool[i].moistureofextinction;
+			transfer_sompool[i].em_CO2 = from.transfer_sompool[i].em_CO2;
+			transfer_sompool[i].em_CO = from.transfer_sompool[i].em_CO;
+			transfer_sompool[i].em_CH4 = from.transfer_sompool[i].em_CH4;
+			transfer_sompool[i].em_VOC = from.transfer_sompool[i].em_VOC;
+			transfer_sompool[i].em_TPM = from.transfer_sompool[i].em_TPM;
 		}
 		transfer_NH4_mass = from.transfer_NH4_mass;
 		transfer_NO3_mass = from.transfer_NO3_mass;
@@ -350,6 +380,7 @@ struct landcover_change_transfer {
 		transfer_decomp_litter_mean += from.transfer_decomp_litter_mean * multiplier;
 		transfer_k_soilfast_mean += from.transfer_k_soilfast_mean * multiplier;
 		for(int i=0; i<NSOMPOOL; i++) {
+			double initial_cmass = transfer_sompool[i].cmass;
 			transfer_sompool[i].cmass += from.transfer_sompool[i].cmass * multiplier;
 			transfer_sompool[i].fireresist += from.transfer_sompool[i].fireresist * multiplier;
 			transfer_sompool[i].fracremain += from.transfer_sompool[i].fracremain * multiplier;
@@ -357,6 +388,27 @@ struct landcover_change_transfer {
 			transfer_sompool[i].litterme += from.transfer_sompool[i].litterme * multiplier;
 			transfer_sompool[i].nmass += from.transfer_sompool[i].nmass * multiplier;
 			transfer_sompool[i].ntoc += from.transfer_sompool[i].ntoc * multiplier;
+
+			if (!negligible(transfer_sompool[i].cmass)) {
+				transfer_sompool[i].moistureofextinction = (initial_cmass * transfer_sompool[i].moistureofextinction + from.transfer_sompool[i].moistureofextinction * multiplier * from.transfer_sompool[i].cmass) / transfer_sompool[i].cmass;
+				transfer_sompool[i].fuelbulkdensity = (initial_cmass * transfer_sompool[i].fuelbulkdensity + from.transfer_sompool[i].fuelbulkdensity * multiplier * from.transfer_sompool[i].cmass) / transfer_sompool[i].cmass;
+				transfer_sompool[i].surfacetovolume = (initial_cmass * transfer_sompool[i].surfacetovolume + from.transfer_sompool[i].surfacetovolume * multiplier * from.transfer_sompool[i].cmass) / transfer_sompool[i].cmass;
+				transfer_sompool[i].em_CO2 = (initial_cmass * transfer_sompool[i].em_CO2 + from.transfer_sompool[i].em_CO2 * multiplier * from.transfer_sompool[i].cmass) / transfer_sompool[i].cmass;
+				transfer_sompool[i].em_CO = (initial_cmass * transfer_sompool[i].em_CO + from.transfer_sompool[i].em_CO * multiplier * from.transfer_sompool[i].cmass) / transfer_sompool[i].cmass;
+				transfer_sompool[i].em_CH4 = (initial_cmass * transfer_sompool[i].em_CH4 + from.transfer_sompool[i].em_CH4 * multiplier * from.transfer_sompool[i].cmass) / transfer_sompool[i].cmass;
+				transfer_sompool[i].em_VOC = (initial_cmass * transfer_sompool[i].em_VOC + from.transfer_sompool[i].em_VOC * multiplier * from.transfer_sompool[i].cmass) / transfer_sompool[i].cmass;
+				transfer_sompool[i].em_TPM = (initial_cmass * transfer_sompool[i].em_TPM + from.transfer_sompool[i].em_TPM * multiplier * from.transfer_sompool[i].cmass) / transfer_sompool[i].cmass;
+			}
+			else {
+				transfer_sompool[i].moistureofextinction = 0.25;
+				transfer_sompool[i].fuelbulkdensity = 0.0;
+				transfer_sompool[i].surfacetovolume = 0.0;
+				transfer_sompool[i].em_CO2 = 0.0;
+				transfer_sompool[i].em_CO = 0.0;
+				transfer_sompool[i].em_CH4 = 0.0;
+				transfer_sompool[i].em_VOC = 0.0;
+				transfer_sompool[i].em_TPM = 0.0;
+			}
 		}
 		//transfer_nmass_avail += from.transfer_nmass_avail * multiplier; TODO remove?
 		transfer_snowpack += from.transfer_snowpack * multiplier;
