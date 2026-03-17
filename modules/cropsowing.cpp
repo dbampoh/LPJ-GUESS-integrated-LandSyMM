@@ -416,6 +416,21 @@ void crop_sowing_gridcell(Gridcell& gridcell) {
 
 	Climate& climate = gridcell.climate;
 
+	if (date.year == 0 && date.day == 0) {
+		for (int d = 0; d < 10; d++)
+			climate.dprec_10[d] = climate.prec;
+		for (int d = 0; d < 2; d++)
+			climate.sprec_2[d] = climate.prec;
+	}
+
+	climate.sprec_2[0] = climate.sprec_2[1];
+	climate.sprec_2[1] = climate.prec;
+	for (int d = 0; d < 9; d++) {
+		climate.dprec_10[d] = climate.dprec_10[d+1];
+		climate.sprec_2[1] += climate.dprec_10[d];
+	}
+	climate.dprec_10[9] = climate.prec;
+
 	if (climate.temp > climate.maxtemp)	//To know if temperature rises over vernalization limit
 		climate.maxtemp = climate.temp;
 
@@ -652,7 +667,7 @@ void crop_sowing_patch(Patch& patch) {
 // REFERENCES
 //
 // Bondeau A, Smith PC, Zaehle S, Schaphoff S, Lucht W, Cramer W, Gerten D, Lotze-Campen H,
-//   Müller C, Reichstein M & Smith B 2007. Modelling the role of agriculture for the
+//   Mï¿½ller C, Reichstein M & Smith B 2007. Modelling the role of agriculture for the
 //   20th century global terrestrial carbon balance. Global Change Biology, 13:679-706.
-// Waha K, van Bussel LGJ, Müller C, and Bondeau A.2012. Climate-driven simulation of global
+// Waha K, van Bussel LGJ, Mï¿½ller C, and Bondeau A.2012. Climate-driven simulation of global
 //   crop sowing dates, Global Ecol Biogeogr 21:247-259

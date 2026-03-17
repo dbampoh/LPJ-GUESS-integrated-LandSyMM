@@ -40,6 +40,7 @@
 #include "bvoc.h"
 #include "ncompete.h"
 #include "somdynam.h"
+#include "soilwater.h"
 #include <assert.h>
 
 
@@ -130,6 +131,7 @@ void interception(Patch& patch,Climate& climate) {
     patch.aintercep+=patch.intercep;
     patch.mintercep[date.month]+=patch.intercep;
 
+    patch.grs_w_intercep += patch.intercep;
 }
 
 
@@ -2638,6 +2640,94 @@ void init_canexch(Patch& patch, Climate& climate, Vegetation& vegetation) {
     patch.wdemand_day = 0;
 }
 
+/// BNF response to development stage (trapezoidal)
+double bnf_func_developmentstage(double ds, Pft& pft) {
+	if (ds < pft.bnf_ds_min || ds > pft.bnf_ds_max)
+		return 0.0;
+	if (ds < pft.bnf_ds_opt_low)
+		return (ds - pft.bnf_ds_min) / (pft.bnf_ds_opt_low - pft.bnf_ds_min);
+	if (ds <= pft.bnf_ds_opt_high)
+		return 1.0;
+	return (pft.bnf_ds_max - ds) / (pft.bnf_ds_max - pft.bnf_ds_opt_high);
+}
+
+/// BNF response to soil water content
+double bnf_func_wcont(double w, Pft& pft) {
+	if (w < pft.bnf_wcont_min || w > pft.bnf_wcont_max)
+		return 0.0;
+	return min(1.0, pft.bnf_wcont_intercept + pft.bnf_wcont_rate * w);
+}
+
+/// BNF response to soil temperature
+double bnf_func_temperature(double T, Pft& pft) {
+	if (T < pft.bnf_t_min || T > pft.bnf_t_max)
+		return 0.0;
+	if (T < pft.bnf_t_opt_low)
+		return (T - pft.bnf_t_min) / (pft.bnf_t_opt_low - pft.bnf_t_min);
+	if (T <= pft.bnf_t_opt_high)
+		return 1.0;
+	return (pft.bnf_t_max - T) / (pft.bnf_t_max - pft.bnf_t_opt_high);
+}
+
+/// Biological nitrogen fixation for cropland stands
+void bnf(Patch& patch, Vegetation& vegetation) {
+
+	if (patch.stand.landcover != CROPLAND || !ifnlim)
+		return;
+
+	vegetation.firstobj();
+	while (vegetation.isobj) {
+		Individual& indiv = vegetation.getobj();
+		Pft& pft = indiv.pft;
+
+		if (!pft.fixer || !indiv.alive || !indiv.cropindiv) {
+			vegetation.nextobj();
+			continue;
+		}
+
+		cropphen_struct& ppftcrop = *(indiv.patchpft().cropphen);
+		double ds = ppftcrop.dev_stage;
+
+		if (ds <= 0.0 || !ppftcrop.growingseason) {
+			vegetation.nextobj();
+			continue;
+		}
+
+		double f_ds = bnf_func_developmentstage(ds, pft);
+		double f_w = bnf_func_wcont(patch.soil.get_soil_water_upper(), pft);
+		double f_t = bnf_func_temperature(patch.soil.T_soil[0], pft);
+
+		double potential_fix = pft.bnf_max * f_ds * f_w * f_t;
+
+#ifdef MAXBNFNPP
+		double max_npp_for_bnf = max(0.0, indiv.dnpp * 0.5);
+		double max_fix_from_npp = max_npp_for_bnf / 6.0;
+		double fixed = min(potential_fix, max_fix_from_npp);
+#else
+		double fixed = potential_fix;
+#endif
+
+		if (fixed > 0.0) {
+			double c_cost = fixed * 6.0;
+			indiv.dnpp -= c_cost;
+			indiv.report_flux(Fluxes::NPP, -c_cost);
+			indiv.report_flux(Fluxes::RA, c_cost);
+
+			patch.soil.NH4_mass += fixed;
+			indiv.report_flux(Fluxes::NFIX, fixed);
+			patch.grs_n_input += fixed;
+
+#ifdef MAXBNFNPP
+			if (max_fix_from_npp > 0.0) {
+				ppftcrop.f2_mod = (potential_fix - fixed) / max_fix_from_npp;
+			}
+#endif
+		}
+
+		vegetation.nextobj();
+	}
+}
+
 /// Canopy exchange
 /** Vegetation-atmosphere exchange of CO2 and water including calculations
  *  of actual evapotranspiration (AET), canopy conductance, carbon assimilation
@@ -2685,6 +2775,24 @@ void canopy_exchange(Patch& patch, Climate& climate) {
         water_scalar(patch, vegetation, day);
         npp(patch, climate, vegetation, day);
     }
+
+    {
+        double soil_water_top1m_today = 0.0;
+        double accum_depth = 0.0;
+        int ly = 0;
+        while (accum_depth < 1000.0 && ly < NSOILLAYER) {
+            double thisdepth = min((double)Dz_soil, 1000.0 - accum_depth);
+            double thisweight = thisdepth / 1000.0;
+            soil_water_top1m_today += thisweight * patch.soil.get_layer_soil_water(ly) * patch.soil.soiltype.awc[ly];
+            accum_depth += thisdepth;
+            ly++;
+        }
+        if (patch.soil.grs_days_thismonth > 0) {
+            patch.soil.grs_mwcont_top1m[date.month] *= (double)(patch.soil.grs_days_thismonth - 1) / (double)patch.soil.grs_days_thismonth;
+            patch.soil.grs_mwcont_top1m[date.month] += soil_water_top1m_today / (double)patch.soil.grs_days_thismonth;
+        }
+    }
+
     leaf_senescence(vegetation);
 
     // Forest-floor conditions
@@ -2703,6 +2811,8 @@ void canopy_exchange(Patch& patch, Climate& climate) {
 
     patch.apet += pet_patch;
     patch.mpet[date.month] += pet_patch;
+
+    bnf(patch, vegetation);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////

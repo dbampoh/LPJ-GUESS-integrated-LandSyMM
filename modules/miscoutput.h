@@ -37,10 +37,15 @@ public:
 
 	void outdaily(Gridcell& gridcell);
 
+	void outharvest(Gridcell& gridcell);
+	void outharvest_justphupvd(Gridcell& gridcell);
+	void outannual_ggcmi(Gridcell& gridcell);
+
 private:
 
 	/// Upper limit for files in multiple stand printout
 	static const int MAXNUMBER_STANDS = 1000;
+	static const int MAXNUMBER_STANDS_GGCMI = 256;
 
 	/// Printout of first stand from first historic year
 	static const bool PRINTFIRSTSTANDAFTERSPINUP = true;
@@ -51,6 +56,9 @@ private:
 	void define_output_tables();
 
 	void closelocalfiles(Gridcell& gridcell);
+
+	void openlocalfiles_ggcmi();
+	void closelocalfiles_ggcmi();
 
 	// Output file names ...
 	xtring file_yield, file_yield1, file_yield2, file_sdate1, file_sdate2,
@@ -167,6 +175,10 @@ private:
 	Table* out_cmass_mort_stand[MAXNUMBER_STANDS];
 	Table* out_cmass_wood_stand[MAXNUMBER_STANDS];
 	Table* out_cmass_wood_harv_stand[MAXNUMBER_STANDS];
+
+	Table out_misc_stand[MAXNUMBER_STANDS_GGCMI];
+	Table out_phupvd_stand[MAXNUMBER_STANDS_GGCMI];
+	Table out_rootmoistm_stand[MAXNUMBER_STANDS_GGCMI];
 
 	// Separate output files for stands with age-class columns
 	Table* out_agestruct_stand[MAXNUMBER_STANDS];

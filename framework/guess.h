@@ -1157,7 +1157,14 @@ public:
 	/// annual precipitation sum
 	double aprec;
 	/// annual average precipitation (last year) (mm)
-	double aprec_lastyear;	
+	double aprec_lastyear;
+
+	/// GGCMI: Monthly mean temperature
+	double montemp[12];
+	/// GGCMI: Monthly total precipitation
+	double monprec[12];
+	/// GGCMI: Monthly GDD5
+	double mongdd5[12];
 
 public:
 	/// constructor function: initialises gridcell member
@@ -1176,6 +1183,9 @@ public:
 			mpet20[m] = 0.0;
 			mpet_year[m] = 0.0;
 			mprec_pet20[m] = 0.0;
+			montemp[m] = 0.0;
+			monprec[m] = 0.0;
+			mongdd5[m] = 0.0;
 
 			for(int y=0;y<20;y++) {
 				mtemp_20[y][m] = 0.0;
@@ -4293,6 +4303,15 @@ public:
 	void nmass_inc(double nmass, int pref = NO);
 	void nmass_multiplic_inc(double inc, int pref = NO);
 
+	/// GGCMI: Monthly growing-season soil moisture top 1m
+	double grs_mwcont_top1m[12];
+	/// GGCMI: Day counter for monthly averaging
+	int grs_days_thismonth;
+	/// GGCMI: Growing-season leaching from available N pool
+	double sminleach;
+
+	void serialize(ArchiveStream& arch);
+
 private:
 
 	// Private member variables.
@@ -4327,15 +4346,6 @@ private:
 		double& plantCH4TransportToday);
 	double calculate_tiller_areas(double r_frac[NLAYERS], double t_area[NLAYERS]);
 	bool calculate_gas_ebullition(double& ebull_today);
-
-	/// GGCMI: Monthly growing-season soil moisture top 1m
-	double grs_mwcont_top1m[12];
-	/// GGCMI: Day counter for monthly averaging
-	int grs_days_thismonth;
-	/// GGCMI: Growing-season leaching from available N pool
-	double sminleach;
-
-	void serialize(ArchiveStream& arch);
 };
 
 /// Container for crop-specific data at patchpft level
@@ -5029,7 +5039,10 @@ public:
 	/// Total patch water fluxes so far this year
 	double water_flux();
 #endif
-	
+
+	/// GGCMI: Whether PFT can establish given bioclimatic constraints
+	bool can_establish(Pft& pft) const;
+
 	/// Get 5-year mean of tree wood C mass increase (periodic annual increment)
 	double get_tree_cmass_wood_inc_5() {
 		double cmass_wood_inc_5_mean = 0.0;

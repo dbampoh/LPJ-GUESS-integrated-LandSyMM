@@ -12,6 +12,7 @@
 
 #include "landcover.h"
 #include "cropallocation.h"
+#include "canexch.h"
 
 // Seed carbon allocation to leaves and roots are done over a 10-day period
 const bool DELAYED_SEEDCARBON = false;
@@ -154,6 +155,21 @@ void crop_allocation_devries(cropphen_struct& ppftcrop, Individual& indiv) {
 	double f2 = min(1.0, max(0.0, richards_curve(indiv.pft.a2, indiv.pft.b2, indiv.pft.c2, indiv.pft.d2, ppftcrop.dev_stage)));
 	double f3 = min(1.0, max(0.0, richards_curve(indiv.pft.a3, indiv.pft.b3, indiv.pft.c3, indiv.pft.d3, ppftcrop.dev_stage)));
 
+#ifdef MAXBNFNPP
+	if (ppftcrop.dev_stage > indiv.pft.d3 && ppftcrop.f2_mod > 0.0) {
+		double f2_red = ppftcrop.f2_mod;
+		if (f2_red >= f2) {
+			f2_red = f2;
+			f2 = 0.0;
+		} else {
+			f2 -= f2_red;
+		}
+		f1 = min(f1 + (1 - f3) * f2_red, 1.0);
+		f3 = min(f3 + f3 * f2_red, 1.0);
+		ppftcrop.f2_mod = 0.0;
+	}
+#endif
+
 	// Eq. 15, Olin 2015
 	if(indiv.daily_cmass_leafloss > 0.0)
 		f2 *= f2;
@@ -183,6 +199,8 @@ void allocation_crop_nlim(Individual& indiv, double cmass_seed, double nmass_see
 	// report seed fluxes
 	indiv.report_flux(Fluxes::SEEDC, -cmass_seed);
 	indiv.report_flux(Fluxes::SEEDN, -nmass_seed);
+
+	patch.grs_n_input += nmass_seed;
 
 	// add seed carbon
 	double cmass_extra = cmass_seed;
@@ -499,6 +517,7 @@ void growth_crop_daily(Patch& patch) {
 			cropindiv.harv_cmass_leaf = 0.0;
 			cropindiv.harv_cmass_ho = 0.0;
 			cropindiv.harv_cmass_agpool = 0.0;
+			cropindiv.harv_cmass_stem = 0.0;
 
 			cropindiv.cmass_ho_harvest[0] = 0.0;
 			cropindiv.cmass_ho_harvest[1] = 0.0;
@@ -543,9 +562,15 @@ void growth_crop_daily(Patch& patch) {
 					// add seed carbon on sowing date
 					if(date.day == ppftcrop.sdate) {
 
-						cmass_seed = CMASS_SEED;
-						nmass_seed = CMASS_SEED / indiv.pft.cton_leaf_min;
-					}
+					cmass_seed = CMASS_SEED;
+					nmass_seed = CMASS_SEED / indiv.pft.cton_leaf_min;
+
+					cropindiv.cmass_ag_harvest = 0.0;
+					cropindiv.cmass_bg_harvest = 0.0;
+					cropindiv.nmass_uptake_harvest = 0.0;
+					cropindiv.cmass_ho_harvest_ggcmi = 0.0;
+					cropindiv.nmass_ho_harvest_ggcmi = 0.0;
+				}
 				}
 
 				if(ifnlim)
@@ -571,9 +596,14 @@ void growth_crop_daily(Patch& patch) {
 			}
 			else if(date.day == ppftcrop.hdate) {
 
-				patch.stand.isrotationday = true;
+			patch.stand.isrotationday = true;
 
-				cropindiv.harv_cmass_plant += cropindiv.grs_cmass_plant;
+			cropindiv.cmass_ag_harvest = cropindiv.grs_cmass_ho + cropindiv.grs_cmass_leaf + cropindiv.grs_cmass_agpool + cropindiv.grs_cmass_dead_leaf;
+			cropindiv.cmass_bg_harvest = cropindiv.grs_cmass_root;
+			cropindiv.cmass_ho_harvest_ggcmi = cropindiv.grs_cmass_ho;
+			cropindiv.nmass_ho_harvest_ggcmi = cropindiv.nmass_ho;
+
+			cropindiv.harv_cmass_plant += cropindiv.grs_cmass_plant;
 				cropindiv.harv_cmass_root += cropindiv.grs_cmass_root;
 				cropindiv.harv_cmass_ho += cropindiv.grs_cmass_ho;
 				cropindiv.harv_cmass_leaf += cropindiv.grs_cmass_leaf;
