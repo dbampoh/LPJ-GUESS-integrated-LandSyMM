@@ -111,15 +111,15 @@ void OutputModuleContainer::outannual_ggcmi(Gridcell& gridcell) {
 	}
 }
 
-void OutputModuleContainer::openlocalfiles_ggcmi(Gridcell& gridcell) {
+void OutputModuleContainer::openlocalfiles_ggcmi() {
 	for (size_t i = 0; i < modules.size(); ++i) {
-		modules[i]->openlocalfiles_ggcmi(gridcell);
+		modules[i]->openlocalfiles_ggcmi();
 	}
 }
 
-void OutputModuleContainer::closelocalfiles_ggcmi(Gridcell& gridcell) {
+void OutputModuleContainer::closelocalfiles_ggcmi() {
 	for (size_t i = 0; i < modules.size(); ++i) {
-		modules[i]->closelocalfiles_ggcmi(gridcell);
+		modules[i]->closelocalfiles_ggcmi();
 	}
 }
 

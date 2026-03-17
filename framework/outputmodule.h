@@ -71,10 +71,10 @@ public:
 	virtual void outannual_ggcmi(Gridcell& gridcell) {}
 
 	/// LandSyMM/GGCMI: Opens GGCMI-specific local output files
-	virtual void openlocalfiles_ggcmi(Gridcell& gridcell) {}
+	virtual void openlocalfiles_ggcmi() {}
 
 	/// LandSyMM/GGCMI: Closes GGCMI-specific local output files
-	virtual void closelocalfiles_ggcmi(Gridcell& gridcell) {}
+	virtual void closelocalfiles_ggcmi() {}
 
 protected:
 
@@ -130,10 +130,10 @@ public:
 	void outannual_ggcmi(Gridcell& gridcell);
 
 	/// LandSyMM/GGCMI: Calls openlocalfiles_ggcmi on all output modules
-	void openlocalfiles_ggcmi(Gridcell& gridcell);
+	void openlocalfiles_ggcmi();
 
 	/// LandSyMM/GGCMI: Calls closelocalfiles_ggcmi on all output modules
-	void closelocalfiles_ggcmi(Gridcell& gridcell);
+	void closelocalfiles_ggcmi();
 
 private:
 

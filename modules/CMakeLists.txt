@@ -11,6 +11,8 @@ set(headers
   fuel.h
   simfire.h
   spitfire.h
+  spitfireoutput.h
+  firemipinput.h
   q10.h 
   globalco2file.h
   ncompete.h
@@ -55,6 +57,8 @@ set(source
   weathergen.cpp
   soilmethane.cpp
   spitfire.cpp
+  spitfireoutput.cpp
+  firemipinput.cpp
   soil.cpp
   soilinput.cpp
   ntransform.cpp
