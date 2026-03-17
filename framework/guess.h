@@ -3598,6 +3598,8 @@ public:
 	double silt_frac;
 	/// pH
 	double pH;
+	/// soil pH value (alternative accessor)
+	double pH_value;
 
 	/// soilcode, 0 to 8
 	int soilcode;
@@ -3654,6 +3656,7 @@ public:
 		solvesom_begin = SOLVESOM_BEGIN;
 		organic_frac = 0.02;
 		pH = -1.0;
+		pH_value = -1.0;
 		
 		// Assume no mineral content on peatlands
 		sand_frac_peat = clay_frac_peat = silt_frac_peat = 0.0;
@@ -3893,6 +3896,8 @@ public:
 	double T_soil[NLAYERS];
 	/// Record the monthly average soil temp at SOILTEMPOUT layers [deg C]
 	double T_soil_monthly[12][SOILTEMPOUT];
+	/// soil temperature from previous time step (for Wania-style freeze-thaw)
+	double T_old[NLAYERS];
 	/// soil temperature in each layer YESTERDAY
 	double T_soil_yesterday[NLAYERS];
 	/// soil temperature at 25 cm depth, as calculated using previous versions of the model [deg C]
@@ -3982,6 +3987,8 @@ public:
 	int snow_days;
 	/// previous days of continuous snow cover
 	int	snow_days_prev;
+	/// daily snow depth [mm]
+	double dsnowdepth;
 	/// Monthly snow depth (average) [mm]
 	double msnowdepth[12];
 	/// Previous December's snowdepth [mm] - used in establishment - from Wolf et al. (2008) 
@@ -4240,6 +4247,12 @@ public:
 	/// return wcont for a certain layer
 	double get_layer_soil_water(int layer) const;
 
+	/// return Frac_ice for a certain layer
+	double get_layer_soil_ice(int layer, double awc_layer) const;
+
+	/// return ice (mm) for a certain layer
+	double get_layer_soil_ice_mm(int layer) const;
+
 	/// return wcont_evap
 	double get_layer_soil_water_evap() const;
 
@@ -4251,6 +4264,15 @@ public:
 
 	/// method to return the 'old' (i.e. Gerten) wcont for lower layers
 	double get_soil_water_lower() const;
+
+	/// As get_soil_water(), but for ice
+	double get_soil_ice(int layer1, int layer2) const;
+
+	/// As get_soil_water_upper(), but for ice
+	double get_soil_ice_upper() const;
+
+	/// As get_soil_water_lower(), but for ice
+	double get_soil_ice_lower() const;
 
 	/// copy wcont
 	void copy_layer_soil_water_array(double wconttoreturn[NSOILLAYER]);
@@ -4311,6 +4333,13 @@ public:
 	void nmass_subtract(double nmass, int pref = NO);
 	void nmass_inc(double nmass, int pref = NO);
 	void nmass_multiplic_inc(double inc, int pref = NO);
+
+	/// Whether to enable saturation for this patch (wetland hydrology control)
+	bool do_saturate();
+	/// Whether to enable surface runoff for this patch
+	bool do_surface_runoff();
+	/// Whether to enable percolation for this patch
+	bool do_percolation();
 
 	/// GGCMI: Monthly growing-season soil moisture top 1m
 	double grs_mwcont_top1m[12];

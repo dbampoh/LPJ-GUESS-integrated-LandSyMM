@@ -41,6 +41,7 @@
 
 #include "config.h"
 #include "soilwater.h"
+#include <vector>
 
 void snow(double prec, double temp, Soil& soil) {
 
@@ -125,6 +126,91 @@ void snow_ninput(double prec, double snowpack_after, double rain_melt,
 	else {
 		NH4_input = dNH4dep + dnfert / 2.0;
 		NO3_input = dNO3dep + dnfert / 2.0;
+	}
+}
+
+
+void get_soil_water_status(Soil soil, int nlayers_to_use, double& total_potential,
+						   double *Faw_layer, double *ice_layer, double *potential_layer,
+						   bool& negative_potential) {
+
+	for (int ly = 0; ly < nlayers_to_use; ly++) {
+
+		Faw_layer[ly] = soil.get_layer_soil_water(ly) * soil.soiltype.awc[ly];
+		ice_layer[ly] = soil.Frac_ice[ly + soil.IDX] * soil.Dz[ly + soil.IDX];
+
+		double layerwater = Faw_layer[ly] + ice_layer[ly];
+
+		potential_layer[ly] = soil.aw_max[ly] - layerwater;
+
+		if (potential_layer[ly] < -0.00001) {
+			negative_potential = true;
+			return;
+		} else if (potential_layer[ly] < 0.0) {
+			potential_layer[ly] = 0.0;
+		}
+
+		total_potential += potential_layer[ly];
+	}
+}
+
+
+void infiltrate_upland(Patch& patch) {
+
+	Soil& soil = patch.soil;
+
+	int nlayers_to_use = (patch.hydrology == INUNDATED) ? NSOILLAYER : NSOILLAYER_UPPER;
+
+	std::vector<double> Faw_layer(nlayers_to_use);
+	std::vector<double> ice_layer(nlayers_to_use);
+	std::vector<double> potential_layer(nlayers_to_use);
+	double total_potential = 0.0;
+	bool negative_potential = false;
+
+	get_soil_water_status(soil, nlayers_to_use, total_potential, Faw_layer.data(), ice_layer.data(), potential_layer.data(), negative_potential);
+	if (negative_potential) {
+		fail("infiltrate_upland() - error in a soil layer's water balance - negative potential before adding water\n");
+	}
+
+	if (total_potential > 0.0) {
+		double overflow = 0.0;
+
+		for (int ly = 0; ly < nlayers_to_use; ++ly) {
+			double water_input_ly = soil.rain_melt * (potential_layer[ly] / total_potential);
+			overflow += soil.add_layer_soil_water(ly, water_input_ly);
+		}
+		soil.rain_melt = overflow;
+	}
+}
+
+
+void saturate_nonpeat_wetlands(Patch& patch) {
+
+	Soil& soil = patch.soil;
+
+	double Faw_layer[NSOILLAYER];
+	double ice_layer[NSOILLAYER];
+	double potential_layer[NSOILLAYER];
+	double total_potential = 0.0;
+	bool negative_potential = false;
+	get_soil_water_status(soil, NSOILLAYER, total_potential, Faw_layer, ice_layer, potential_layer, negative_potential);
+	if (negative_potential) {
+		fail("saturate_nonpeat_wetlands() - error in a soil layer's water balance - negative potential before adding water\n");
+	}
+
+	if (soil.rain_melt < total_potential)
+		soil.rain_melt = 0.0;
+	else
+		soil.rain_melt -= total_potential;
+
+	if (total_potential > 0.0) {
+
+		for (int ly = 0; ly < NSOILLAYER; ly++) {
+			double water_input_ly = potential_layer[ly];
+			soil.add_layer_soil_water(ly, water_input_ly);
+		}
+
+		patch.wetland_water_added_today = total_potential;
 	}
 }
 
@@ -463,6 +549,8 @@ void soilwater(Patch& patch, Climate& climate) {
 	// update the daily snow depth
 	// by converting from mm water to snow depth 
 	Soil& soil = patch.soil;
+
+	soil.dsnowdepth = soil.snowpack / (soil.snowdens / rho_H2O);
 
 	// Sum vegetation phenology-weighted FPC
 	// Fraction of grid cell subject to evaporation from soil surface is

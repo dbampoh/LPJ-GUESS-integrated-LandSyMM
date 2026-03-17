@@ -139,6 +139,7 @@ void Soil::init_states() {
 	snow_active_layers = 0;
 	snow_days = 0;
 	snow_days_prev = 365;
+	dsnowdepth = 0.0;
 	dec_snowdepth = 0.0;
 
 	// Peatland hydrology variables
@@ -193,6 +194,7 @@ void Soil::init_states() {
 
 			Frac_ice[ly] = 0.0;
 			T_soil[ly] = 0.0;
+			T_old[ly] = 0.0;
 
 			if (d == 0) {
 				// First day only:
@@ -1958,6 +1960,59 @@ double Soil::get_soil_water_upper() const {
 double Soil::get_soil_water_lower() const {
 
 	return get_soil_water(nsublayer1, NSOILLAYER);
+}
+
+double Soil::get_layer_soil_ice(int layer, double awc_layer) const {
+	return get_layer_soil_ice_mm(layer) / awc_layer;
+}
+
+double Soil::get_layer_soil_ice_mm(int layer) const {
+	if (layer < 0 || layer > NSOILLAYER-1 || layer != int(layer)) {
+		fail("Error in get_layer_soil_ice_mm()");
+		return -999.0;
+	}
+	else
+		return Frac_ice[layer + IDX] * Dz[layer + IDX];
+}
+
+double Soil::get_soil_ice(int layer1, int layer2) const {
+
+	double total_ice = 0.0;
+	double total_capacity = 0.0;
+
+	if (layer1 < 0 || layer1 > NSOILLAYER || layer1 != int(layer1)) {
+		fail("Soil::get_soil_ice - bad layer1!\n");
+		return -999;
+	}
+	if (layer2 < 0 || layer2 > NSOILLAYER || layer2 != int(layer2)) {
+		fail("Soil::get_soil_ice - bad layer2!\n");
+		return -999;
+	}
+	if (layer2 <= layer1) {
+		fail("Soil::get_soil_ice - layer2 <= layer1\n");
+		return -999;
+	}
+
+	for (int ly = layer1; ly < layer2; ly++) {
+
+		if (Frac_ice[ly + IDX] < 0.0 || (Frac_ice[ly + IDX] > 1.0 && !negligible(Frac_ice[ly + IDX] - 1.0, -12))) {
+			fail("Soil::get_soil_ice - bad Frac_ice!\n");
+			return -999;
+		}
+
+		total_ice += Frac_ice[ly + IDX] * Dz[ly + IDX];
+		total_capacity += aw_max[ly];
+	}
+
+	return total_ice / total_capacity;
+}
+
+double Soil::get_soil_ice_upper() const {
+	return get_soil_ice(0, nsublayer1);
+}
+
+double Soil::get_soil_ice_lower() const {
+	return get_soil_ice(nsublayer1, NSOILLAYER);
 }
 
 // return copy of wcont
@@ -4035,6 +4090,18 @@ void Soil::nmass_multiplic_inc(double inc, int pref) {
 	} else if (pref == NO3) {
 		NO3_mass *= inc;
 	}
+}
+
+bool Soil::do_surface_runoff() {
+	return !(patch.hydrology==INUNDATED || (patch.stand.is_true_wetland_stand() && ifsaturatewetlands));
+}
+
+bool Soil::do_percolation() {
+	return !(patch.hydrology==INUNDATED || (patch.stand.is_true_wetland_stand() && ifsaturatewetlands));
+}
+
+bool Soil::do_saturate() {
+	return patch.stand.is_true_wetland_stand() && ifsaturatewetlands;
 }
 
 // serialize new soil variables, when finalised

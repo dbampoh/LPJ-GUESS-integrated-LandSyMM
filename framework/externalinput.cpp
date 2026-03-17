@@ -215,6 +215,14 @@ void LandcoverInput::init() {
 	if(!run_landcover)
 		return;
 
+	if (iftwolayersoil && run[PEATLAND]) {
+		fail("LandcoverInput::init(): do not set run_peatland to 1 in landcover.ins if iftwolayersoil = 1");
+	}
+
+	if (iftwolayersoil && rootdistribution == ROOTDIST_JACKSON) {
+		fail("LandcoverInput::init(): rootdistribution must be fixed, not jackson, if iftwolayersoil = 1");
+	}
+
 	int input_precision_parsed = 0;
 	int input_precision_use = 0;
 	ListArray_id<Coord> gridlist;
