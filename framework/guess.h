@@ -258,6 +258,9 @@ const int AVG_INTERVAL_FAPAR = 3;
 /// Averaging interval for biome averaging (SIMFIRE)
 const int N_YEAR_BIOMEAVG = 3;
 
+/// Maximum number of PFTs for fixed-size per-PFT output arrays (GCP/SPITFIRE)
+#define npftconst 128
+
 /// Default year in the future never expected to be covered during the simulation
 const int FAR_FUTURE_YEAR = 100000;
 /// Default year in the past never expected to be covered during the simulation
@@ -1436,6 +1439,9 @@ public:
 	/// \returns flux for a given month and flux type (for all PFTs)
 	double get_monthly_flux(PerPFTFluxType flux_type, int month) const;
 
+	/// \returns flux for a given month, PFT, and flux type (per-PFT monthly)
+	double get_monthly_flux(PerPFTFluxType flux_type, int pft_id, int month) const;
+
 	/// \returns flux for a given month and flux type
 	double get_monthly_flux(PerPatchFluxType flux_type, int month) const;
 
@@ -1460,6 +1466,9 @@ private:
 	/// Stores one flux value per month and flux type
 	/** For the fluxes stored per pft for annual values */
 	double monthly_fluxes_pft[12][NPERPFTFLUXTYPES];
+
+	/// Stores one flux value per PFT, month and flux type (SPITFIRE/GCP per-PFT monthly output)
+	double monthly_fluxes_per_pft[npftconst][12][NPERPFTFLUXTYPES];
 
 	/// Stores one flux value per day, flux type and PFT
 	//  Order daily_fluxes_per_pft[day][pft][type]

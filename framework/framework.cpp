@@ -292,7 +292,7 @@ int framework(const CommandLineArguments& args) {
 				// LAST DAY OF YEAR
 				output_modules.openlocalfiles(gridcell);
 				if (crop_gs_out) {
-					output_modules.openlocalfiles_ggcmi(gridcell);
+					output_modules.openlocalfiles_ggcmi();
 				}
 				// Call output module to output results for end of year
 				// or end of simulation for this grid cell
@@ -327,7 +327,7 @@ int framework(const CommandLineArguments& args) {
 
 		output_modules.closelocalfiles(gridcell);
 		if (crop_gs_out) {
-			output_modules.closelocalfiles_ggcmi(gridcell);
+			output_modules.closelocalfiles_ggcmi();
 		}
 
 		gridcell.balance.check_period(gridcell);

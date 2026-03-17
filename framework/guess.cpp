@@ -177,6 +177,8 @@ void Fluxes::reset() {
 		std::fill_n(monthly_fluxes_patch[m], int(NPERPATCHFLUXTYPES), 0);
 	}
 
+	memset(monthly_fluxes_per_pft, 0, sizeof(monthly_fluxes_per_pft));
+
 	for (int d = 0; d < date.year_length(); ++d) {
 		std::fill_n(daily_fluxes_pft[d], int(NPERPFTFLUXTYPES), 0);
 		std::fill_n(daily_fluxes_patch[d], int(NPERPATCHFLUXTYPES), 0);
@@ -197,6 +199,7 @@ void Fluxes::report_flux(PerPFTFluxType flux_type, int pft_id, double value) {
 	monthly_fluxes_pft[date.month][flux_type] += value;
 	daily_fluxes_pft[date.day][flux_type] += value;	//Var = value ???
 	daily_fluxes_per_pft[date.day][pft_id][flux_type] += value;
+	monthly_fluxes_per_pft[pft_id][date.month][flux_type] += value;
 }
 
 void Fluxes::report_flux(PerPatchFluxType flux_type, double value) {
@@ -218,6 +221,10 @@ double Fluxes::get_daily_flux(PerPatchFluxType flux_type, int day) const {
 
 double Fluxes::get_monthly_flux(PerPFTFluxType flux_type, int month) const {
 	return monthly_fluxes_pft[month][flux_type];
+}
+
+double Fluxes::get_monthly_flux(PerPFTFluxType flux_type, int pft_id, int month) const {
+	return monthly_fluxes_per_pft[pft_id][month][flux_type];
 }
 
 double Fluxes::get_monthly_flux(PerPatchFluxType flux_type, int month) const {
