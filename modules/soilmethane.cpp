@@ -859,6 +859,8 @@ bool Soil::methane(bool generatemethane) {
 		patch.fluxes.report_flux(Fluxes::CH4C_PLAN, 0.0);
 		patch.fluxes.report_flux(Fluxes::CH4C_EBUL, 0.0);
 
+		patch.semis_c += dcflux_soil;
+
 	} 
 	else if (patch.get_climate().lat < PEATLAND_WETLAND_LATITUDE_LIMIT) {
 		
@@ -873,6 +875,8 @@ bool Soil::methane(bool generatemethane) {
 		patch.fluxes.report_flux(Fluxes::CH4C_DIFF, 0.0);
 		patch.fluxes.report_flux(Fluxes::CH4C_PLAN, 0.0);
 		patch.fluxes.report_flux(Fluxes::CH4C_EBUL, 0.0);
+
+		patch.semis_c += dcflux_soil;
 
 	} 
 	else {
@@ -1197,6 +1201,8 @@ bool Soil::methane(bool generatemethane) {
 		patch.fluxes.report_flux(Fluxes::CH4C_DIFF, CH4_diff_today);
 		patch.fluxes.report_flux(Fluxes::CH4C_PLAN, CH4_plant_today);
 		patch.fluxes.report_flux(Fluxes::CH4C_EBUL, CH4_ebull_today);
+
+		patch.semis_c += dcflux_soil;
 
 		// Total C content of soil
 		double c_soil = 0.0;
