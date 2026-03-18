@@ -18,6 +18,7 @@
 #include "parameters.h"
 #include "guess.h"
 #include "plib.h"
+#include <iostream>
 #include <map>
 
 // Definitions of parameters defined globally in parameters.h,
@@ -186,6 +187,160 @@ bool harvest_secondary_to_new_stand = true;
 bool harvest_burn_thin_trees = false;
 bool printseparatestands = false;
 bool iftillage = false;
+
+///////////////////////////////////////////////////////////////////////////////////////
+// IMOGEN-Intermediary parameters
+///////////////////////////////////////////////////////////////////////////////////////
+
+namespace IMOGENConfig {
+	xtring DIR_COMMON;
+	xtring DIR_COMMON_OUT;
+	xtring DIR_PATT;
+	xtring DIR_CLIM;
+	xtring FILE_SCEN_EMITS;
+	xtring FILE_NON_CO2_VALS;
+	xtring FILE_CH4_N2O_EMITS;
+	xtring FILE_LPJG_FLUX;
+	xtring FILE_GRIDLIST;
+	xtring FILE_LPJG_CH4_N2O_FLUX;
+	xtring FILE_SCEN_CO2_PPMV;
+
+	int STEP_DAY;
+	double T_OCEAN_INIT;
+	double KAPPA_O;
+	double F_OCEAN;
+	double LAMBDA_L;
+	double LAMBDA_O;
+	double MU;
+	double Q2CO2;
+	double TAU_DECAY_CH4;
+	double TAU_DECAY_N2O;
+
+	int NYR_NON_CO2;
+	int NYR_EMISS_NONCO2;
+	int NYR_EMISS;
+	int NYR_LPJG_FLUX;
+
+	double CO2_INIT_PPMV;
+	double CH4_INIT_PPBV;
+	double N2O_INIT_PPBV;
+
+	bool NONCO2_EMISSIONS;
+	bool NONCO2_EMISSIONS_LPJG;
+	bool C_EMISSIONS;
+	bool LPJG_CFLUX;
+	bool INCLUDE_CO2;
+	bool INCLUDE_NON_CO2;
+	bool DAILYOUT;
+	bool LAND_FEED;
+	bool OCEAN_FEED;
+	bool ANLG;
+	bool ANOM;
+	bool REGRID;
+	bool CO2_RF_FAIR;
+	bool FILE_NON_CO2;
+
+	bool print_imogen_output = true;
+	bool include_feedback = true;
+
+	xtring simulation_mode;
+	xtring feedback_mode;
+	xtring interpolation_mode;
+	xtring ssprcp;
+
+	int YEAR1;
+	int IYEND;
+	int YEAR1_LPJG;
+	bool SPINUP;
+	bool KEEPRUNNING;
+	bool FIRSTCALL;
+
+	xtring scenario;
+	int firstyear;
+	int lastyear;
+	int lpjg_start_year;
+	int lpjg_end_year;
+
+	xtring baseDirectory;
+	xtring pathToLogFile;
+	xtring myPLUMDataFilePath;
+	xtring lpjgOutputDirectory;
+
+	xtring methaneEmissionOutputFilePath;
+	xtring entericFermentationMethaneOutputFilePath;
+	xtring manureManagementMethaneOutputFilePath;
+	xtring nitrogenEmissionOutputFilePath;
+	xtring methaneNitrogenTotalOutputFilePath;
+
+	xtring historic_nitrogen_fertiizer_file_path;
+	xtring arable_lands_nitrogen_fertilizer_path;
+
+	xtring wetlandsAreaFilePath;
+	xtring wetlandsMethaneEmissionsOutputPath;
+
+	xtring basePathPLUMdata;
+	xtring basePathPLUMdata_v2;
+	xtring plumFertilizerOutputPath;
+	xtring plumFertlizerPath;
+
+	xtring file_LPJG_IPCC_Path;
+	xtring lpjgMethane;
+	xtring lpjgNitrogen;
+	xtring lpjgCflux;
+	xtring lpjgCflux_plus_IIASA_lpjg_co2;
+
+	xtring IIASA_lpjg_co2_file_path;
+	xtring IIASA_non_lpjg_1850_2100;
+	xtring IIASA_lpjg_1850_2100;
+
+	xtring livestock_counts_path;
+	xtring fao_stats_path;
+
+	void print_all() {
+		std::cout << "DIR_COMMON = " << DIR_COMMON << "\n";
+		std::cout << "DIR_PATT = " << DIR_PATT << "\n";
+		std::cout << "DIR_CLIM = " << DIR_CLIM << "\n";
+		std::cout << "FILE_SCEN_EMITS = " << FILE_SCEN_EMITS << "\n";
+		std::cout << "FILE_NON_CO2_VALS = " << FILE_NON_CO2_VALS << "\n";
+		std::cout << "FILE_CH4_N2O_EMITS = " << FILE_CH4_N2O_EMITS << "\n";
+		std::cout << "FILE_LPJG_FLUX = " << FILE_LPJG_FLUX << "\n";
+		std::cout << "FILE_GRIDLIST = " << FILE_GRIDLIST << "\n";
+		std::cout << "FILE_LPJG_CH4_N2O_FLUX = " << FILE_LPJG_CH4_N2O_FLUX << "\n";
+		std::cout << "FILE_SCEN_CO2_PPMV = " << FILE_SCEN_CO2_PPMV << "\n";
+		std::cout << "STEP_DAY = " << STEP_DAY << "\n";
+		std::cout << "T_OCEAN_INIT = " << T_OCEAN_INIT << "\n";
+		std::cout << "KAPPA_O = " << KAPPA_O << "\n";
+		std::cout << "F_OCEAN = " << F_OCEAN << "\n";
+		std::cout << "LAMBDA_L = " << LAMBDA_L << "\n";
+		std::cout << "LAMBDA_O = " << LAMBDA_O << "\n";
+		std::cout << "MU = " << MU << "\n";
+		std::cout << "Q2CO2 = " << Q2CO2 << "\n";
+		std::cout << "TAU_DECAY_CH4 = " << TAU_DECAY_CH4 << "\n";
+		std::cout << "TAU_DECAY_N2O = " << TAU_DECAY_N2O << "\n";
+		std::cout << std::boolalpha;
+		std::cout << "FILE_NON_CO2 = " << FILE_NON_CO2 << "\n";
+		std::cout << "NYR_NON_CO2 = " << NYR_NON_CO2 << "\n";
+		std::cout << "NONCO2_EMISSIONS = " << NONCO2_EMISSIONS << "\n";
+		std::cout << "NONCO2_EMISSIONS_LPJG = " << NONCO2_EMISSIONS_LPJG << "\n";
+		std::cout << "CO2_INIT_PPMV = " << CO2_INIT_PPMV << "\n";
+		std::cout << "CH4_INIT_PPBV = " << CH4_INIT_PPBV << "\n";
+		std::cout << "N2O_INIT_PPBV = " << N2O_INIT_PPBV << "\n";
+		std::cout << "NYR_EMISS_NONCO2 = " << NYR_EMISS_NONCO2 << "\n";
+		std::cout << "NYR_EMISS = " << NYR_EMISS << "\n";
+		std::cout << "NYR_LPJG_FLUX = " << NYR_LPJG_FLUX << "\n";
+		std::cout << "C_EMISSIONS = " << C_EMISSIONS << "\n";
+		std::cout << "LPJG_CFLUX = " << LPJG_CFLUX << "\n";
+		std::cout << "INCLUDE_CO2 = " << INCLUDE_CO2 << "\n";
+		std::cout << "INCLUDE_NON_CO2 = " << INCLUDE_NON_CO2 << "\n";
+		std::cout << "DAILYOUT = " << DAILYOUT << "\n";
+		std::cout << "LAND_FEED = " << LAND_FEED << "\n";
+		std::cout << "OCEAN_FEED = " << OCEAN_FEED << "\n";
+		std::cout << "ANLG = " << ANLG << "\n";
+		std::cout << "ANOM = " << ANOM << "\n";
+		std::cout << "REGRID = " << REGRID << "\n";
+		std::cout << "CO2_RF_FAIR = " << CO2_RF_FAIR << "\n";
+	}
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // Implementation of the Paramlist class
