@@ -2615,7 +2615,7 @@ void weathergen_get_met(Gridcell& gridcell, double* in_mtemp, double* in_mprec, 
 			doy++;
 
 			// Compute days max rad (i.e. cldfr=0.) for weighting
-			cldwght[day] = max(0.,cldf2rad(0.0,lat,doy,true));
+			cldwght[day] = max(0.01,cldf2rad(0.0,lat,doy,true));
 			tot_cldwght += cldwght[day];
 		}
 
@@ -2677,7 +2677,7 @@ void weathergen_get_met(Gridcell& gridcell, double* in_mtemp, double* in_mprec, 
 			solcor = 0.;
 			for (int day=0;day<ndaymon;day++) {
 				int ldoy = accumday+day+1;
-				dsol[day] = max(0.,cldf2rad(dcldf[day],lat,ldoy,true));
+				dsol[day] = max(0.001,cldf2rad(dcldf[day],lat,ldoy,true));
 				solcor += dsol[day];
 			}
 			solcor /= (in_msol[mon]*(double)ndaymon);

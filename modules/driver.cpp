@@ -1027,6 +1027,7 @@ void dailyaccounting_patch(Patch& patch) {
 		patch.mpet[date.month]=0.0;
 
 		soil.grs_days_thismonth = 0;
+		soil.grs_mwcont_top1m[date.month] = -1.0;
 	}
 
 	if(run_landcover)
