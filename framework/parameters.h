@@ -83,6 +83,11 @@ typedef enum {NO_CROPLAND_BURNING, FULL_CROPLAND_BURNING, LIGHTNING_CROPLAND_BUR
 /// LandSyMM/SPITFIRE: Wind speed limit model
 typedef enum {NOLIMIT, LASSLOP, ROTHERMEL, ANDREWS} windlimittype;
 
+/// IMOGEN simulation mode
+typedef enum {ONLINE, OFFLINE} lpjgimogensimulationmode;
+/// IMOGEN feedback mode
+typedef enum {LPJG_OFFSET, MOVING_AVERAGE} lpjgimogenfeedbackmode;
+
 /// Type of weathergenerator used 
 /**     One of:
  *      GWGEN           Global Weather GENerator (needed by BLAZE, due to 
@@ -415,6 +420,118 @@ extern bool disturb_pasture;
 
 /// Whether to simulate cropland as pasture
 extern bool grassforcrop;
+
+///////////////////////////////////////////////////////////////////////////////////////
+// IMOGEN-Intermediary parameters
+///////////////////////////////////////////////////////////////////////////////////////
+
+namespace IMOGENConfig {
+	extern xtring DIR_COMMON;
+	extern xtring DIR_COMMON_OUT;
+	extern xtring DIR_PATT;
+	extern xtring DIR_CLIM;
+	extern xtring FILE_SCEN_EMITS;
+	extern xtring FILE_NON_CO2_VALS;
+	extern xtring FILE_CH4_N2O_EMITS;
+	extern xtring FILE_LPJG_FLUX;
+	extern xtring FILE_GRIDLIST;
+	extern xtring FILE_LPJG_CH4_N2O_FLUX;
+	extern xtring FILE_SCEN_CO2_PPMV;
+
+	extern int STEP_DAY;
+	extern double T_OCEAN_INIT;
+	extern double KAPPA_O;
+	extern double F_OCEAN;
+	extern double LAMBDA_L;
+	extern double LAMBDA_O;
+	extern double MU;
+	extern double Q2CO2;
+	extern double TAU_DECAY_CH4;
+	extern double TAU_DECAY_N2O;
+
+	extern int NYR_NON_CO2;
+	extern int NYR_EMISS_NONCO2;
+	extern int NYR_EMISS;
+	extern int NYR_LPJG_FLUX;
+
+	extern double CO2_INIT_PPMV;
+	extern double CH4_INIT_PPBV;
+	extern double N2O_INIT_PPBV;
+
+	extern bool NONCO2_EMISSIONS;
+	extern bool NONCO2_EMISSIONS_LPJG;
+	extern bool C_EMISSIONS;
+	extern bool LPJG_CFLUX;
+	extern bool INCLUDE_CO2;
+	extern bool INCLUDE_NON_CO2;
+	extern bool DAILYOUT;
+	extern bool LAND_FEED;
+	extern bool OCEAN_FEED;
+	extern bool ANLG;
+	extern bool ANOM;
+	extern bool REGRID;
+	extern bool CO2_RF_FAIR;
+	extern bool FILE_NON_CO2;
+
+	extern bool print_imogen_output;
+	extern bool include_feedback;
+
+	extern xtring simulation_mode;
+	extern xtring feedback_mode;
+	extern xtring interpolation_mode;
+
+	extern int YEAR1;
+	extern int IYEND;
+	extern int YEAR1_LPJG;
+	extern bool SPINUP;
+	extern bool KEEPRUNNING;
+	extern bool FIRSTCALL;
+
+	extern xtring scenario;
+	extern int firstyear;
+	extern int lastyear;
+	extern int lpjg_start_year;
+	extern int lpjg_end_year;
+
+	extern xtring baseDirectory;
+	extern xtring pathToLogFile;
+	extern xtring myPLUMDataFilePath;
+	extern xtring lpjgOutputDirectory;
+
+	extern xtring methaneEmissionOutputFilePath;
+	extern xtring entericFermentationMethaneOutputFilePath;
+	extern xtring manureManagementMethaneOutputFilePath;
+	extern xtring nitrogenEmissionOutputFilePath;
+	extern xtring methaneNitrogenTotalOutputFilePath;
+
+	extern xtring historic_nitrogen_fertiizer_file_path;
+	extern xtring arable_lands_nitrogen_fertilizer_path;
+
+	extern xtring wetlandsAreaFilePath;
+	extern xtring wetlandsMethaneEmissionsOutputPath;
+
+	extern xtring basePathPLUMdata;
+	extern xtring basePathPLUMdata_v2;
+	extern xtring plumFertilizerOutputPath;
+	extern xtring plumFertlizerPath;
+
+	extern xtring file_LPJG_IPCC_Path;
+	extern xtring lpjgMethane;
+	extern xtring lpjgNitrogen;
+	extern xtring lpjgCflux;
+	extern xtring lpjgCflux_plus_IIASA_lpjg_co2;
+
+	extern xtring IIASA_lpjg_co2_file_path;
+	extern xtring IIASA_non_lpjg_1850_2100;
+	extern xtring IIASA_lpjg_1850_2100;
+
+	extern xtring livestock_counts_path;
+	extern xtring fao_stats_path;
+
+	extern xtring ssprcp;
+
+	extern void print_all();
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // Settings controlling the saving and loading from state files

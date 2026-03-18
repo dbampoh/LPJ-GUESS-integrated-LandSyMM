@@ -30,6 +30,11 @@ set(headers
   soil.h
   soilinput.h
   ntransform.h
+  climatemodel.h
+  imogencfx.h
+  imogen_input.h
+  imogenlogger.h
+  intermediary.h
   )
 
 set(source  
@@ -62,6 +67,11 @@ set(source
   soil.cpp
   soilinput.cpp
   ntransform.cpp
+  climatemodel.cpp
+  imogencfx.cpp
+  imogen_input.cpp
+  imogenlogger.cpp
+  intermediary.cpp
   )
 
 include(add_guess_sources)

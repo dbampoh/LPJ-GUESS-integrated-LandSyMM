@@ -30,8 +30,60 @@
 #include "bvoc.h"
 #include "commonoutput.h"
 #include "soilmethane.h"
+//#include "climatemodel.h"
+//#include "imogenlogger.h"
 
 #include <memory>
+#include <string.h>
+#include <sstream>
+#include <sys/stat.h>
+
+namespace {
+
+	template <typename T> xtring to_xtring(T value) {
+		std::ostringstream os;
+		os << value;
+		return xtring(os.str().c_str());
+	}
+
+	static void _mkdir(const char *dir, int mode) {
+		char tmp[256];
+		char *p = NULL;
+		size_t len;
+
+		snprintf(tmp, sizeof(tmp), "%s", dir);
+		len = strlen(tmp);
+		if (tmp[len - 1] == '/')
+			tmp[len - 1] = 0;
+		for (p = tmp + 1; *p; p++)
+			if (*p == '/') {
+				*p = 0;
+				mkdir(tmp, mode);
+				*p = '/';
+			}
+		mkdir(tmp, mode);
+	}
+
+	xtring gen_filename(xtring dir, xtring fname, int year, bool fmakedir) {
+		xtring pathbase = dir + xtring("/");
+		if (fname[0] == '/' || fname[0] == '\0')
+			pathbase = xtring("");
+
+		long position = fname.find("%Y");
+		if (position != -1) {
+			xtring syear = to_xtring(year);
+
+			if (fmakedir) {
+				xtring pathname = pathbase + fname.left(position) + syear;
+				_mkdir((char*) pathname, 0775);
+			}
+
+			fname = fname.left(position) + syear + fname.right(fname.len() - xtring("%Y").len() - position);
+		}
+
+		return pathbase + fname;
+	}
+}
 
 /// Prints the date and time together with the name of this simulation
 void print_logfile_heading() {
