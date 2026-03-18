@@ -35,6 +35,8 @@ set(headers
   imogen_input.h
   imogenlogger.h
   intermediary.h
+  cfxinput.h
+  gcpoutput.h
   )
 
 set(source  
@@ -72,6 +74,8 @@ set(source
   imogen_input.cpp
   imogenlogger.cpp
   intermediary.cpp
+  cfxinput.cpp
+  gcpoutput.cpp
   )
 
 include(add_guess_sources)

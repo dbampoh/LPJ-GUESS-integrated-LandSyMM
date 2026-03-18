@@ -854,6 +854,34 @@ bool GridcellOrderedVariable::same_spatial_domain(const GridcellOrderedVariable&
 		same_spatial_coordinates(ncid_lon, other, other.ncid_lon);
 }
 
+void GridcellOrderedVariable::ssr_test_relhum_units() const {
+	bool has_scale_factor;
+	double factor;
+	has_scale_factor = get_attribute(ncid_file, ncid_var, "scale_factor", factor);
+
+	if (!(
+		((this->get_units() == "1" || this->get_units() == "fraction") && (!has_scale_factor || factor == 1.0))
+		||
+		(this->get_units() == "%" && factor == 0.01)
+		)) {
+		throw CFError((char*)"relative_humidity", "Units must be either % (0-100, with scale_factor 0.01) or '1' (0-1)");
+	}
+}
+
+void GridcellOrderedVariable::ssr_test_precip_units() const {
+	bool has_scale_factor = false;
+	double factor;
+	has_scale_factor = get_attribute(ncid_file, ncid_var, "scale_factor", factor);
+
+	if (!(
+		((this->get_units() == "mm/s" || this->get_units() == "kg m-2 s-1" || this->get_units() == "kg m-2" || this->get_units() == "mm/month" || this->get_units() == "mm/day") && (!has_scale_factor || factor == 1.0))
+		||
+		(this->get_units() == "m/s" && factor == 1000.0)
+		)) {
+		throw CFError((char*)"precip", "Unacceptable units and/or scale_factor");
+	}
+}
+
 #ifdef NC_STRING
 void GridcellOrderedVariable::
 get_extra_dimension(std::vector<std::string>& coordinate_values) const {

@@ -424,6 +424,7 @@ void SoilInput::get_soil_mineral(double lon, double lat, Gridcell& gridcell) {
 	soiltype.water_below_wp = soilprop.wilting_point;
 	soiltype.porosity = soilprop.porosity;
 	soiltype.mineral_frac = 1.0 - soiltype.organic_frac - soiltype.porosity;
+	soiltype.pH_value = soilprop.pH;
 
 	if (!ifcentury) {
 		// override the default SOM years with 70-80% of the spin-up period
