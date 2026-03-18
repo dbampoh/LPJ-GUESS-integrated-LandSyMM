@@ -146,6 +146,12 @@ public:
 	/// Checks if another GridcellOrderedVariable has the same spatial domain as this one
 	bool same_spatial_domain(const GridcellOrderedVariable& other) const;
 
+	/// Checks that relative humidity units are acceptable
+	void ssr_test_relhum_units() const;
+
+	/// Checks that precip units are acceptable
+	void ssr_test_precip_units() const;
+
 private:
 
 	void cache_lonlats();

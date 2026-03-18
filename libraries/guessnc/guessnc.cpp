@@ -117,6 +117,10 @@ std::string get_variable_name(int ncid_file, int ncid_var) {
 	return name;
 }
 
+bool datetimes_equiv_ymd(CF::DateTime dt1, CF::DateTime dt2) {
+	return dt1.get_year() == dt2.get_year() && dt1.get_month() == dt2.get_month() && dt1.get_day() == dt2.get_day();
+}
+
 } // namespace GuessNC 
 
 #endif // HAVE_NETCDF

@@ -52,6 +52,9 @@ bool get_coordinate_variable(int ncid_file, int ncid_dim, int& ncid_coord_var);
 /// Gets the name of a variable with a given id
 std::string get_variable_name(int ncid_file, int ncid_var);
 
+/// Tests whether two datetimes are the same, ignoring fields other than year, month, and day
+bool datetimes_equiv_ymd(CF::DateTime dt1, CF::DateTime dt2);
+
 }
 
 #endif // HAVE_NETCDF
