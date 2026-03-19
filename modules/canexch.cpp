@@ -1703,12 +1703,13 @@ double irrigated_water_uptake(Patch& patch, Pft& pft, const Day& day) {
         }
     }
 
-    double wcont_opt[NSOILLAYER_UPPER];
-    bool add_water[NSOILLAYER_UPPER];
-    for (int i = 0; i<NSOILLAYER_UPPER; i++) add_water[i] = true;
-
     hydrologytype mgmt_hydrology = stlist[patch.stand.stid].get_management().hydrology;
+    int nsoillayer_to_irrigate = (mgmt_hydrology >= INUNDATED) ? NSOILLAYER : NSOILLAYER_UPPER;
     double irr_trigger = (mgmt_hydrology >= IRRIGATED_SAT) ? restrict_irr_wcont : 0.9;
+
+    double wcont_opt[NSOILLAYER];
+    bool add_water[NSOILLAYER];
+    for (int i = 0; i<NSOILLAYER; i++) { wcont_opt[i] = 0.0; add_water[i] = (i < nsoillayer_to_irrigate); }
 
     if (patch.soil.get_soil_water_upper() < irr_trigger && ppft.phen > 0.0)   {
         double wcont_0_opt = 0.0;
@@ -1717,7 +1718,7 @@ double irrigated_water_uptake(Patch& patch, Pft& pft, const Day& day) {
         if (mgmt_hydrology >= IRRIGATED_SAT) {
             wcont_0_opt = 1.0;
             if (!iftwolayersoil) {
-                for (int i = 0; i<NSOILLAYER_UPPER; i++) {
+                for (int i = 0; i<nsoillayer_to_irrigate; i++) {
                     wcont_opt[i] = 1.0;
                     if (wcont_cp[i] > wcont_opt[i]) {
                         wcont_opt[i] = wcont_cp[i];
@@ -1764,9 +1765,9 @@ double irrigated_water_uptake(Patch& patch, Pft& pft, const Day& day) {
                 irrigate_soil = true;
         }
         else {
-            for (int i = 0; i < NSOILLAYER_UPPER; i++) {
+            for (int i = 0; i < nsoillayer_to_irrigate; i++) {
                 if (add_water[i])
-                    irrigate_soil = true; // Allows irrigation if even one layer needs more water 
+                    irrigate_soil = true;
             }
         }
 
@@ -1779,13 +1780,13 @@ double irrigated_water_uptake(Patch& patch, Pft& pft, const Day& day) {
 
                 double water_to_add = 0.0;
 
-                double water_to_add_ly[NSOILLAYER_UPPER];
-                for (int i = 0; i < NSOILLAYER_UPPER; i++) water_to_add_ly[i] = 0.0;
+                double water_to_add_ly[NSOILLAYER];
+                for (int i = 0; i < NSOILLAYER; i++) water_to_add_ly[i] = 0.0;
 
                 if (iftwolayersoil)
                     water_to_add = (wcont_0_opt - patch.soil.get_soil_water_upper()) * awc0;
                 else {
-                    for (int i = 0; i<NSOILLAYER_UPPER; i++) {
+                    for (int i = 0; i<nsoillayer_to_irrigate; i++) {
                         if (add_water[i]) {
                             water_to_add_ly[i] = max((wcont_opt[i] - wcont_cp[i]) * patch.soil.soiltype.awc[i], 0.0); // ensures that we add water
                             water_to_add += water_to_add_ly[i];
@@ -1798,12 +1799,12 @@ double irrigated_water_uptake(Patch& patch, Pft& pft, const Day& day) {
                 // Local storage
 
                 // available water for each soil layer (mm)
-                double Faw_layer[NSOILLAYER_UPPER];
+                double Faw_layer[NSOILLAYER];
                 // water that can still be added to each soil layer (mm)
-                double potential_layer[NSOILLAYER_UPPER];
+                double potential_layer[NSOILLAYER];
 
                 // initialise to 0 mm
-                for (int sl = 0; sl<NSOILLAYER_UPPER; sl++) {
+                for (int sl = 0; sl<NSOILLAYER; sl++) {
                     Faw_layer[sl] = 0.0;
                     potential_layer[sl] = 0.0;
                 }
@@ -1811,7 +1812,7 @@ double irrigated_water_uptake(Patch& patch, Pft& pft, const Day& day) {
                 Soil& soil = patch.soil;
                 double potential_water = 0.0;
 
-                for (int ly = 0; ly < NSOILLAYER_UPPER; ly++) {
+                for (int ly = 0; ly < nsoillayer_to_irrigate; ly++) {
                     if (add_water[ly]) {
                         // Use: wcont[ly - IDX] = Faw_layer[ly - IDX] / soiltype.awc[ly - IDX];
                         Faw_layer[ly] = soil.get_layer_soil_water(ly) * soil.soiltype.awc[ly]; // mm
@@ -1826,7 +1827,7 @@ double irrigated_water_uptake(Patch& patch, Pft& pft, const Day& day) {
                 double total_available_water = 0.0;
                 double total_capacity = 0.0;
     
-                for (int s=0; s<NSOILLAYER_UPPER; s++) {
+                for (int s=0; s<nsoillayer_to_irrigate; s++) {
 
                     if (add_water[s]) {
 
@@ -1939,7 +1940,9 @@ void aet_water_stress(Patch& patch, Vegetation& vegetation, const Day& day) {
         // Retrieve PFT
         Pft& pft = ppft.pft;
 
-        if (day.isstart || patch.stand.isirrigated) {
+        bool irrigate_this_pft = patch.stand.isirrigated && pft.id == patch.stand.pftid;
+
+        if (day.isstart || irrigate_this_pft) {
 
             // Calculate effective water supply from plant roots
             // Rescale available water by patch FPC if exceeds 1
@@ -1947,7 +1950,7 @@ void aet_water_stress(Patch& patch, Vegetation& vegetation, const Day& day) {
             // individual's FPC, assuming individuals are equal in competition for water)
             double wr;
  
-            if (patch.stand.isirrigated) {
+            if (irrigate_this_pft) {
                 wr = irrigated_water_uptake(patch, pft, day);
             } 
             else {
