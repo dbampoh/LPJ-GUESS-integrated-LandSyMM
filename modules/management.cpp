@@ -2812,6 +2812,12 @@ void nfert_crop(Patch& patch) {
 			}
 
 			double nfert = pft.N_appfert;
+
+			double N_appfert_mt_val = stlist[patch.stand.stid].get_management().N_appfert_mt;
+			if (N_appfert_mt_val >= 0.0) {
+				nfert = N_appfert_mt_val;
+			}
+
 			double mineral = 1.0;
 			// Use total and manure fertilisation amount from text input file if present:
 			if (gridcellpft.Nfert_read >= 0.0) {

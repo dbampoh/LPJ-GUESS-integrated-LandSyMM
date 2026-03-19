@@ -1707,11 +1707,26 @@ double irrigated_water_uptake(Patch& patch, Pft& pft, const Day& day) {
     bool add_water[NSOILLAYER_UPPER];
     for (int i = 0; i<NSOILLAYER_UPPER; i++) add_water[i] = true;
 
-    if (patch.soil.get_soil_water_upper()<0.9 && ppft.phen > 0.0)   {
+    hydrologytype mgmt_hydrology = stlist[patch.stand.stid].get_management().hydrology;
+    double irr_trigger = (mgmt_hydrology >= IRRIGATED_SAT) ? restrict_irr_wcont : 0.9;
+
+    if (patch.soil.get_soil_water_upper() < irr_trigger && ppft.phen > 0.0)   {
         double wcont_0_opt = 0.0;
         double wr_opt = min(1.0, patch.wdemand / ppft.phen / pft.emax);
 
-        if (wateruptake == WR_ROOTDIST) {
+        if (mgmt_hydrology >= IRRIGATED_SAT) {
+            wcont_0_opt = 1.0;
+            if (!iftwolayersoil) {
+                for (int i = 0; i<NSOILLAYER_UPPER; i++) {
+                    wcont_opt[i] = 1.0;
+                    if (wcont_cp[i] > wcont_opt[i]) {
+                        wcont_opt[i] = wcont_cp[i];
+                        add_water[i] = false;
+                    }
+                }
+            }
+        }
+        else if (wateruptake == WR_ROOTDIST) {
 
             wcont_0_opt = (wr_opt * pft.emax - min(patch.soil.get_soil_water_lower() * awc1 * patch.fpc_rescale, pft.emax * grootdist[1])) / awc0 / patch.fpc_rescale;
             if (wcont_0_opt * awc0 * patch.fpc_rescale > pft.emax * grootdist[0]) {

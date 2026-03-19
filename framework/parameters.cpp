@@ -2242,7 +2242,9 @@ void plib_callback(int callback) {
 		while (stlist.isobj) {
 			StandType& st = stlist.getobj();
 			st.id = nst++;
-			nst_lc[st.landcover]++;
+			if (st.landcover != CROPLAND || !do_potyield || st.get_management().isforpotyield) {
+				nst_lc[st.landcover]++;
+			}
 			stlist.nextobj();
 		}
 
