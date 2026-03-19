@@ -545,8 +545,23 @@ extern bool restart;
 /// Whether to save state files
 extern bool save_state;
 
-/// Save/restart year
+/// Save/restart year (LTS name)
 extern int state_year;
+
+/// LandSyMM: Restart year (alias for state_year when restarting)
+extern int& restart_year;
+
+/// LandSyMM: Save year (alias for state_year when saving)
+extern int& save_year;
+
+/// LandSyMM: Fire population density input method (0=undefined, 1=simfire binary, 2=netcdf)
+extern int fire_popdens_method;
+
+/// LandSyMM: Keep popdens at fixed year (cfxinput only)
+extern int fixed_popdens_hist;
+
+/// LandSyMM: Year to use for fixed popdens
+extern int fixed_popdens_year;
 
 /// The level of verbosity
 extern int verbosity;

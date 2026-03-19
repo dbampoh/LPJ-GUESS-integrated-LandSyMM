@@ -741,8 +741,15 @@ void get_stand_age_structure(Gridcell& gridcell,double* densindiv,int& nageclass
   */
 void outlimit(OutputRows& out, const Table& table, double d) {
 
-	if (date.year >= nyear_spinup)
+	if (date.year >= nyear_spinup) {
+		if (firstoutyear > 0 || lastoutyear > 0) {
+			int calyear = date.get_calendar_year();
+			if ((firstoutyear > 0 && calyear < firstoutyear) ||
+			    (lastoutyear > 0 && calyear > lastoutyear))
+				return;
+		}
 		out.add_value(table, d);
+	}
 }
 
 /// Output of simulation results at the end of each year
