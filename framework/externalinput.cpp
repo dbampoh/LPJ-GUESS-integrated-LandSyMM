@@ -306,7 +306,7 @@ void LandcoverInput::init() {
 	}
 
 	for(int lc=0; lc<NLANDCOVERTYPES; lc++) {
-		if(run[lc] && file_lu_st[lc] != "")	{
+		if(run[lc] && file_lu_st[lc] != "" && !(lc==CROPLAND && do_potyield))	{
 			int input_precision_parsed_st = 0;
 			if(!st_data[lc].Open(file_lu_st[lc], gridlist)) {
 				fail("could not open %s for input",(char*)file_lu_st[lc]);
@@ -379,6 +379,10 @@ void LandcoverInput::init() {
 		TextInput::TimeDataD& CFTdata = st_data[CROPLAND];
 		bool do_minimize = false;
 
+		if (minimizecftlist && do_potyield) {
+			fail("You have enabled both minimizecftlist and do_potyield. Choose one or the other.");
+		}
+
 		// Remove crop stand types from stlist that always have zero area fraction in all cells in grid list
 		if(minimizecftlist && gridlist.nobj < 100) {	// Reduce the risk of accidentally using minimized cft lists when using split gridlists.
 			dprintf("WARNING: minimizecftlist is activated in crop.ins.\n Restart will NOT WORK properly if you are running on multiple processors. \n");
@@ -397,7 +401,7 @@ void LandcoverInput::init() {
 				if(do_minimize)
 					remove = !CFTdata.item_has_data(st.name);
 				else
-					remove = !CFTdata.item_in_header(st.name);
+					remove = (!CFTdata.item_in_header(st.name) && !st.get_management().isforpotyield);
 			}
 
 			if(remove) {
@@ -893,7 +897,7 @@ void LandcoverInput::getlandcover(Gridcell& gridcell) {
 		gcst.frac = 0.0;
 		if(nst_lc[st.landcover] == 1)
 			gcst.frac = 1.0;
-		else if(frac_fixed[st.landcover] && (st.landcover != CROPLAND || !frac_fixed_default_crops))
+		else if(frac_fixed[st.landcover] && (st.landcover != CROPLAND || (!do_potyield && !frac_fixed_default_crops) || st.get_management().isforpotyield))
 			gcst.frac = 1.0 / (double)nst_lc[st.landcover];
 
 		stlist.nextobj();
@@ -2042,9 +2046,13 @@ void ManagementInput::init() {
 
 		file_Nfert=param["file_Nfert"].str;
 		if(	file_Nfert != "")	{
-			if(!Nfert.Open(file_Nfert, gridlist))
-				fail("initio: could not open %s for input",(char*)file_Nfert);
-			readNfert = true;
+			if (do_potyield) {
+				dprintf("WARNING: do_potyield is true, so ignoring specified file_Nfert\n");
+			} else {
+				if(!Nfert.Open(file_Nfert, gridlist))
+					fail("initio: could not open %s for input",(char*)file_Nfert);
+				readNfert = true;
+			}
 		}
 		if(param.find(xtring("file_NfertMan"))) {
 			file_NfertMan=param["file_NfertMan"].str;
