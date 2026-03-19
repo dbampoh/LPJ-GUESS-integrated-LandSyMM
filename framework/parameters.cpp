@@ -170,6 +170,10 @@ bool save_state;
 int state_year;
 int& restart_year = state_year;
 int& save_year = state_year;
+bool ifphdependent_ncycle = false;
+bool ifnesterov_tmax_filter = true;
+bool ifchilldays_warmest_reset = true;
+double blaze_cwd_factor = 1.0;
 int fire_popdens_method = 1;
 int fixed_popdens_hist = 0;
 int fixed_popdens_year = -10000;
@@ -913,6 +917,14 @@ void plib_declarations(int id,xtring setname) {
 		declareitem("restart_year", &state_year, 1, 20000, 1, CB_NONE, "Restart year (calendar year). LandSyMM alias for state_year.");
 		declareitem("save_year", &state_year, 1, 20000, 1, CB_NONE, "Save year (calendar year). LandSyMM alias for state_year.");
 		declareitem("save_years", &strparam, 200, CB_SAVEYEARS, "LandSyMM: Space-separated list of calendar years to save state at.");
+		declareitem("ifphdependent_ncycle", &ifphdependent_ncycle, 1, CB_NONE,
+			"LandSyMM: Use pH-dependent N cycling (Val Martin 2023, Parton 1996, Ma 2022). Default: 0 (LTS behavior).");
+		declareitem("ifnesterov_tmax_filter", &ifnesterov_tmax_filter, 1, CB_NONE,
+			"LandSyMM: Filter Nesterov accumulation by Tmax>0 (1=LTS default, 0=LandSyMM without filter).");
+		declareitem("ifchilldays_warmest_reset", &ifchilldays_warmest_reset, 1, CB_NONE,
+			"LandSyMM: Reset chilldays on warmest day (1=LTS default, 0=LandSyMM without reset).");
+		declareitem("blaze_cwd_factor", &blaze_cwd_factor, 0.1, 10.0, 1, CB_NONE,
+			"LandSyMM: BLAZE CWD scaling factor (1.0=LTS default, 2.0=LandSyMM).");
 		declareitem("fire_popdens_method", &fire_popdens_method, 0, 2, 1, CB_NONE, "Fire popdens input: 0=undefined, 1=simfire binary, 2=netcdf (cfxinput)");
 		declareitem("fixed_popdens_hist", &fixed_popdens_hist, 0, 2, 1, CB_NONE, "cfxinput: Keep fire popdens at fixed year (0=no, 1=from year onward, 2=always)");
 		declareitem("fixed_popdens_year", &fixed_popdens_year, -10000, 2100, 1, CB_NONE, "cfxinput: Year for fixed_popdens_hist");

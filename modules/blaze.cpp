@@ -267,7 +267,7 @@ double survival_probability_boreal(double fire_line_intensity) {
 double survival_probability_temp_needleleaf(double diameter_at_breast_height, double fire_line_intensity, double mass_cwd) {
 
 	double diameter_at_breast_height_cm  = diameter_at_breast_height * CM_PER_M; // in cm
-	double cwd = mass_cwd * 0.1; // in Mg/ha
+	double cwd = mass_cwd * 0.1 * blaze_cwd_factor; // in Mg/ha; blaze_cwd_factor: 1.0=LTS, 2.0=LandSyMM
 	// survival probability at intensity below 750 kW/m
 	double survival_probability_750;
 	double survival_probability;

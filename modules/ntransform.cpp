@@ -57,18 +57,20 @@ void nh3_volatilization(Patch& patch, Soil& soil, Climate& climate, double& n_bu
 	double wcont = soil.get_soil_water_upper();
 
 	// calculating soil pH value, aprec = daily mean precip, based on annual average
-	if (soil.soiltype.pH > 0.0) {
+	if (ifphdependent_ncycle && soil.soiltype.pH_value > 0.0) {
+		soil.pH = soil.soiltype.pH_value;
+	}
+	else if (soil.soiltype.pH > 0.0) {
 		soil.pH = soil.soiltype.pH;
 	} 
 	else {
 		soil.pH = 3810 / (762 + (climate.aprec_lastyear)) + 3.5; // Dawson -77
 	}
 
-	if (soil.pH > 6.0) { 
-		nh3_max = 0.001; // Maximum conversion ratio from NH4_mass to NH3 gas
-	}
-	else {
-		nh3_max = 0.00001;
+	if (ifphdependent_ncycle) {
+		nh3_max = (soil.pH > 6.5) ? 0.025 : 0.0025;
+	} else {
+		nh3_max = (soil.pH > 6.0) ? 0.001 : 0.00001;
 	}
 
 	// N budget check
@@ -83,8 +85,21 @@ void nh3_volatilization(Patch& patch, Soil& soil, Climate& climate, double& n_bu
 		f_nit_T = 0.0;
 	}
 
-	// NH3 increment (table 5, eqn 2, 3, 4, 6, Xu-Ri 2008)
-	nh3_inc = min(soil.NH4_mass, nh3_max * (min(1.0, wcont) * (1.0 - min(1.0, wcont))) * f_nit_T * f_nit_T * exp(2.0 * (soil.pH - 10.0)) * soil.NH4_mass);
+	if (ifphdependent_ncycle) {
+		// pH limiting factor for volatilization (Val Martin et al., 2023)
+		double f_pH;
+		if (soil.pH > 8.0)
+			f_pH = 1.0;
+		else if (soil.pH >= 5.0)
+			f_pH = 0.6 + 0.4 / 3.0 * (soil.pH - 5.0);
+		else
+			f_pH = 0.6;
+
+		nh3_inc = min(soil.NH4_mass, nh3_max * min(1.0, wcont) * f_nit_T * soil.NH4_mass * f_pH * f_nit_T * (1.0 - min(1.0, wcont)));
+	} else {
+		// LTS: NH3 increment (table 5, eqn 2, 3, 4, 6, Xu-Ri 2008)
+		nh3_inc = min(soil.NH4_mass, nh3_max * (min(1.0, wcont) * (1.0 - min(1.0, wcont))) * f_nit_T * f_nit_T * exp(2.0 * (soil.pH - 10.0)) * soil.NH4_mass);
+	}
 
 	soil.NH4_mass -= nh3_inc;
 
@@ -133,7 +148,7 @@ void substrate_partition(Soil& soil){
 /** Daily calculation of nitrification, and nitrification
  *  induced trace gas emissions 
  */
-void nitrification(Patch& patch, Soil& soil) {
+void nitrification(Patch& patch, Soil& soil, Climate& climate) {
 
 	double b = log(3.0) * 5.0;
 	double a = exp(-b*6.0/10.0);
@@ -152,8 +167,18 @@ void nitrification(Patch& patch, Soil& soil) {
 	else {
 		f_nit_T = 0.0;
 	}
+
+	double f_nit_pH = 1.0;
+	if (ifphdependent_ncycle) {
+		if (soil.soiltype.pH_value > 0.0)
+			soil.pH = soil.soiltype.pH_value;
+		else
+			soil.pH = 3810.0 / (762.0 + climate.aprec_lastyear) + 3.5;
+		f_nit_pH = 0.56 + atan(3.1415926 * 0.45 * (soil.pH - 5.0)) / 3.1415926;
+	}
+
 	// gross nitrification rate, NH4_mass converted to NO3_mass (table 8, eqn 1, Xu-Ri 2008)
-	no3_inc          = f_nitri_max * nit_act * f_nit_T * soil.NH4_mass_d;
+	no3_inc          = f_nitri_max * nit_act * f_nit_T * f_nit_pH * soil.NH4_mass_d;
 	gross_nitrif     = no3_inc;
 	soil.NH4_mass_d -= no3_inc;
 
@@ -187,28 +212,43 @@ void nitrification(Patch& patch, Soil& soil) {
 /** Daily calculation of denitrification rate, and denitrification
  *  induced trace gas emissions 
  */
-void denitrification(Patch& patch,Soil& soil) {
+void denitrification(Patch& patch, Soil& soil, Climate& climate) {
 	double soil_T = soil.get_soil_temp_25();
 	double wcont = soil.get_soil_water_upper();
-	// used to remove the per m3 from the constants KC and KN.
 	double water_cont_m3 = wcont * soil.soiltype.gawc[0] / 1000.0;
 
 	double wfps_upper = soil.wfps(0);
 
-	double f_den_T, d_N_max, no2_inc, no_inc, n2o_inc, ngas_inc, gross_denitrif, n2_inc;
-	if (water_cont_m3 > 0.0 && wfps_upper>0.4) {
-		// temperature limiting factor for denitrification, 22 deg C == 1 (table 9, eqn 1, Xu-Ri 2008)
-		if (soil_T >= -40.0) {
-			f_den_T = min(1.0, exp(308.56 * (1.0 / 68.02 - 1.0 / (soil_T + 46.02))));
-		}
-		else {
-			f_den_T = 0.0;
-		}
-		// Effect of labile carbon availability on denitrification (table 9, eqn 2, Xu-Ri 2008)
-		d_N_max = soil.labile_carbon_w / (k_C * water_cont_m3 + soil.labile_carbon_w);
+	double f_den_T, no2_inc, no_inc, n2o_inc, ngas_inc, gross_denitrif, n2_inc;
+	if (water_cont_m3 > 0.0 && wfps_upper > 0.4) {
 
-		// Gross denitrification ratio NO3 to NO2 (table 9, eqn 3, Xu-Ri 2008)
-		no2_inc = min(soil.NO3_mass_w, soil.NO3_mass_w * f_denitri_max * d_N_max * f_den_T * soil.NO3_mass_w / (k_N * water_cont_m3 + soil.NO3_mass_w));
+		if (ifphdependent_ncycle) {
+			// Gaussian temperature response (Ma et al. 2022)
+			if (soil_T >= -40.0)
+				f_den_T = min(1.0, exp(-1.0 * (soil_T - 37.0) * (soil_T - 37.0) / (25.0 * 25.0)));
+			else
+				f_den_T = 0.0;
+		} else {
+			// LTS: linear temperature response (Xu-Ri 2008)
+			if (soil_T >= -40.0)
+				f_den_T = min(1.0, exp(308.56 * (1.0 / 68.02 - 1.0 / (soil_T + 46.02))));
+			else
+				f_den_T = 0.0;
+		}
+
+		double f_LC = soil.labile_carbon_w / (k_C * water_cont_m3 + soil.labile_carbon_w);
+		double f_N_no3 = soil.NO3_mass_w / (k_N * water_cont_m3 + soil.NO3_mass_w);
+
+		double f_den_pH_no3 = 1.0;
+		if (ifphdependent_ncycle) {
+			if (soil.soiltype.pH_value > 0.0)
+				soil.pH = soil.soiltype.pH_value;
+			else
+				soil.pH = 3810.0 / (762.0 + climate.aprec_lastyear) + 3.5;
+			f_den_pH_no3 = 1.0 - 0.6 / (1.0 + exp((soil.pH - 5.0) / 1.5));
+		}
+
+		no2_inc = min(soil.NO3_mass_w, soil.NO3_mass_w * f_denitri_max * f_LC * f_den_T * f_N_no3 * f_den_pH_no3);
 
 		gross_denitrif   = no2_inc;
 		soil.NO3_mass_w -= no2_inc;
@@ -216,28 +256,59 @@ void denitrification(Patch& patch,Soil& soil) {
 
 		// Gross transformation of NO2 to N2 (table 9, eqn 4, Xu-Ri 2008)
 
-		// Denitrification rate dependence on moisture, Weier et al. 1993
-		double f_den_w = min(1.0, exp(13.0360 * wfps_upper - 11.6219));
+		double f_den_w;
+		if (ifphdependent_ncycle) {
+			// Ma et al. 2022 moisture response
+			f_den_w = min(1.0, 0.624 + 0.8 * atan(0.45 * 3.1415926 * (10.0 * wfps_upper - 8.0)) / 2.85);
+		} else {
+			// LTS: Weier et al. 1993
+			f_den_w = min(1.0, exp(13.0360 * wfps_upper - 11.6219));
+		}
 
-		ngas_inc = min(soil.NO2_mass_w, soil.NO2_mass_w * f_nitri_gas_max * d_N_max * f_den_w * f_den_T * soil.NO2_mass_w / (k_N * water_cont_m3 + soil.NO2_mass_w));
+		double f_N_no2 = soil.NO2_mass_w / (k_N * water_cont_m3 + soil.NO2_mass_w);
+
+		double f_den_pH_ngas = 1.0;
+		if (ifphdependent_ncycle) {
+			if (soil.pH >= 7.0)
+				f_den_pH_ngas = 1.0;
+			else if (soil.pH > 4.0)
+				f_den_pH_ngas = 0.001 + (soil.pH - 4.0) / 3.0;
+			else
+				f_den_pH_ngas = 0.001;
+		}
+
+		ngas_inc = min(soil.NO2_mass_w, soil.NO2_mass_w * f_denitri_gas_max * f_LC * f_den_w * f_den_T * f_N_no2 * f_den_pH_ngas);
 
 		soil.NO2_mass_w -= ngas_inc;
 
-		double f_n2o_no_w = max(0.0, min(1.0, 3.2092 * wfps_upper - 0.9210));
+		double f_n2o_no_w;
+		if (ifphdependent_ncycle)
+			f_n2o_no_w = max(0.0, min(1.0, 3.3333 * wfps_upper - 1.0000));
+		else
+			f_n2o_no_w = max(0.0, min(1.0, 3.2092 * wfps_upper - 0.9210));
 
-		double f_n2_n2o_T = 1.0 / (1.0 + exp(-(soil_T - 5.0) / 10.0));
+		double f_n2o_n2_T;
+		if (ifphdependent_ncycle)
+			f_n2o_n2_T = 1.0 / (1.0 + exp((soil_T - 5.0) / 10.0));
+		else
+			f_n2o_n2_T = 1.0 / (1.0 + exp(-(soil_T - 5.0) / 10.0));
 
-		double f_n2o_n2_w = richards_curve(1.0, 0.0, 62.0, 0.875, wfps_upper); // Decimals added to be consistent with other richards_curve calls
+		double f_n2o_n2_w = richards_curve(1.0, 0.0, 62.0, 0.875, wfps_upper);
+
+		double f_n2o_n2_pH = 1.0;
+		if (ifphdependent_ncycle)
+			f_n2o_n2_pH = min(1.0, 7.23 * exp(-0.497 * soil.pH));
 
 		// Above 0.7 WFPS, no NO is produced and below the same threshold no N2 production. Pilegaard 2013
 		if (wfps_upper < 0.7){
 			n2_inc = 0.0;
-			no_inc = ngas_inc / (1 + f_n2o_no_w);
+			double no_frac = 1.0 / (1.0 + f_n2o_no_w);
+			no_inc = ngas_inc * no_frac;
 			n2o_inc = ngas_inc - no_inc;
 		} 
 		else {
 			no_inc = 0.0;
-			n2o_inc = ngas_inc * f_n2o_n2_w * f_n2_n2o_T;
+			n2o_inc = ngas_inc * f_n2o_n2_w * f_n2o_n2_T * f_n2o_n2_pH;
 			n2_inc = ngas_inc - n2o_inc;
 		}
 
@@ -348,10 +419,10 @@ void ntransform(Patch& patch, Climate& climate) {
 		substrate_partition(soil);
 
 		// Nitrification
-		nitrification(patch, soil);
+		nitrification(patch, soil, climate);
 
 		// Denitrification
-		denitrification(patch, soil);
+		denitrification(patch, soil, climate);
 
 		// N gas emission
 		n_gas_emission(patch, fluxes, soil, n_budget_check);

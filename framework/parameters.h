@@ -554,6 +554,18 @@ extern int& restart_year;
 /// LandSyMM: Save year (alias for state_year when saving)
 extern int& save_year;
 
+/// LandSyMM: pH-dependent N cycling (Val Martin 2023, Parton 1996, Ma 2022)
+extern bool ifphdependent_ncycle;
+
+/// LandSyMM: Nesterov index Tmax>0 filter (1=LTS default with filter, 0=LandSyMM without)
+extern bool ifnesterov_tmax_filter;
+
+/// LandSyMM: Chilldays warmest-day reset (1=LTS default with reset, 0=LandSyMM without)
+extern bool ifchilldays_warmest_reset;
+
+/// LandSyMM: BLAZE CWD scaling factor (1.0=LTS default, 2.0=LandSyMM)
+extern double blaze_cwd_factor;
+
 /// LandSyMM: Fire population density input method (0=undefined, 1=simfire binary, 2=netcdf)
 extern int fire_popdens_method;
 
