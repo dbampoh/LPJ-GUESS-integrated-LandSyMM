@@ -1004,7 +1004,7 @@ void Stand::set_management() {
 		gridcell->st[stid].nfert = mt.nfert;
 	gridcell->st[stid].diam_cut_low = mt.diam_cut_low;
 
-	if(mt.hydrology == IRRIGATED) {
+	if(mt.hydrology > RAINFED) {
 		isirrigated = true;					
 	}
 	else {
