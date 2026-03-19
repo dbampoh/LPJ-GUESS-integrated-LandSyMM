@@ -168,6 +168,11 @@ xtring state_path;
 bool restart;
 bool save_state;
 int state_year;
+int& restart_year = state_year;
+int& save_year = state_year;
+int fire_popdens_method = 1;
+int fixed_popdens_hist = 0;
+int fixed_popdens_year = -10000;
 int verbosity;
 
 bool readsowingdates = false;
@@ -404,7 +409,8 @@ enum {CB_NONE,CB_VEGMODE,CB_CHECKGLOBAL,CB_LIFEFORM,CB_LANDCOVER,CB_PHENOLOGY,CB
 	CB_PFT, CB_STSELECTION, CB_STPLANTDENSITY, CB_STTARGETFRAC, CB_STTARGETFRACFILENAME, CB_STHYDROLOGY, CB_MANAGEMENT1, 
 	CB_MANAGEMENT2, CB_MANAGEMENT3,	CB_PATHWAY, CB_ROOTDISTRIBUTION, CB_ROOTFRAC, CB_EST, CB_CHECKPFT, CB_STRPARAM, CB_NUMPARAM, 
 	CB_WATERUPTAKE, CB_MTCOMPOUND, CB_FIREMODEL,CB_WEATHERGENERATOR,
-	CB_IGNITIONMODE, CB_FMMODEL, CB_PASTUREMODE, CB_CROPMODE, CB_WINDLIMIT};
+	CB_IGNITIONMODE, CB_FMMODEL, CB_PASTUREMODE, CB_CROPMODE, CB_WINDLIMIT,
+	CB_SAVEYEARS};
 
 // File local variables
 namespace {
@@ -904,6 +910,12 @@ void plib_declarations(int id,xtring setname) {
 		declareitem("restart", &restart, 1, CB_NONE, "Whether to restart from state files");
 		declareitem("save_state", &save_state, 1, CB_NONE, "Whether to save new state files");
 		declareitem("state_year", &state_year, 1, 20000, 1, CB_NONE, "Save/restart year. Unspecified means just after spinup");
+		declareitem("restart_year", &state_year, 1, 20000, 1, CB_NONE, "Restart year (calendar year). LandSyMM alias for state_year.");
+		declareitem("save_year", &state_year, 1, 20000, 1, CB_NONE, "Save year (calendar year). LandSyMM alias for state_year.");
+		declareitem("save_years", &strparam, 200, CB_SAVEYEARS, "LandSyMM: Space-separated list of calendar years to save state at.");
+		declareitem("fire_popdens_method", &fire_popdens_method, 0, 2, 1, CB_NONE, "Fire popdens input: 0=undefined, 1=simfire binary, 2=netcdf (cfxinput)");
+		declareitem("fixed_popdens_hist", &fixed_popdens_hist, 0, 2, 1, CB_NONE, "cfxinput: Keep fire popdens at fixed year (0=no, 1=from year onward, 2=always)");
+		declareitem("fixed_popdens_year", &fixed_popdens_year, -10000, 2100, 1, CB_NONE, "cfxinput: Year for fixed_popdens_hist");
 		declareitem("verbosity", &verbosity, 0, 4, 1, CB_NONE,
 			"Determines the amount of information that is printed to the logfile. 0 = suppress all output (even errors) 4 = print all information");
 		declareitem("pft",BLOCK_PFT,CB_NONE,"Header for block defining PFT");
@@ -1688,6 +1700,17 @@ void plib_callback(int callback) {
 			plibabort();
 		}
 		break;
+	case CB_SAVEYEARS:
+		{
+			int yr = 0;
+			const char* p = strparam;
+			while (*p == ' ') p++;
+			if (*p) {
+				yr = atoi(p);
+				if (yr > 0) state_year = yr;
+			}
+		}
+		break;
 	case CB_ROOTDISTRIBUTION:
 		if (strparam.upper() == "FIXED") rootdistribution = ROOTDIST_FIXED;
 		else if (strparam.upper() == "JACKSON") rootdistribution = ROOTDIST_JACKSON;
@@ -1817,10 +1840,13 @@ void plib_callback(int callback) {
 	case CB_STHYDROLOGY:
 		if (strparam.upper()=="RAINFED") pst->management.hydrology = RAINFED;
 		else if (strparam.upper()=="IRRIGATED") pst->management.hydrology = IRRIGATED;
+		else if (strparam.upper()=="IRRIGATED_WILT") pst->management.hydrology = IRRIGATED_WILT;
+		else if (strparam.upper()=="IRRIGATED_SAT") pst->management.hydrology = IRRIGATED_SAT;
+		else if (strparam.upper()=="INUNDATED") pst->management.hydrology = INUNDATED;
 		else 
 		{
 			sendmessage("Error",
-				"Unknown hydrology type (valid types: \"RAINFED\", \"IRRIGATED\")");
+				"Unknown hydrology type (valid types: \"RAINFED\", \"IRRIGATED\", \"IRRIGATED_WILT\", \"IRRIGATED_SAT\", \"INUNDATED\")");
 			plibabort();
 		}
 		break;
@@ -1999,9 +2025,9 @@ void plib_callback(int callback) {
 			npatch=1;
 		}
 
-		if (save_state && restart) {
+		if (save_state && restart && !(itemparsed("restart_year") && (itemparsed("save_year") || itemparsed("save_years")))) {
 			sendmessage("Error",
-				"Can't save state and restart at the same time");
+				"Can't save state and restart at the same time unless both restart_year and save_year(s) are specified");
 			plibabort();
 		}
 
