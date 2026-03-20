@@ -1,0 +1,99 @@
+!
+! Instruction file with global PFTs to be used with the
+! CF I/O module.
+!
+! Make sure to start LPJ-GUESS with -input cf when using this
+! instruction file.
+!
+
+import "global.ins"
+import "crop_n.ins"
+import "wetlandpfts.ins"
+!import "imogen_intermediary.ins"
+
+!///////////////////////////////////////////////////////////////////////////////////////
+! Forcing Data & gridlists
+!
+
+! (Climate forcings and N deposition specified farther below)
+!searchradius 50
+!param "file_ndep"     (str "/bg/data/lpj/LPJ-GUESS/input/ndep_cruncep/GlobalNitrogenDeposition.bin")
+!param "ndep_timeseries" (str "")	!Nitrogen deposition time series to use (historic, rcp26, rcp45, rcp60 or rcp85) default= historic
+param "file_ndep"     (str "")
+! Needed if relative humidity is not supplied
+param "file_pres"     (str "")
+param "variable_pres" (str "")
+! Needed if relative humidity is not supplied
+param "file_specifichum" (str "")
+param "variable_specifichum" (str "")
+! Wet days can only be used with monthly precipitation
+param "file_wetdays"     (str "")
+param "variable_wetdays" (str "")
+
+! Soil map
+param "file_soildata" (str "/bg/data/lpj/bampoh-d/soil/soilmap_center_interpolated.remapv10_old_62892_gL.dat")
+
+!state_path "state/%Y/"
+state_path "/bg/data/lpj/bampoh-d/landsymm_imogen_runs/integrated-4.1-ins2_landsymm_hist/state"
+param "file_gridlist" (str "gridlist.txt")
+param "file_gridlist_cf" (str "gridlist.txt")
+nyear_spinup 500	     ! number of years to spin up the simulation for
+freenyears 100	     ! Number of years to spin up without N limitation (needed to build up a N pool)
+ifdyn_phu_limit 1    ! Whether to limit dynamic phu calculation to a period specified by nyear_dyn_phu
+nyear_dyn_phu 120    ! Number of years to calculate dynamic phu if dynamic_phu_limit is 1
+param "variable_temp" (str "tas")
+param "variable_prec" (str "pr")
+param "variable_insol"  (str "rsds")
+param "variable_wind"  (str "sfcwind")
+param "variable_relhum" (str "hurs")
+param "variable_min_temp"  (str "tasmin")
+param "variable_max_temp"  (str "tasmax")
+
+! DKB: actual historical
+firsthistyear 1901
+firstoutyear 1901
+lasthistyear 2020
+lastoutyear 2020
+!restart 0         ! Whether to start from a state file
+!restart_year 2020
+save_state 1         ! Whether to save a state file
+!save_years "1850 1950 2000 2014 2015 2050 2100"
+save_years "2020"
+
+! DKB actual: MPI-ESM1-2-HR  historical; previously used IPSL. But hi-res is based on MPI, so have to use this now for comparability!
+param "file_temp1"     	(str "/bg/data/lpj/LPJ-GUESS/input/isimip/isimip3/climate_land_only_v2/climate3b/historical/MRI-ESM2-0-lpjg/mri-esm2-0_r1i1p1f1_w5e5_historical_tas_global_daily_1850_2014.nc4")
+param "file_prec1"     	(str "/bg/data/lpj/LPJ-GUESS/input/isimip/isimip3/climate_land_only_v2/climate3b/historical/MRI-ESM2-0-lpjg/mri-esm2-0_r1i1p1f1_w5e5_historical_pr_global_daily_1850_2014.nc4")
+param "file_insol1"    	(str "/bg/data/lpj/LPJ-GUESS/input/isimip/isimip3/climate_land_only_v2/climate3b/historical/MRI-ESM2-0-lpjg/mri-esm2-0_r1i1p1f1_w5e5_historical_rsds_global_daily_1850_2014.nc4")
+param "file_wind1" 	(str "/bg/data/lpj/LPJ-GUESS/input/isimip/isimip3/climate_land_only_v2/climate3b/historical/MRI-ESM2-0-lpjg/mri-esm2-0_r1i1p1f1_w5e5_historical_sfcwind_global_daily_1850_2014.nc4")
+param "file_relhum1" 	(str "/bg/data/lpj/LPJ-GUESS/input/isimip/isimip3/climate_land_only_v2/climate3b/historical/MRI-ESM2-0-lpjg/mri-esm2-0_r1i1p1f1_w5e5_historical_hurs_global_daily_1850_2014.nc4")
+! Min/max temp is required for BVOC, if BVOC is switched off these can be set to ""
+param "file_min_temp1"  (str "/bg/data/lpj/LPJ-GUESS/input/isimip/isimip3/climate_land_only_v2/climate3b/historical/MRI-ESM2-0-lpjg/mri-esm2-0_r1i1p1f1_w5e5_historical_tasmin_global_daily_1850_2014.nc4")
+param "file_max_temp1"  (str "/bg/data/lpj/LPJ-GUESS/input/isimip/isimip3/climate_land_only_v2/climate3b/historical/MRI-ESM2-0-lpjg/mri-esm2-0_r1i1p1f1_w5e5_historical_tasmax_global_daily_1850_2014.nc4")
+param "file_min_temp"  (str "")
+param "file_max_temp"  (str "")
+
+! DKB actual: MPI-ESM1-2-HR  ssp126
+param "file_temp2"     	(str "/bg/data/lpj/LPJ-GUESS/input/isimip/isimip3/climate_land_only_v2/climate3b/ssp126/MRI-ESM2-0-lpjg/mri-esm2-0_r1i1p1f1_w5e5_ssp126_tas_global_daily_2015_2100.nc4")
+param "file_prec2"     	(str "/bg/data/lpj/LPJ-GUESS/input/isimip/isimip3/climate_land_only_v2/climate3b/ssp126/MRI-ESM2-0-lpjg/mri-esm2-0_r1i1p1f1_w5e5_ssp126_pr_global_daily_2015_2100.nc4")
+param "file_insol2"     (str "/bg/data/lpj/LPJ-GUESS/input/isimip/isimip3/climate_land_only_v2/climate3b/ssp126/MRI-ESM2-0-lpjg/mri-esm2-0_r1i1p1f1_w5e5_ssp126_rsds_global_daily_2015_2100.nc4")
+param "file_wind2" 	(str "/bg/data/lpj/LPJ-GUESS/input/isimip/isimip3/climate_land_only_v2/climate3b/ssp126/MRI-ESM2-0-lpjg/mri-esm2-0_r1i1p1f1_w5e5_ssp126_sfcwind_global_daily_2015_2100.nc4")
+param "file_relhum2" 	(str "/bg/data/lpj/LPJ-GUESS/input/isimip/isimip3/climate_land_only_v2/climate3b/ssp126/MRI-ESM2-0-lpjg/mri-esm2-0_r1i1p1f1_w5e5_ssp126_hurs_global_daily_2015_2100.nc4")
+! Min/max temp is required for BVOC, if BVOC is switched off these can be set to ""
+param "file_min_temp2"  (str "/bg/data/lpj/LPJ-GUESS/input/isimip/isimip3/climate_land_only_v2/climate3b/ssp126/MRI-ESM2-0-lpjg/mri-esm2-0_r1i1p1f1_w5e5_ssp126_tasmin_global_daily_2015_2100.nc4")
+param "file_max_temp2"  (str "/bg/data/lpj/LPJ-GUESS/input/isimip/isimip3/climate_land_only_v2/climate3b/ssp126/MRI-ESM2-0-lpjg/mri-esm2-0_r1i1p1f1_w5e5_ssp126_tasmax_global_daily_2015_2100.nc4")
+
+param "file_co2" 	(str "/bg/data/lpj/LPJ-GUESS/input/isimip/isimip3/co2/co2_histssp126_annual_1850_2100.txt")
+
+param "file_popdens" 	(str "/bg/data/lpj/LPJ-GUESS/input/isimip/isimip3/pop/lpjg-popd/population-density_3b_2015soc_30arcmin_annual_1601_2100.lpjg.nc")
+!param "file_popdens"    (str "") ! since hi-res hurs&sfcwind aren't available, so no fire in comparison. Thus use firemethod "NOFIRE". When using "fire_popdens_method 0  ! Fire popdens input methods: 0=(undefined), 1=simfire binary, 2=netcdf within cfxinput" in .ins, Sams code also works without providing popdens input. 
+param "variable_popdens" (str "popd")
+param "file_simfire"  	(str "/bg/data/lpj/LPJ-GUESS/input/fire/SimfireInput.bin")
+
+param "file_mNHxdrydep" (str "/bg/data/lpj/LPJ-GUESS/input/isimip/isimip3/n-deposition/histsoc-ssp126soc-wetdry-lpjguess/ndep_drynhx_histsoc_ssp126_monthly_1850_2100_lpjg.nc4")
+param "file_mNOydrydep" (str "/bg/data/lpj/LPJ-GUESS/input/isimip/isimip3/n-deposition/histsoc-ssp126soc-wetdry-lpjguess/ndep_drynoy_histsoc_ssp126_monthly_1850_2100_lpjg.nc4")
+param "file_mNHxwetdep" (str "/bg/data/lpj/LPJ-GUESS/input/isimip/isimip3/n-deposition/histsoc-ssp126soc-wetdry-lpjguess/ndep_wetnhx_histsoc_ssp126_monthly_1850_2100_lpjg.nc4")
+param "file_mNOywetdep" (str "/bg/data/lpj/LPJ-GUESS/input/isimip/isimip3/n-deposition/histsoc-ssp126soc-wetdry-lpjguess/ndep_wetnoy_histsoc_ssp126_monthly_1850_2100_lpjg.nc4")
+param "variable_mNHxdrydep" (str "drynhx")
+param "variable_mNOydrydep" (str "drynoy")
+param "variable_mNHxwetdep" (str "wetnhx")
+param "variable_mNOywetdep" (str "wetnoy")
