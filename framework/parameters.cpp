@@ -176,6 +176,8 @@ bool ifphdependent_ncycle = false;
 bool ifnesterov_tmax_filter = true;
 bool ifchilldays_warmest_reset = true;
 double blaze_cwd_factor = 1.0;
+bool ifgwgen_dtr_halfrange = false;
+double c_to_dm_factor = 2.0;
 int fire_popdens_method = 1;
 int fixed_popdens_hist = 0;
 int fixed_popdens_year = -10000;
@@ -931,6 +933,14 @@ void plib_declarations(int id,xtring setname) {
 			"LandSyMM: Reset chilldays on warmest day (1=LTS default, 0=LandSyMM without reset).");
 		declareitem("blaze_cwd_factor", &blaze_cwd_factor, 0.1, 10.0, 1, CB_NONE,
 			"LandSyMM: BLAZE CWD scaling factor (1.0=LTS default, 2.0=LandSyMM).");
+		declareitem("ifgwgen_dtr_halfrange", &ifgwgen_dtr_halfrange, 1, CB_NONE,
+			"LandSyMM: Use half-range DTR in GWGEN (0=LTS full range, 1=LandSyMM 0.5*(tmax-tmin)).");
+		declareitem("c_to_dm_factor", &c_to_dm_factor, 1.0, 5.0, 1, CB_NONE,
+			"LandSyMM: C-to-DM conversion for yield (2.0=LTS default, 2.2422=LandSyMM 1/0.446).");
+		declareitem("ggcmi2", &ggcmi2, 1, CB_NONE,
+			"LandSyMM/GGCMI: Enable GGCMI Phase 2 crop protocol (fertilization timing, harvest logic).");
+		declareitem("isimip3", &isimip3, 1, CB_NONE,
+			"LandSyMM/ISIMIP3: Enable ISIMIP3 crop protocol (FPHU-based fertilization timing).");
 		declareitem("fire_popdens_method", &fire_popdens_method, 0, 2, 1, CB_NONE, "Fire popdens input: 0=undefined, 1=simfire binary, 2=netcdf (cfxinput)");
 		declareitem("fixed_popdens_hist", &fixed_popdens_hist, 0, 2, 1, CB_NONE, "cfxinput: Keep fire popdens at fixed year (0=no, 1=from year onward, 2=always)");
 		declareitem("fixed_popdens_year", &fixed_popdens_year, -10000, 2100, 1, CB_NONE, "cfxinput: Year for fixed_popdens_hist");

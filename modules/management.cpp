@@ -2595,7 +2595,7 @@ void yield_crop(Individual& indiv) {
 		 * harvest_crop (different years)
 		 */
 		if (cropindiv.ycmass_leaf > 0.0) {
-			cropindiv.yield = cropindiv.ycmass_leaf * indiv.pft.harv_eff_ic * 2.0;
+			cropindiv.yield = cropindiv.ycmass_leaf * indiv.pft.harv_eff_ic * c_to_dm_factor;
 		}
 		else {
 			cropindiv.yield = 0.0;
@@ -2603,7 +2603,7 @@ void yield_crop(Individual& indiv) {
 
 		// Yield dry wieght of actually harvest products this year; NB as above
 		if (cropindiv.harv_cmass_leaf > 0.0) {
-			cropindiv.harv_yield = cropindiv.harv_cmass_leaf * indiv.pft.harv_eff_ic * 2.0;
+			cropindiv.harv_yield = cropindiv.harv_cmass_leaf * indiv.pft.harv_eff_ic * c_to_dm_factor;
 		}
 		else {
 			cropindiv.harv_yield = 0.0;
@@ -2615,7 +2615,7 @@ void yield_crop(Individual& indiv) {
 		 * harvest_crop (different years)
 		*/
 		if (cropindiv.ycmass_ho > 0.0) {
-			cropindiv.yield = cropindiv.ycmass_ho * indiv.pft.harv_eff * 2.0;// Should be /0.446 instead
+			cropindiv.yield = cropindiv.ycmass_ho * indiv.pft.harv_eff * c_to_dm_factor;
 		}
 		else {
 			cropindiv.yield = 0.0;
@@ -2623,7 +2623,7 @@ void yield_crop(Individual& indiv) {
 
 		// Yield dry wieght of actually harvest products this year; NB as above
 		if (cropindiv.harv_cmass_ho > 0.0) {
-			cropindiv.harv_yield=cropindiv.harv_cmass_ho * indiv.pft.harv_eff * 2.0;
+			cropindiv.harv_yield=cropindiv.harv_cmass_ho * indiv.pft.harv_eff * c_to_dm_factor;
 		}
 		else {
 			cropindiv.harv_yield = 0.0;
@@ -2632,7 +2632,7 @@ void yield_crop(Individual& indiv) {
 		// Yield dry wieght of actually harvest products this year; NB as above
 		for (int i=0;i<2;i++) {
 			if (cropindiv.cmass_ho_harvest[i] > 0.0) {
-				cropindiv.yield_harvest[i] = cropindiv.cmass_ho_harvest[i] * indiv.pft.harv_eff * 2.0;
+				cropindiv.yield_harvest[i] = cropindiv.cmass_ho_harvest[i] * indiv.pft.harv_eff * c_to_dm_factor;
 			}
 			else {
 				cropindiv.yield_harvest[i]=0.0;
@@ -2661,7 +2661,7 @@ void yield_pasture(Individual& indiv, double cmass_leaf_inc) {
 	// Normal CC3G/CC4G stand growth (Pasture)
 
 	// OK if turnover_leaf==1.0, else (cmass_leaf+cmass_leaf_inc)*indiv.pft.harv_eff*2.0
-	cropindiv.yield = max(0.0, cmass_leaf_inc) * indiv.pft.harv_eff * 2.0;
+	cropindiv.yield = max(0.0, cmass_leaf_inc) * indiv.pft.harv_eff * c_to_dm_factor;
 	// Although no specified harvest date, harv_yield is set for compatibility.
 	cropindiv.harv_yield = cropindiv.yield;
 }
@@ -2831,8 +2831,22 @@ void nfert_crop(Patch& patch) {
 				nfert = gridcell.st[st.id].nfert;
 			}
 
-			if (!ppftcrop.fertilised[0] && ppftcrop.dev_stage > 0.0) {
-				// Fertiliser application directly after sowing:
+			bool do_fert_0, do_fert_1, do_fert_2;
+			if (ggcmi2) {
+				do_fert_0 = !ppftcrop.fertilised[0];
+				do_fert_1 = !ppftcrop.fertilised[1] && date.day >= gridcellpft.Nfertdate2_force;
+				do_fert_2 = false;
+			} else if (isimip3) {
+				do_fert_0 = !ppftcrop.fertilised[0];
+				do_fert_1 = !ppftcrop.fertilised[1] && ppftcrop.fphu >= 0.25;
+				do_fert_2 = false;
+			} else {
+				do_fert_0 = !ppftcrop.fertilised[0] && ppftcrop.dev_stage > 0.0;
+				do_fert_1 = !ppftcrop.fertilised[1] && ppftcrop.dev_stage > pft.fert_stages[0];
+				do_fert_2 = !ppftcrop.fertilised[2] && ppftcrop.dev_stage > pft.fert_stages[1];
+			}
+
+			if (do_fert_0) {
 				patch.dnfert = nfert * mineral * (1.0 - pft.fertrate[0] - pft.fertrate[1]);
 				patch.fluxes.report_flux(Fluxes::NFERT,nfert * mineral * (1.0 - pft.fertrate[0] - pft.fertrate[1]));
 				ppftcrop.fertilised[0] = true;
@@ -2846,14 +2860,12 @@ void nfert_crop(Patch& patch) {
 					patch.fluxes.report_flux(Fluxes::MANUREN, nfert * (1.0 - mineral));
 				}
 			}
-			else if (!ppftcrop.fertilised[1] && ppftcrop.dev_stage > pft.fert_stages[0]) {
-				// Fertiliser application at first fertilisation event after sowing:
+			else if (do_fert_1) {
 				patch.dnfert = nfert * mineral * pft.fertrate[0];
 				patch.fluxes.report_flux(Fluxes::NFERT,nfert * mineral * pft.fertrate[0]);
 				ppftcrop.fertilised[1] = true;
 			}
-			else if (!ppftcrop.fertilised[2] && ppftcrop.dev_stage > pft.fert_stages[1]) {
-				// Fertiliser application at second fertilisation event after sowing:
+			else if (do_fert_2) {
 				patch.dnfert = nfert * mineral * (pft.fertrate[1]);
 				patch.fluxes.report_flux(Fluxes::NFERT,nfert * mineral * pft.fertrate[1]);
 				ppftcrop.fertilised[2] = true;

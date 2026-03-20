@@ -572,6 +572,13 @@ extern bool ifchilldays_warmest_reset;
 /// LandSyMM: BLAZE CWD scaling factor (1.0=LTS default, 2.0=LandSyMM)
 extern double blaze_cwd_factor;
 
+/// LandSyMM: GWGEN DTR half-range factor (0=LTS full range, 1=LandSyMM half range)
+extern bool ifgwgen_dtr_halfrange;
+
+/// LandSyMM: C-to-DM conversion factor for yield (2.0=LTS default, 2.2422=LandSyMM 1/0.446)
+extern double c_to_dm_factor;
+
+
 /// LandSyMM: Fire population density input method (0=undefined, 1=simfire binary, 2=netcdf)
 extern int fire_popdens_method;
 

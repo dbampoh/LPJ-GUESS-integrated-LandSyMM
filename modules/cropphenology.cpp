@@ -431,7 +431,18 @@ void crop_phenology(Patch& patch) {
 					// before maturity is reached
 					bool pre_maturity = ifnlim ? ppftcrop.dev_stage < 2.0 : ppftcrop.husum < ppftcrop.phu;
 
-					if (pre_maturity && dayinperiod(date.day, ppftcrop.sdate, stepfromdate(ppftcrop.hlimitdate, -1)) && !force_harvest) {
+					// before hlimit is reached
+					bool pre_hlimit = dayinperiod(date.day, ppftcrop.sdate, stepfromdate(ppftcrop.hlimitdate, -1));
+
+					bool harvest_today;
+					if (ggcmi2 || isimip3) {
+						bool strict_hdateforce = true;
+						harvest_today = force_harvest || ((!strict_hdateforce || (standpft.hdate_force < 0 && standpft.growseaslength_force < 0)) && (!pre_maturity || !pre_hlimit));
+					} else {
+						harvest_today = !(pre_maturity && pre_hlimit && !force_harvest);
+					}
+
+					if (!harvest_today) {
 
 						// count accumulated heat units after sowing date
 						heat_units(patch, pft);
