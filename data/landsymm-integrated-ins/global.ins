@@ -100,6 +100,16 @@ ifcalccton 1			! Whether to calculate leaf C:N min from leaf longevity
 firemodel "BLAZE"		! BLAZE, GLOBFIRM, NOFIRE
 fire_popdens_method 1           ! Fire popdens input methods: 0=(undefined), 1=simfire binary, 2=netcdf within cfxinput; use since otherwise popdens required even when it's not used for anything.
 weathergenerator "GWGEN"	! GWGEN, INTERP
+
+! === LandSyMM physics options (integrated LTS runtime parameters) ===
+ifphdependent_ncycle 1		! pH-dependent N cycling (Val Martin 2023, Parton 1996, Ma 2022)
+ifnesterov_tmax_filter 0	! No Tmax>0 filter on Nesterov index
+ifchilldays_warmest_reset 0	! No warmest-day chilldays reset
+blaze_cwd_factor 2.0		! Doubled CWD for BLAZE fuel calculation
+ifwania_freezethaw 1		! Wania-style freeze-thaw (T_old based)
+ifwania_cnsolver 1		! Wania CN solver (cnstep simplified)
+ifgwgen_dtr_halfrange 1		! Half-range DTR in GWGEN (0.5*(tmax-tmin))
+c_to_dm_factor 2.2422		! C-to-DM conversion (1/0.446) for yield
 npatch 25			! Number of replicate patches to simulate
 patcharea 1000			! Patch area (m2)
 estinterval 5			! Years between establishment events in cohort mode

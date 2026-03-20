@@ -4290,7 +4290,7 @@ public:
 	void update_soil_water();
 
 	/// return true if there is more than 5% ice content in any ice in the top 50cm of soil (needed for irrigation)
-	bool ice_in_top_layer();
+	bool ice_in_top_layer(int nlayer = -1, double max_ice_fraction = 0.05);
 
 	/// return snow depth [mm] 
 	double snowdepth();

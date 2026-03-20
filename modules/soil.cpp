@@ -736,10 +736,10 @@ void Soil::hydrology_lpjf_twolayer(const Climate& climate, double fevap) {
 }
 
 
-bool Soil::ice_in_top_layer() {
+bool Soil::ice_in_top_layer(int nlayer, double max_ice_fraction) {
 
-	const double max_ice_fraction = 0.05; // 5% avoids irrigation restrictions when there are tiny amounts of ice in the soil
-	for (int ly = 0; ly < NSOILLAYER_UPPER; ly++) {
+	int layers_to_check = (nlayer > 0) ? nlayer : NSOILLAYER_UPPER;
+	for (int ly = 0; ly < layers_to_check; ly++) {
 		if (Frac_ice[ly + IDX] > max_ice_fraction) return true;
 	} 
 
@@ -4133,10 +4133,12 @@ void Soil::serialize(ArchiveStream& arch) {
 		& snow_water
 		& snow_ice
 		& msnowdepth
+		& dsnowdepth
 		& thaw
 		& runoff
 		& temp25
 		& Dz // optimise through init after restart?
+		& T_old
 		& T_soil_yesterday
 		& T_soil_monthly
 		& dtemp
@@ -4194,6 +4196,7 @@ void Soil::serialize(ArchiveStream& arch) {
 		& aminleach
 		& aorgNleach
 		& aorgCleach
+		& sminleach
 		& anfix
 		& anfix_calc
 		& anfix_mean
