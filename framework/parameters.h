@@ -554,6 +554,12 @@ extern int& restart_year;
 /// LandSyMM: Save year (alias for state_year when saving)
 extern int& save_year;
 
+/// LandSyMM: Freeze-thaw scheme (0=energy_balance LTS default, 1=wania LandSyMM)
+extern bool ifwania_freezethaw;
+
+/// LandSyMM: CN solver (0=cnstep_full LTS default, 1=cnstep Wania simplified)
+extern bool ifwania_cnsolver;
+
 /// LandSyMM: pH-dependent N cycling (Val Martin 2023, Parton 1996, Ma 2022)
 extern bool ifphdependent_ncycle;
 

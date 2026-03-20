@@ -170,6 +170,8 @@ bool save_state;
 int state_year;
 int& restart_year = state_year;
 int& save_year = state_year;
+bool ifwania_freezethaw = false;
+bool ifwania_cnsolver = false;
 bool ifphdependent_ncycle = false;
 bool ifnesterov_tmax_filter = true;
 bool ifchilldays_warmest_reset = true;
@@ -917,6 +919,10 @@ void plib_declarations(int id,xtring setname) {
 		declareitem("restart_year", &state_year, 1, 20000, 1, CB_NONE, "Restart year (calendar year). LandSyMM alias for state_year.");
 		declareitem("save_year", &state_year, 1, 20000, 1, CB_NONE, "Save year (calendar year). LandSyMM alias for state_year.");
 		declareitem("save_years", &strparam, 200, CB_SAVEYEARS, "LandSyMM: Space-separated list of calendar years to save state at.");
+		declareitem("ifwania_freezethaw", &ifwania_freezethaw, 1, CB_NONE,
+			"LandSyMM: Use Wania-style freeze-thaw (0=energy-balance LTS default, 1=Wania simplified).");
+		declareitem("ifwania_cnsolver", &ifwania_cnsolver, 1, CB_NONE,
+			"LandSyMM: Use Wania CN solver (0=cnstep_full LTS default, 1=cnstep simplified).");
 		declareitem("ifphdependent_ncycle", &ifphdependent_ncycle, 1, CB_NONE,
 			"LandSyMM: Use pH-dependent N cycling (Val Martin 2023, Parton 1996, Ma 2022). Default: 0 (LTS behavior).");
 		declareitem("ifnesterov_tmax_filter", &ifnesterov_tmax_filter, 1, CB_NONE,
