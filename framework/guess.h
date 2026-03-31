@@ -1631,12 +1631,10 @@ public:
 	/// Whether grass is grown in fallow
 	bool fallow;
 
-#ifdef LANDSYMM_SIMPLE_FORESTRY
-	/// LandSyMM: Rotation time in years (replaces cutinterval for simplified forestry)
+	/// LandSyMM: Rotation time in years
 	double nyears;
 	/// LandSyMM: Whether to grow multiple crops within a rotation year
 	bool multicrop;
-#endif
 	/// LandSyMM/GGCMI: Whether this management type is for potential yield calculation
 	bool isforpotyield;
 	/// LandSyMM: Applied N fertiliser for this management type (kgN/ha)
@@ -1716,10 +1714,8 @@ public:
 		nfert = -1.0;
 		tillage_fact = 1.0;
 		fallow = false;
-#ifdef LANDSYMM_SIMPLE_FORESTRY
 		nyears = 0.0;
 		multicrop = false;
-#endif
 		isforpotyield = false;
 		N_appfert_mt = 0.0;
 	}
@@ -1797,10 +1793,8 @@ public:
 		nfert = from.nfert;
 		tillage_fact = from.tillage_fact;
 		fallow = from.fallow;
-#ifdef LANDSYMM_SIMPLE_FORESTRY
 		nyears = from.nyears;
 		multicrop = from.multicrop;
-#endif
 		isforpotyield = from.isforpotyield;
 		N_appfert_mt = from.N_appfert_mt;
 	}

@@ -99,6 +99,19 @@ private:
 		   file_cmass_wood_thin_sts, file_cmass_wood_clearcut_sts, file_cutinterval_sts, file_cutinterval_thisyear_sts, file_csoil_sts,
 		   file_clitter_sts, file_csink_sts, file_lai_sts, file_lai_tree_sts, file_nstand_sts;
 
+	// LandSyMM: Per-stand crop/irrigation/pasture outputs
+	xtring file_gsirr, file_yield_plantyear, file_yield_st, file_yield1_st, file_yield2_st,
+		   file_yield_plantyear_st, file_gsirr_st, file_gsirr_plantyear_st,
+		   file_anpp_pasture_st, file_anpp_crop_st, file_yield_pasture_st, file_harvest_sts;
+
+	// LandSyMM: FireMIP BLAZE daily
+	xtring file_dblaze_ba;
+
+	// LandSyMM: IMOGEN outputs
+	xtring file_t_anom, file_wet, file_sw_anom, file_p_anom, file_fa_ocean,
+		   file_dtemp_o, file_dtemp_anom, file_co2_imogen, file_relhum_anom,
+		   file_tmin_anom, file_tmax_anom, file_wind_anom;
+
 	// soil n2o flux per landcover, info needed for estimating global n2o emissions
 	// soil n2o from BARREN which is LUH2 icwtr shows up in the n2o in soil_nflux
 	// TODO: allow BARREN to get excluded from soil_nflux

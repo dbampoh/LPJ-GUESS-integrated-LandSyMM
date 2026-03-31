@@ -190,8 +190,39 @@ MiscOutput::MiscOutput() {
 
 	declare_parameter("file_daily_fphu",&file_daily_fphu,300,"Daily DS output file"); //daglig ds
 
+	// LandSyMM: Per-stand crop/irrigation/pasture outputs
+	declare_parameter("file_gsirr",&file_gsirr,300,"Per-CFT irrigation output file");
+	declare_parameter("file_gsirr_st",&file_gsirr_st,300,"Per-stand irrigation output file");
+	declare_parameter("file_gsirr_plantyear_st",&file_gsirr_plantyear_st,300,"Per-stand irrigation (planting year)");
+	declare_parameter("file_yield_plantyear",&file_yield_plantyear,300,"Crop yield (planting year)");
+	declare_parameter("file_yield_st",&file_yield_st,300,"Per-stand crop yield output file");
+	declare_parameter("file_yield1_st",&file_yield1_st,300,"Per-stand crop yield (1st harvest)");
+	declare_parameter("file_yield2_st",&file_yield2_st,300,"Per-stand crop yield (2nd harvest)");
+	declare_parameter("file_yield_plantyear_st",&file_yield_plantyear_st,300,"Per-stand crop yield (planting year, by stand)");
+	declare_parameter("file_anpp_pasture_st",&file_anpp_pasture_st,300,"Per-stand pasture ANPP");
+	declare_parameter("file_anpp_crop_st",&file_anpp_crop_st,300,"Per-stand crop ANPP");
+	declare_parameter("file_yield_pasture_st",&file_yield_pasture_st,300,"Per-stand pasture yield");
+	declare_parameter("file_harvest_sts",&file_harvest_sts,300,"Stand-level harvest output");
+
+	// LandSyMM: FireMIP BLAZE daily
+	declare_parameter("file_dblaze_ba",&file_dblaze_ba,300,"Daily BLAZE burned area");
+
+	// LandSyMM: IMOGEN outputs
+	declare_parameter("file_t_anom",&file_t_anom,300,"IMOGEN temperature anomalies");
+	declare_parameter("file_wet",&file_wet,300,"IMOGEN wetness");
+	declare_parameter("file_sw_anom",&file_sw_anom,300,"IMOGEN shortwave anomalies");
+	declare_parameter("file_p_anom",&file_p_anom,300,"IMOGEN precipitation anomalies");
+	declare_parameter("file_fa_ocean",&file_fa_ocean,300,"IMOGEN ocean flux anomalies");
+	declare_parameter("file_dtemp_o",&file_dtemp_o,300,"IMOGEN ocean temperature");
+	declare_parameter("file_dtemp_anom",&file_dtemp_anom,300,"IMOGEN temperature delta anomalies");
+	declare_parameter("file_co2_imogen",&file_co2_imogen,300,"IMOGEN CO2");
+	declare_parameter("file_relhum_anom",&file_relhum_anom,300,"IMOGEN relative humidity anomalies");
+	declare_parameter("file_tmin_anom",&file_tmin_anom,300,"IMOGEN min temperature anomalies");
+	declare_parameter("file_tmax_anom",&file_tmax_anom,300,"IMOGEN max temperature anomalies");
+	declare_parameter("file_wind_anom",&file_wind_anom,300,"IMOGEN wind anomalies");
+
 	if (ifnlim) {
-		declare_parameter("file_daily_ds",&file_daily_ds,300,"Daily DS output file"); //daglig ds
+		declare_parameter("file_daily_ds",&file_daily_ds,300,"Daily DS output file");
 		declare_parameter("file_daily_stem",&file_daily_stem,300,"Daily stem allocation output file");
 		declare_parameter("file_daily_leaf",&file_daily_leaf,300,"Daily leaf allocation output file");
 		declare_parameter("file_daily_root",&file_daily_root,300,"Daily root allocation output file");

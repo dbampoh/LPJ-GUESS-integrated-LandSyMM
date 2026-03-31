@@ -877,6 +877,8 @@ void plib_declarations(int id,xtring setname) {
 		declareitem("ifslowharvestpool",&ifslowharvestpool,1,CB_NONE,"If a slow harvested product pool is included in patchpft.");
 		declareitem("ifintercropgrass",&ifintercropgrass,1,CB_NONE,"Whether intercrop growth is allowed");
 		declareitem("ifcalcdynamic_phu",&ifcalcdynamic_phu,1,CB_NONE,"Whether to calculate dynamic potential heat units");
+		declareitem("gross_land_transfer",&gross_land_transfer,0,3,1,CB_NONE,
+			"Pooling/transfer mode for gross land-use transitions (0=no gross, 1-3=various modes)");
 		declareitem("ifprimary_lc_transfer",&ifprimary_lc_transfer,1,CB_NONE,
 			"Whether to use primary/secondary land transition info in landcover transfer input file (1). or not (0)");
 		declareitem("ifprimary_to_secondary_transfer",&ifprimary_to_secondary_transfer,1,CB_NONE,
@@ -1359,6 +1361,7 @@ void plib_declarations(int id,xtring setname) {
 			"Whether to stop cutting to reach pft fraction targets when the second (continuous) period starts");
 		declareitem("hydrology",&strparam,16,CB_MTHYDROLOGY, "Hydrology of crop (\"RAINFED\" or \"IRRIGATED\")");
 //		declareitem("irrigation",&pmt->firr,0.0,1.0,1,CB_NONE,"Irrigation of crop");
+		declareitem("rottime",&pmt->nyears,0.0,100.0,1,CB_NONE,"Rotation time (years)");
 		declareitem("sdate",&pmt->sdate,0,364,1,CB_NONE,"Sowing date of crop");
 		declareitem("hdate",&pmt->hdate,0,364,1,CB_NONE,"Harvest date of crop");
 		declareitem("nfert",&pmt->nfert,0.0,1000.0,1,CB_NONE,"Fertilization application of crop");
@@ -1467,6 +1470,7 @@ void plib_declarations(int id,xtring setname) {
 			"Natural pfts (\"GRASSONLY\" or \"ALL\")");
 		declareitem("reestab",&strparam,16,CB_STREESTAB,
 			"Re-establishment (\"NONE\", \"RESTRICTED\" or \"ALL\")");
+		declareitem("restrictpfts",&pst->restrictpfts,1,CB_NONE,"Whether to only allow pft:s specified in stand type");
 
 		declareitem("distinterval",&pst->distinterval,0.0,10000.0,1,CB_NONE,"Stand-type-specific disturbance interval");
 		declareitem("multicrop",&pst->rotation.multicrop,1,CB_NONE,"Whether to grow several crops in a year ");
@@ -1509,9 +1513,12 @@ void plib_declarations(int id,xtring setname) {
 					"Whether to stop cutting to reach pft fraction targets when the second (continuous) period starts");
 				declareitem("hydrology",&strparam,16,CB_STHYDROLOGY, "Hydrology of crop 1 (\"RAINFED\" or \"IRRIGATED\")");
 //				declareitem("irrigation",&pst->management.firr,0.0,1.0,1,CB_NONE,"Irrigation of crop 1");
+				declareitem("rottime",&pst->management.nyears,0.0,100.0,1,CB_NONE,"Rotation time (years)");
 				declareitem("sdate",&pst->management.sdate,0,364,1,CB_NONE,"Sowing date of crop 1");
 				declareitem("hdate",&pst->management.hdate,0,364,1,CB_NONE,"Harvest date of crop 1");
 				declareitem("nfert",&pst->management.nfert,0.0,1000.0,1,CB_NONE,"Fertilization application of crop 1");
+				declareitem("N_appfert_mt",&pst->management.N_appfert_mt,0.0,1000.0,1,CB_NONE,"LandSyMM: Applied N fertiliser (kgN/ha) for crop 1");
+				declareitem("isforpotyield",&pst->management.isforpotyield,1,CB_NONE,"GGCMI: potential yield flag for stand type management 1");
 				declareitem("tillage_fact",&pst->management.tillage_fact,1.0,4.5,1,CB_NONE,"Tillage factor");
 				declareitem("fallow",&pst->management.fallow,1,CB_NONE,"Fallow in place of crop 1");
 				declareitem("relaxed_establishment",&pst->management.relaxed_establishment,1,CB_NONE,"Whether to ignore climate establishment limits");
