@@ -1688,8 +1688,10 @@ double irrigated_water_uptake(Patch& patch, Pft& pft, const Day& day) {
     double grootdist[2] = { 0.0, 0.0 };
 
     double wcont_cp[NSOILLAYER];
+    double ice_cp[NSOILLAYER];
     for (int i=0;i<NSOILLAYER;i++) {
         wcont_cp[i] = patch.soil.get_layer_soil_water(i);
+        ice_cp[i] = patch.soil.Frac_ice[i + patch.soil.IDX];
         if (i < NSOILLAYER_UPPER)
             grootdist[0] += pft.rootdist[i];
         else
@@ -1771,24 +1773,27 @@ double irrigated_water_uptake(Patch& patch, Pft& pft, const Day& day) {
             }
         }
 
-        if (irrigate_soil && patch.soil.snowdepth() <= 0.001) { // No irrigation when there is snow on the ground
-
-            // No irrigation when there is ice left in the top 50cm
-            if (!patch.soil.ice_in_top_layer()) {
+        if (irrigate_soil && patch.soil.dsnowdepth <= 0.001 && !patch.soil.ice_in_top_layer(nsoillayer_to_irrigate, restrict_irr_ice)) {
 
                 // Irrigation water for this PFT:
 
                 double water_to_add = 0.0;
+                double too_much_ice_ly[NSOILLAYER];
 
                 double water_to_add_ly[NSOILLAYER];
-                for (int i = 0; i < NSOILLAYER; i++) water_to_add_ly[i] = 0.0;
+                for (int i = 0; i < NSOILLAYER; i++) { water_to_add_ly[i] = 0.0; too_much_ice_ly[i] = 0.0; }
 
                 if (iftwolayersoil)
                     water_to_add = (wcont_0_opt - patch.soil.get_soil_water_upper()) * awc0;
                 else {
                     for (int i = 0; i<nsoillayer_to_irrigate; i++) {
                         if (add_water[i]) {
-                            water_to_add_ly[i] = max((wcont_opt[i] - wcont_cp[i]) * patch.soil.soiltype.awc[i], 0.0); // ensures that we add water
+                            water_to_add_ly[i] = max((wcont_opt[i] - wcont_cp[i]) * patch.soil.soiltype.awc[i], 0.0);
+                            if (wcont_cp[i] + ice_cp[i] + water_to_add_ly[i] / patch.soil.soiltype.awc[i] > 1.0) {
+                                double tmp = max(0.0, (1.0 - (wcont_cp[i] + ice_cp[i])) * patch.soil.soiltype.awc[i]);
+                                too_much_ice_ly[i] = (water_to_add_ly[i] - tmp) / patch.soil.soiltype.awc[i];
+                                water_to_add_ly[i] = tmp;
+                            }
                             water_to_add += water_to_add_ly[i];
                         }
                     }
@@ -1814,11 +1819,11 @@ double irrigated_water_uptake(Patch& patch, Pft& pft, const Day& day) {
 
                 for (int ly = 0; ly < nsoillayer_to_irrigate; ly++) {
                     if (add_water[ly]) {
-                        // Use: wcont[ly - IDX] = Faw_layer[ly - IDX] / soiltype.awc[ly - IDX];
                         Faw_layer[ly] = soil.get_layer_soil_water(ly) * soil.soiltype.awc[ly]; // mm
+                        double ice_layer_mm = soil.get_layer_soil_ice_mm(ly); // mm
 
-                        // Water in this layer
-                        potential_layer[ly] = soil.aw_max[ly] - Faw_layer[ly];
+                        potential_layer[ly] = soil.aw_max[ly] - Faw_layer[ly] - ice_layer_mm;
+                        if (potential_layer[ly] < 0.0) potential_layer[ly] = 0.0;
                         potential_water += potential_layer[ly];
                     }
                 } // for loop (ly)
@@ -1871,7 +1876,6 @@ double irrigated_water_uptake(Patch& patch, Pft& pft, const Day& day) {
                         return -9999.0;
                     }
                 }
-            }
         }
 
         if (day.isend) {
