@@ -2269,6 +2269,23 @@ void plib_callback(int callback) {
 			mtlist.nextobj();
 		}
 
+		// Add a copy of a management type defined in a stand type to the mtlist, with the same name as the stand type.
+		// Must happen BEFORE nst_lc counting, which calls get_management() and requires mtnames[0] to be populated.
+		stlist.firstobj();
+		while (stlist.isobj) {
+			StandType& st = stlist.getobj();
+			if(st.mtnames[0] == "") {
+				ManagementType& mt_new = mtlist.createobj();
+				st.management.name = st.name;
+				mt_new = st.management;
+				mt_new.id = nmt++;
+				st.management.id = mt_new.id;
+				st.mtnames[0] = mt_new.name;
+				st.rotation.nmanagements = 1;
+			}
+			stlist.nextobj();
+		}
+
 		// Set ids and nst variable after removing unused sts
 		nst = 0;
 		for(int i=0;i<NLANDCOVERTYPES;i++)
@@ -2279,25 +2296,6 @@ void plib_callback(int callback) {
 			st.id = nst++;
 			if (st.landcover != CROPLAND || !do_potyield || st.get_management().isforpotyield) {
 				nst_lc[st.landcover]++;
-			}
-			stlist.nextobj();
-		}
-
-		// Add a copy of a management type defined in a stand type to the mtlist, with the same name as the stand type.
-		stlist.firstobj();
-		while (stlist.isobj) {
-			StandType& st = stlist.getobj();
-			if(st.mtnames[0] == "") {
-				ManagementType& mt_new = mtlist.createobj();
-				st.management.name = st.name;
-				mt_new = st.management;
-				mt_new.id = nmt++;
-				st.management.id = mt_new.id;
-				// Management type copies stored in the stand type and in the mtlist are identical at this point, but the main method to
-				// get managements should be by calling stand.get_current_management() or st.get_management(), retrieving the mtlist copy.
-				// If unused mt:s removed in LandcoverInputModule::init(), the id of remaining mt:s are updated in both copies.
-				st.mtnames[0] = mt_new.name;
-				st.rotation.nmanagements = 1;			// In case not already set (mt from "Natural" stand type).
 			}
 			stlist.nextobj();
 		}
