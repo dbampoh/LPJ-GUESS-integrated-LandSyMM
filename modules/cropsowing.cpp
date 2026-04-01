@@ -547,7 +547,7 @@ void crop_sowing_date(Patch& patch, Pft& pft) {
 		max_lgp += date.year_length();
 	}
 
-	if (prec_sdate)
+	if (prec_sdate || standpft.sdate_force >= 0)
 		ppftcrop.hlimitdate = stepfromdate(date.day, max_lgp);
 	else
 		ppftcrop.hlimitdate = gridcellpft.hlimitdate_default;

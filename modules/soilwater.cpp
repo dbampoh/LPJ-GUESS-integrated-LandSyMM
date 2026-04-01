@@ -528,8 +528,8 @@ void irrigation(Patch& patch) {
 		}
 	}
 	patch.irrigation_y += patch.irrigation_d;
-	//soil.rain_melt += patch.irrigation_d;
-	//soil.max_rain_melt += patch.irrigation_d;
+	patch.grs_w_irr += patch.irrigation_d;
+	patch.grs_w_irr_thisyear += patch.irrigation_d;
 }
 
 

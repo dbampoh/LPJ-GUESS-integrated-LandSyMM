@@ -43,6 +43,10 @@ void phu_init(cropphen_struct& ppftcrop, Gridcellpft& gridcellpft, Patch& patch)
 	ppftcrop.vdsum = 0;
 	ppftcrop.prf = 1.0;
 
+	if (!(readphu == readpvd)) {
+		fail("Cannot provide one of file_phu_in/file_pvd_in and not the other.");
+	}
+
 	if (readpvd) {
 		ppftcrop.pvd = gridcellpft.pvd_force;
 	} else {
@@ -426,10 +430,23 @@ void crop_phenology(Patch& patch) {
 				patch.soil.grs_days_thismonth++;
 
 				// check if harvest is prescribed
-					bool force_harvest = date.day == standpft.hdate_force;
+					bool force_harvest;
+					if (standpft.growseaslength_force >= 0) {
+						force_harvest = ppftcrop.growingdays == standpft.growseaslength_force;
+					} else {
+						force_harvest = date.day == standpft.hdate_force;
+					}
 
 					// before maturity is reached
 					bool pre_maturity = ifnlim ? ppftcrop.dev_stage < 2.0 : ppftcrop.husum < ppftcrop.phu;
+
+					// Hemisphere-dependent harvest limit date (Ma et al. 2022 GMD)
+					Gridcell& gridcell = patch.stand.get_gridcell();
+					if (gridcell.get_lat() >= 0.0) {
+						ppftcrop.hlimitdate = pft.hlimitdatenh;
+					} else {
+						ppftcrop.hlimitdate = pft.hlimitdatesh;
+					}
 
 					// before hlimit is reached
 					bool pre_hlimit = dayinperiod(date.day, ppftcrop.sdate, stepfromdate(ppftcrop.hlimitdate, -1));
