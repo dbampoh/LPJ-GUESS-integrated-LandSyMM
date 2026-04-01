@@ -16,6 +16,7 @@
 #include "config.h"
 #include "guess.h"
 #include "soil.h"
+#include "soilwater.h"
 #include "parameters.h"
 
 
@@ -826,7 +827,7 @@ void Soil::hydrology_lpjf(const Climate& climate, double fevap) {
 
 	double wcont_evap_init = Faw_evap_init / awc_init;
 
-	if (snowdepth() < 10.0) {	// evap only if snow depth < 10mm
+	if (dsnowdepth < 10.0) {	// evap only if snow depth < 10mm
 							// The potential evaporation:
 		evap_init = climate.eet * PRIESTLEY_TAYLOR * wcont_evap_init * wcont_evap_init * fevap;
 		// Below, we will limit evaporation to a value <= the available water in the evaporation layer
@@ -1011,7 +1012,19 @@ void Soil::hydrology_lpjf(const Climate& climate, double fevap) {
 
 	// *** INPUT TO TOP LAYER ***
 
-	if (water_flux_in > 0) {
+	if (do_saturate()) {
+		saturate_nonpeat_wetlands(patch);
+		runoff_surf = rain_melt;
+		rain_melt = 0.0;
+
+		for (int s = 0; s < NSOILLAYER; s++) {
+			Faw_layer[s] = wcont[s] * soiltype.awc[s];
+			ice_layer[s] = Frac_ice[s + IDX] * Dz[s + IDX];
+			potential_layer[s] = aw_max[s] - Faw_layer[s] - ice_layer[s];
+			if (potential_layer[s] < 0.0) potential_layer[s] = 0.0;
+		}
+	}
+	else if (water_flux_in > 0) {
 
 		// ADDITION of water to the top layers (rain_melt > 0)
 		if (water_flux_in < potential_top_layer) {
@@ -1083,7 +1096,7 @@ void Soil::hydrology_lpjf(const Climate& climate, double fevap) {
 	// 1: the top 50cm soil layers considered in the Gerten et al. scheme
 	// 2: Lower 1.0 m layer considered in the Gerten et al. scheme
 
-	if (percolate) {
+	if (percolate && do_percolation()) {
 
 		// Percolation from top layer if there is enough water (at least MIN_WATER_PERC)
 		double perc = 0.0;
@@ -1263,6 +1276,10 @@ void Soil::hydrology_lpjf(const Climate& climate, double fevap) {
 			final_water_in_column += layerwater;
 
 		} // for loop (ly)
+
+		patch.grs_w_runoff += runoff;
+		patch.grs_w_evapo += evap;
+		patch.grs_w_transp += aet_total;
 
 		  // is water in + initial storage = water out + final storage?
 		double water_in_storage_in = initial_water_in_column + rain_melt;
