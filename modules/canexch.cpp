@@ -1848,7 +1848,9 @@ double irrigated_water_uptake(Patch& patch, Pft& pft, const Day& day) {
                         wcont_cp[s] = Faw_layer[s] / soil.soiltype.awc[s];
                 
                         // Update wcont (and wcont_evap, Frac_water etc.) too
-                        soil.set_layer_soil_water(s, Faw_layer[s] / soil.soiltype.awc[s]);
+                        double new_wcont = Faw_layer[s] / soil.soiltype.awc[s];
+                        oob_check_wcont(new_wcont);
+                        soil.set_layer_soil_water(s, new_wcont);
 
                     }
                     
