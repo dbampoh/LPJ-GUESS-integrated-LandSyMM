@@ -480,6 +480,10 @@ bool TimeDataD::Open(const char* name, ListArray_id<Coord>& gridlist, double gri
 
 		if(format == GLOBAL_STATIC || format == GLOBAL_YEARLY) {
 		}
+		else if (lutomemory) {
+			dprintf("Reading to memory: %s\n", name);
+			CopyToMemory(gridlist.nobj, gridlist);
+		}
 		else if (FAST_DATA_ACCESS) {
 			if (map_text_file) {
 				CreateFileMap();
