@@ -601,6 +601,19 @@ void MiscOutput::define_output_tables() {
 	cpool_columns_for_regr += ColumnDescriptor("SoilC",				8, 3);
 	cpool_columns_for_regr += ColumnDescriptor("Total-prod",	   11, 3);
 
+	// LandSyMM: Stand type vectors for per-stand outputs
+	std::vector<std::string> crop_sts;
+	std::vector<std::string> pasture_sts;
+	stlist.firstobj();
+	while (stlist.isobj) {
+		StandType& st = stlist.getobj();
+		if (st.landcover == CROPLAND)
+			crop_sts.push_back((char*)st.name);
+		if (st.landcover == PASTURE)
+			pasture_sts.push_back((char*)st.name);
+		stlist.nextobj();
+	}
+
 	//CROP YIELD
 	ColumnDescriptors crop_columns;
 	crop_columns += ColumnDescriptors(crop_pfts,           8, 3);
@@ -767,6 +780,40 @@ void MiscOutput::define_output_tables() {
 		create_output_table(out_phu,        file_phu,            date_columns);
 		create_output_table(out_fphu,       file_fphu,           crop_columns);
 		create_output_table(out_fhi,        file_fhi,            crop_columns);
+
+		// LandSyMM: Per-stand crop outputs
+		ColumnDescriptors crop_columns_st;
+		crop_columns_st += ColumnDescriptors(crop_sts, 8, 3);
+		ColumnDescriptors crop_columns_st_wide;
+		crop_columns_st_wide += ColumnDescriptors(crop_sts, 10, 3);
+		ColumnDescriptors crop_columns_wide;
+		crop_columns_wide += ColumnDescriptors(crop_pfts, 10, 3);
+
+		create_output_table(out_gsirr,      file_gsirr,          crop_columns_wide);
+		create_output_table(out_gsirr_st,   file_gsirr_st,       crop_columns_st_wide);
+		create_output_table(out_gsirr_plantyear_st, file_gsirr_plantyear_st, crop_columns_st_wide);
+		create_output_table(out_yield_plantyear, file_yield_plantyear, crop_columns);
+		create_output_table(out_yield_st,   file_yield_st,       crop_columns_st);
+		create_output_table(out_yield1_st,  file_yield1_st,      crop_columns_st);
+		create_output_table(out_yield2_st,  file_yield2_st,      crop_columns_st);
+		create_output_table(out_yield_plantyear_st, file_yield_plantyear_st, crop_columns_st);
+		create_output_table(out_anpp_crop_st, file_anpp_crop_st, crop_columns_st);
+	}
+
+	// LandSyMM: Per-stand pasture outputs
+	if (run_landcover && run[PASTURE] && !pasture_sts.empty()) {
+		ColumnDescriptors pasture_columns_st;
+		pasture_columns_st += ColumnDescriptors(pasture_sts, 8, 3);
+		create_output_table(out_anpp_pasture_st, file_anpp_pasture_st, pasture_columns_st);
+		create_output_table(out_yield_pasture_st, file_yield_pasture_st, pasture_columns_st);
+		create_output_table(out_harvest_sts, file_harvest_sts, pasture_columns_st);
+	}
+
+	// LandSyMM: BLAZE daily burned area
+	if (firemodel == BLAZE) {
+		ColumnDescriptors daily_ba_columns;
+		daily_ba_columns += ColumnDescriptor("Burnfr", 10, 6);
+		create_output_table(out_dblaze_ba, file_dblaze_ba, daily_ba_columns);
 	}
 
     create_output_table(out_seasonality,file_seasonality,    seasonality_columns);
@@ -970,6 +1017,7 @@ void MiscOutput::outannual(Gridcell& gridcell) {
 	// The OutputRows object manages the next row of output for each
 	// output table
 	OutputRows out(output_channel, lon, lat, date.get_calendar_year());
+	OutputRows out_lastyear(output_channel, lon, lat, date.get_calendar_year() - 1);
 
 	for(int i=0;i<nst;i++) {
 	
@@ -1079,6 +1127,8 @@ void MiscOutput::outannual(Gridcell& gridcell) {
 	double standpft_yield=0.0;
 	double standpft_yield1=0.0;
 	double standpft_yield2=0.0;
+	double standpft_gsirr=0.0;
+	double standpft_yield_lastyear=0.0;
 	double standpft_densindiv_total = 0.0;
 	double standpft_heightindiv_total = 0.0;
 	double standpft_diamindiv_total = 0.0;
@@ -1114,6 +1164,8 @@ void MiscOutput::outannual(Gridcell& gridcell) {
 		double mean_standpft_yield=0.0;
 		double mean_standpft_yield1=0.0;
 		double mean_standpft_yield2=0.0;
+		double mean_standpft_gsirr=0.0;
+		double mean_standpft_yield_lastyear=0.0;
 
 		for (int i=0; i<NLANDCOVERTYPES; i++) {
 			mean_standpft_anpp_lc[i]=0.0;
@@ -1183,6 +1235,8 @@ void MiscOutput::outannual(Gridcell& gridcell) {
 			standpft_yield=0.0;
 			standpft_yield1=0.0;
 			standpft_yield2=0.0;
+			standpft_gsirr=0.0;
+			standpft_yield_lastyear=0.0;
 			standpft_densindiv_total = 0.0;
 			standpft_heightindiv_total = 0.0;
 			standpft_diamindiv_total = 0.0;
@@ -1212,6 +1266,14 @@ void MiscOutput::outannual(Gridcell& gridcell) {
 					+ patchpft.cmass_litter_heart + patchpft.cmass_litter_repr;
 				standpft_nlitter += patchpft.nmass_litter_leaf + patchpft.nmass_litter_root + patchpft.nmass_litter_sap
 					+ patchpft.nmass_litter_heart;
+
+				if (pft.landcover == CROPLAND) {
+					standpft_gsirr += patch.irrigation_y;
+					if (patchpft.cmass_ho_harvest_lastyear > 0.0)
+						standpft_yield_lastyear += patchpft.cmass_ho_harvest_lastyear / 0.446;
+					else
+						standpft_yield_lastyear += patchpft.cmass_ho_harvest_lastyear;
+				}
 
 				vegetation.firstobj();
 				while (vegetation.isobj) {
@@ -1282,6 +1344,8 @@ void MiscOutput::outannual(Gridcell& gridcell) {
 			standpft_yield/=(double)stand.npatch();
 			standpft_yield1/=(double)stand.npatch();
 			standpft_yield2/=(double)stand.npatch();
+			standpft_gsirr/=(double)stand.npatch();
+			standpft_yield_lastyear/=(double)stand.npatch();
 
 			//Update landcover totals
 			landcover_cmass[stand.landcover]+=standpft_cmass*stand.get_landcover_fraction();
@@ -1303,6 +1367,8 @@ void MiscOutput::outannual(Gridcell& gridcell) {
 				mean_standpft_yield += standpft_yield * stand.get_gridcell_fraction() / active_fraction;
 				mean_standpft_yield1 += standpft_yield1 * stand.get_gridcell_fraction() / active_fraction;
 				mean_standpft_yield2 += standpft_yield2 * stand.get_gridcell_fraction() / active_fraction;
+				mean_standpft_gsirr += standpft_gsirr * stand.get_gridcell_fraction() / active_fraction;
+				mean_standpft_yield_lastyear += standpft_yield_lastyear * stand.get_gridcell_fraction() / active_fraction;
 
 				//Update pft mean for active stands in landcover
 				if(active_fraction_lc[stand.landcover]) {
@@ -1561,6 +1627,8 @@ void MiscOutput::outannual(Gridcell& gridcell) {
 			outlimit_misc(out, out_yield,   mean_standpft_yield);
 			outlimit_misc(out, out_yield1,  mean_standpft_yield1);
 			outlimit_misc(out, out_yield2,  mean_standpft_yield2);
+			outlimit_misc(out, out_gsirr,   mean_standpft_gsirr);
+			outlimit_misc(out_lastyear, out_yield_plantyear, mean_standpft_yield_lastyear);
 
 			int pft_sdate1=-1;
 			int pft_sdate2=-1;
@@ -1617,6 +1685,119 @@ void MiscOutput::outannual(Gridcell& gridcell) {
 				if(!out_cmass_harv_killed_pft_st[stid].invalid())
 					outlimit_misc(out, out_cmass_harv_killed_pft_st[stid],     0.0);
 			}
+		}
+	}
+
+	// LandSyMM: Per-stand crop outputs
+	if (run_landcover && run[CROPLAND]) {
+		stlist.firstobj();
+		while (stlist.isobj) {
+			StandType& st = stlist.getobj();
+			if (st.landcover != CROPLAND) {
+				stlist.nextobj();
+				continue;
+			}
+
+			double yield_st = 0.0, yield1_st = 0.0, yield2_st = 0.0;
+			double yield_st_lastyear = -1.0;
+			double gsirr_st = 0.0, gsirr_st_lastyear = -1.0;
+			double anpp_crop_st = 0.0;
+
+			Gridcell::iterator gc_itr = gridcell.begin();
+			while (gc_itr != gridcell.end()) {
+				Stand& stand = *gc_itr;
+				if (stand.stid == st.id) {
+					stand.firstobj();
+					while (stand.isobj) {
+						Patch& patch = stand.getobj();
+						anpp_crop_st += patch.fluxes.get_annual_flux(Fluxes::NPP);
+						gsirr_st += patch.irrigation_y;
+
+						Patchpft& patchpft = patch.pft[stand.pftid];
+						if (patchpft.cmass_ho_harvest_lastyear > 0.0)
+							yield_st_lastyear = patchpft.cmass_ho_harvest_lastyear / 0.446;
+						else
+							yield_st_lastyear = patchpft.cmass_ho_harvest_lastyear;
+						gsirr_st_lastyear = patch.grs_w_irr_lastyear;
+
+						Vegetation& vegetation = patch.vegetation;
+						vegetation.firstobj();
+						while (vegetation.isobj) {
+							Individual& indiv = vegetation.getobj();
+							if (indiv.id != -1 && indiv.alive && indiv.pft.id == stand.pftid) {
+								yield_st += indiv.cropindiv->harv_yield;
+								yield1_st += indiv.cropindiv->yield_harvest[0];
+								yield2_st += indiv.cropindiv->yield_harvest[1];
+							}
+							vegetation.nextobj();
+						}
+						stand.nextobj();
+					}
+					int np = stand.npatch();
+					if (np > 0) {
+						anpp_crop_st /= (double)np;
+						gsirr_st /= (double)np;
+						yield_st /= (double)np;
+						yield1_st /= (double)np;
+						yield2_st /= (double)np;
+					}
+					break;
+				}
+				++gc_itr;
+			}
+
+			outlimit_misc(out, out_yield_st, yield_st);
+			outlimit_misc(out, out_yield1_st, yield1_st);
+			outlimit_misc(out, out_yield2_st, yield2_st);
+			outlimit_misc(out_lastyear, out_yield_plantyear_st, yield_st_lastyear);
+			outlimit_misc(out, out_gsirr_st, gsirr_st);
+			outlimit_misc(out_lastyear, out_gsirr_plantyear_st, gsirr_st_lastyear);
+			outlimit_misc(out, out_anpp_crop_st, anpp_crop_st);
+
+			stlist.nextobj();
+		}
+	}
+
+	// LandSyMM: Per-stand pasture outputs
+	if (run_landcover && run[PASTURE]) {
+		stlist.firstobj();
+		while (stlist.isobj) {
+			StandType& st = stlist.getobj();
+			if (st.landcover != PASTURE) {
+				stlist.nextobj();
+				continue;
+			}
+
+			double pasture_anpp = 0.0;
+			double st_harvest = 0.0;
+			double yield_pasture = 0.0;
+			int npatch_total = 0;
+
+			Gridcell::iterator gc_itr = gridcell.begin();
+			while (gc_itr != gridcell.end()) {
+				Stand& stand = *gc_itr;
+				if (stand.stid == st.id) {
+					stand.firstobj();
+					while (stand.isobj) {
+						Patch& patch = stand.getobj();
+						pasture_anpp += patch.fluxes.get_annual_flux(Fluxes::NPP);
+						st_harvest += patch.fluxes.get_annual_flux(Fluxes::HARVESTC);
+						npatch_total++;
+						stand.nextobj();
+					}
+				}
+				++gc_itr;
+			}
+			if (npatch_total > 0) {
+				pasture_anpp /= (double)npatch_total;
+				st_harvest /= (double)npatch_total;
+			}
+
+			outlimit_misc(out, out_anpp_pasture_st, pasture_anpp);
+			outlimit_misc(out, out_yield_pasture_st, yield_pasture);
+			outlimit_misc(out, out_harvest_sts, st_harvest);
+
+			stlist.nextobj();
 		}
 	}
 
@@ -2678,6 +2859,11 @@ void MiscOutput::outdaily(Gridcell& gridcell) {
 	outlimit_misc(out, out_daily_climate, gridcell.climate.temp);
 	outlimit_misc(out, out_daily_climate, gridcell.climate.prec);
 	outlimit_misc(out, out_daily_climate, gridcell.climate.rad);
+
+	// LandSyMM: BLAZE daily burned area
+	if (firemodel == BLAZE) {
+		outlimit_misc(out, out_dblaze_ba, gridcell.effective_burned_area * FRACT_TO_PERCENT);
+	}
 }
 
 void MiscOutput::openlocalfiles(Gridcell& gridcell, int coordinates_precision) {
