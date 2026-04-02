@@ -171,6 +171,19 @@ private:
 
 	Table out_soil_n2o_flux;
 
+	// LandSyMM: Per-stand crop/irrigation/pasture output tables
+	Table out_gsirr, out_yield_plantyear, out_yield_st, out_yield1_st, out_yield2_st,
+		  out_yield_plantyear_st, out_gsirr_st, out_gsirr_plantyear_st,
+		  out_anpp_pasture_st, out_anpp_crop_st, out_yield_pasture_st, out_harvest_sts;
+
+	// LandSyMM: BLAZE daily
+	Table out_dblaze_ba;
+
+	// LandSyMM: IMOGEN output tables (stubs — no reference implementation in fork)
+	Table out_t_anom, out_wet, out_sw_anom, out_p_anom, out_fa_ocean,
+		  out_dtemp_o, out_dtemp_anom, out_co2_imogen, out_relhum_anom,
+		  out_tmin_anom, out_tmax_anom, out_wind_anom;
+
 	// Separate output files for stand types with pft columns
 	Table* out_cmass_pft_st;
 	Table* out_cmass_harv_killed_pft_st;
