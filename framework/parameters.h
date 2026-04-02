@@ -545,6 +545,10 @@ extern bool restart;
 /// Whether to save state files
 extern bool save_state;
 
+/// Whether to write land use fraction data to memory for fast random access
+/// Enables efficient usage of randomised gridlists for parallel simulations
+extern bool lutomemory;
+
 /// Save/restart year (LTS name)
 extern int state_year;
 
