@@ -549,6 +549,12 @@ extern bool save_state;
 /// Enables efficient usage of randomised gridlists for parallel simulations
 extern bool lutomemory;
 
+/// Whether to use LandSyMM's simplified forestry functions for externally-driven
+/// forest management (cut_fraction, landsymm_clearcut, landsymm_copy_stand_type,
+/// landsymm_transfer_to_new_stand) instead of the full LTS forestry system.
+/// Only has effect when run_forest=1. Default false uses full LTS forestry.
+extern bool landsymm_simple_forestry;
+
 /// Save/restart year (LTS name)
 extern int state_year;
 

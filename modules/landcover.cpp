@@ -3543,12 +3543,11 @@ void landcover_change_transfer::allocate() {
 ///////////////////////////////////////////////////////////////////////////////////////
 // LandSyMM SIMPLIFIED LAND COVER CHANGE
 //
-// Alternative land cover change functions used when LANDSYMM_SIMPLE_FORESTRY is defined.
+// Alternative land cover change functions used when landsymm_simple_forestry=1 (runtime).
 // These provide simplified stand creation rules without the upstream's three-tier
 // copy_stand_type hierarchy and forestry-specific management checks.
+// Activated via: landsymm_simple_forestry 1 in .ins file (default 0 = full LTS LUC)
 ///////////////////////////////////////////////////////////////////////////////////////
-
-#ifdef LANDSYMM_SIMPLE_FORESTRY
 
 /// LandSyMM: Simplified rules for creation of new stands at land cover change
 int landsymm_copy_stand_type(int landcover_donor, int landcover_receptor) {
@@ -3670,8 +3669,6 @@ double landsymm_transfer_to_new_stand(Gridcell& gridcell, int stid_donor, int st
 
 	return cloned_area;
 }
-
-#endif // LANDSYMM_SIMPLE_FORESTRY
 
 
 //////////////////////////////////////////////////////////////////////////////////////////

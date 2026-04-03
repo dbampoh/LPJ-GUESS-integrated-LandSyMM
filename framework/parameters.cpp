@@ -168,6 +168,7 @@ xtring state_path;
 bool restart;
 bool save_state;
 bool lutomemory;
+bool landsymm_simple_forestry;
 int state_year;
 int& restart_year = state_year;
 int& save_year = state_year;
@@ -474,6 +475,7 @@ void initsettings() {
 	printseparatestands = false;
 	save_state = false;
 	lutomemory = false;
+	landsymm_simple_forestry = false;
 	restart = false;
 	verbosity=WARNING;
 	lcfrac_fixed = true;
@@ -922,6 +924,7 @@ void plib_declarations(int id,xtring setname) {
 		declareitem("restart", &restart, 1, CB_NONE, "Whether to restart from state files");
 		declareitem("save_state", &save_state, 1, CB_NONE, "Whether to save new state files");
 		declareitem("lutomemory", &lutomemory, 1, CB_NONE, "Whether to write land use fraction data to memory; enables efficient usage of randomised gridlists for parallel simulations");
+		declareitem("landsymm_simple_forestry", &landsymm_simple_forestry, 1, CB_NONE, "Whether to use LandSyMM simplified forestry for externally-driven forest management (only effective when run_forest=1)");
 		declareitem("state_year", &state_year, 1, 20000, 1, CB_NONE, "Save/restart year. Unspecified means just after spinup");
 		declareitem("restart_year", &state_year, 1, 20000, 1, CB_NONE, "Restart year (calendar year). LandSyMM alias for state_year.");
 		declareitem("save_year", &state_year, 1, 20000, 1, CB_NONE, "Save year (calendar year). LandSyMM alias for state_year.");
