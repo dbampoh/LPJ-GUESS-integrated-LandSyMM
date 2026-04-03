@@ -549,6 +549,11 @@ extern bool save_state;
 /// Enables efficient usage of randomised gridlists for parallel simulations
 extern bool lutomemory;
 
+/// Whether to use fork's direct-to-plant BNF pathway (fixed N goes to
+/// nmass_leaf, nmass_root, nmass_agpool) instead of LTS soil mineral pool
+/// pathway (fixed N goes to soil.NH4_mass). Default false = LTS pathway.
+extern bool iflandsymm_bnf_direct;
+
 /// Whether to use simplified N-stress assignment (fork behavior):
 /// nstress=false when labile N covers demand, nstress=ifnlim when not.
 /// LTS default (false) uses n_opt_isabovelim to persist N-limitation on Vmax.

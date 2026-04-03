@@ -2695,6 +2695,11 @@ double bnf_func_temperature(double T, Pft& pft) {
 }
 
 /// Biological nitrogen fixation for cropland stands
+/** Two pathways controlled by iflandsymm_bnf_direct:
+ *  - LTS (default): potential_fix = bnf_max * f_ds * f_w * f_t; fixed N → soil.NH4_mass
+ *  - Fork (iflandsymm_bnf_direct=1): potential_fix scaled by root mass and N deficit;
+ *    fixed N → nmass_leaf, nmass_root, nmass_agpool proportional to demand fractions
+ */
 void bnf(Patch& patch, Vegetation& vegetation) {
 
 	if (patch.stand.landcover != CROPLAND || !ifnlim)
@@ -2705,48 +2710,112 @@ void bnf(Patch& patch, Vegetation& vegetation) {
 		Individual& indiv = vegetation.getobj();
 		Pft& pft = indiv.pft;
 
-		if (!pft.fixer || !indiv.alive || !indiv.cropindiv) {
+		if (!pft.fixer) {
 			vegetation.nextobj();
 			continue;
 		}
 
-		cropphen_struct& ppftcrop = *(indiv.patchpft().cropphen);
-		double ds = ppftcrop.dev_stage;
+		if (iflandsymm_bnf_direct) {
 
-		if (ds <= 0.0 || !ppftcrop.growingseason) {
-			vegetation.nextobj();
-			continue;
-		}
+			double ndeficit = indiv.ndemand_total - indiv.ndemand;
+			if (ndeficit > 0.0 && indiv.dnpp > 0.0) {
+				Patchpft& patchpft = patch.pft[pft.id];
+				cropphen_struct& ppftcrop = *(patchpft.get_cropphen());
+				if (!ppftcrop.growingseason) {
+					vegetation.nextobj();
+					continue;
+				}
+				double f_T, f_w, f_ds;
+				double f_npp = 0.9;
 
-		double f_ds = bnf_func_developmentstage(ds, pft);
-		double f_w = bnf_func_wcont(patch.soil.get_soil_water_upper(), pft);
-		double f_t = bnf_func_temperature(patch.soil.T_soil[0], pft);
-
-		double potential_fix = pft.bnf_max * f_ds * f_w * f_t;
-
+				if (pft.phenology == CROPGREEN) {
+					f_ds = bnf_func_developmentstage(ppftcrop.dev_stage, pft);
 #ifdef MAXBNFNPP
-		double max_npp_for_bnf = max(0.0, indiv.dnpp * 0.5);
-		double max_fix_from_npp = max_npp_for_bnf / 6.0;
-		double fixed = min(potential_fix, max_fix_from_npp);
-#else
-		double fixed = potential_fix;
+					double f1 = min(1.0, max(0.0, richards_curve(pft.a1, pft.b1, pft.c1, pft.d1, ppftcrop.dev_stage)));
+					double f3 = min(1.0, max(0.0, richards_curve(pft.a3, pft.b3, pft.c3, pft.d3, ppftcrop.dev_stage)));
+					if (ppftcrop.dev_stage > pft.d3) {
+						f_npp = min(f_npp, (1.0 - f1) * (1.0 - f3));
+					}
 #endif
+				} else {
+					f_ds = bnf_func_developmentstage(indiv.phen, pft);
+				}
+				f_T = bnf_func_temperature(patch.soil.get_soil_temp_25(), pft);
+				f_w = bnf_func_wcont(patch.soil.get_soil_water_upper(), pft);
 
-		if (fixed > 0.0) {
-			double c_cost = fixed * 6.0;
-			indiv.dnpp -= c_cost;
-			indiv.report_flux(Fluxes::NPP, -c_cost);
-			indiv.report_flux(Fluxes::RA, c_cost);
+				double potnfix = f_T * f_w * f_ds * indiv.cmass_root_today() * pft.bnf_max * 2.0;
+				potnfix = min(ndeficit, potnfix);
+				double nfix_cost = 6.0 * potnfix;
+				double nfix_day = 0.0;
+				if (nfix_cost >= f_npp * indiv.dnpp) {
+					nfix_cost = f_npp * indiv.dnpp;
+					nfix_day = nfix_cost / 6.0;
+				} else {
+					nfix_day = potnfix;
+				}
+				ppftcrop.f2_mod = (indiv.dnpp > 0.0) ? nfix_cost / indiv.dnpp : 0.0;
+				indiv.dnpp -= nfix_cost;
+				indiv.report_flux(Fluxes::NPP, -nfix_cost);
+				indiv.report_flux(Fluxes::RA, nfix_cost);
 
-			patch.soil.NH4_mass += fixed;
-			indiv.report_flux(Fluxes::NFIX, fixed);
-			patch.grs_n_input += fixed;
-
-#ifdef MAXBNFNPP
-			if (max_fix_from_npp > 0.0) {
-				ppftcrop.f2_mod = (potential_fix - fixed) / max_fix_from_npp;
+				double fixed = 0.0;
+				indiv.nmass_leaf += indiv.leaffndemand * nfix_day;
+				fixed += indiv.leaffndemand * nfix_day;
+				indiv.nmass_root += indiv.rootfndemand * nfix_day;
+				fixed += indiv.rootfndemand * nfix_day;
+				if (indiv.cropindiv) {
+					indiv.cropindiv->nmass_agpool += indiv.storefndemand * nfix_day;
+					fixed += indiv.storefndemand * nfix_day;
+				}
+				patch.soil.anfix += fixed;
+				patch.grs_n_input += fixed;
 			}
+
+		} else {
+
+			if (!indiv.alive || !indiv.cropindiv) {
+				vegetation.nextobj();
+				continue;
+			}
+
+			cropphen_struct& ppftcrop = *(indiv.patchpft().cropphen);
+			double ds = ppftcrop.dev_stage;
+
+			if (ds <= 0.0 || !ppftcrop.growingseason) {
+				vegetation.nextobj();
+				continue;
+			}
+
+			double f_ds = bnf_func_developmentstage(ds, pft);
+			double f_w = bnf_func_wcont(patch.soil.get_soil_water_upper(), pft);
+			double f_t = bnf_func_temperature(patch.soil.T_soil[0], pft);
+
+			double potential_fix = pft.bnf_max * f_ds * f_w * f_t;
+
+#ifdef MAXBNFNPP
+			double max_npp_for_bnf = max(0.0, indiv.dnpp * 0.5);
+			double max_fix_from_npp = max_npp_for_bnf / 6.0;
+			double fixed = min(potential_fix, max_fix_from_npp);
+#else
+			double fixed = potential_fix;
 #endif
+
+			if (fixed > 0.0) {
+				double c_cost = fixed * 6.0;
+				indiv.dnpp -= c_cost;
+				indiv.report_flux(Fluxes::NPP, -c_cost);
+				indiv.report_flux(Fluxes::RA, c_cost);
+
+				patch.soil.NH4_mass += fixed;
+				indiv.report_flux(Fluxes::NFIX, fixed);
+				patch.grs_n_input += fixed;
+
+#ifdef MAXBNFNPP
+				if (max_fix_from_npp > 0.0) {
+					ppftcrop.f2_mod = (potential_fix - fixed) / max_fix_from_npp;
+				}
+#endif
+			}
 		}
 
 		vegetation.nextobj();
