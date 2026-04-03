@@ -2529,7 +2529,8 @@ void leaf_senescence(Vegetation& vegetation) {
         Individual& indiv = vegetation.getobj();
 
         // Age dependent N retranslocation, Sec. 2.1.3 Olin 2015
-        if (indiv.patchpft().cropphen->dev_stage > 1.0) {
+        double senescence_threshold = iflandsymm_senescence_d3 ? indiv.pft.d3 : 1.0;
+        if (indiv.patchpft().cropphen->dev_stage > senescence_threshold) {
             const double senNr = 0.1;
             double senN = senNr * (indiv.nmass_leaf-indiv.cmass_leaf_today() / (indiv.pft.cton_leaf_max));
 

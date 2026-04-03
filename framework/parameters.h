@@ -549,6 +549,10 @@ extern bool save_state;
 /// Enables efficient usage of randomised gridlists for parallel simulations
 extern bool lutomemory;
 
+/// Whether to use PFT-specific d3 parameter for leaf senescence threshold
+/// (fork behavior) instead of hardcoded 1.0 at anthesis (LTS behavior)
+extern bool iflandsymm_senescence_d3;
+
 /// Whether to use LandSyMM's simplified forestry functions for externally-driven
 /// forest management (cut_fraction, landsymm_clearcut, landsymm_copy_stand_type,
 /// landsymm_transfer_to_new_stand) instead of the full LTS forestry system.
