@@ -22,6 +22,8 @@ void irrigation(Patch& patch);
 void soilwater(Patch& patch, Climate& climate);
 
 void get_soil_water_status(Patch& patch);
+void get_soil_water_status(Soil soil, int nlayers_to_use, double& total_potential,
+	double* Faw_layer, double* ice_layer, double* potential_layer, bool& negative_potential);
 void infiltrate_upland(Patch& patch);
 void saturate_nonpeat_wetlands(Patch& patch);
 

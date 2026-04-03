@@ -549,6 +549,11 @@ extern bool save_state;
 /// Enables efficient usage of randomised gridlists for parallel simulations
 extern bool lutomemory;
 
+/// Whether to use fork's irrigation water uptake logic with patch.hydrology
+/// enum dispatch, get_soil_water_status(), and dynamic vectors.
+/// Default false = LTS management-based isirrigated boolean logic.
+extern bool iflandsymm_irrigation_logic;
+
 /// Whether to use fork's day-1 nfert initialization and add_fertilizer_manure()
 /// instead of LTS per-event direct application with inline manure.
 /// Default false = LTS per-event application with StandType-level nfert.
