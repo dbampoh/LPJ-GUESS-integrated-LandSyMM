@@ -549,6 +549,11 @@ extern bool save_state;
 /// Enables efficient usage of randomised gridlists for parallel simulations
 extern bool lutomemory;
 
+/// Whether to use fork's infiltration routing (infiltrate_upland() helper
+/// and saturate_nonpeat_wetlands()) instead of LTS inline proportional
+/// distribution. Default false = LTS inline infiltration.
+extern bool iflandsymm_infiltration;
+
 /// Whether to use fork's direct-to-plant BNF pathway (fixed N goes to
 /// nmass_leaf, nmass_root, nmass_agpool) instead of LTS soil mineral pool
 /// pathway (fixed N goes to soil.NH4_mass). Default false = LTS pathway.

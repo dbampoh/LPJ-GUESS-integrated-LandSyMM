@@ -360,73 +360,58 @@ void initial_infiltration(Patch& patch, Climate& climate) {
 			} 
 			else if (!patch.stand.is_true_wetland_stand()) {
 
-				// NEITHER PEATLAND NOR WETLAND SOILS
-				// Distribute the water in the upper 50cm in proportion to the capacity:
-				// The calculations rely on the fact that, in each layer: wcont = Faw_layer / soiltype.awc;
+				if (iflandsymm_infiltration) {
+					infiltrate_upland(patch);
+				} else {
+					// LTS: NEITHER PEATLAND NOR WETLAND SOILS
+					// Distribute the water in the upper 50cm in proportion to the capacity:
+					double Faw_layer[NSOILLAYER_UPPER];
+					double ice_layer[NSOILLAYER_UPPER];
+					double potential_layer[NSOILLAYER_UPPER];
+			
+					double ice_fraction = 0.0;
+					double total_potential = 0.0;
 
-				// available water for each soil layer (mm)
-				double Faw_layer[NSOILLAYER_UPPER];
-				// ice each soil layer (mm)
-				double ice_layer[NSOILLAYER_UPPER];
-				// water that can still be added to each soil layer (mm)
-				double potential_layer[NSOILLAYER_UPPER];
-		
-				double ice_fraction = 0.0; // [0-1]
-				double total_potential = 0.0;
+					for (int ly = 0; ly < NSOILLAYER_UPPER; ly++) {
 
-				// Average ice fraction as a fraction of pore space.
+						Faw_layer[ly] = soil.get_layer_soil_water(ly) * soil.soiltype.awc[ly];
+						ice_layer[ly] = soil.Frac_ice[ly + soil.IDX] * soil.Dz[ly + soil.IDX];
 
-				for (int ly = 0; ly < NSOILLAYER_UPPER; ly++) {
+						ice_fraction += ice_layer[ly] / soil.soiltype.awc[ly] / (double)NSOILLAYER_UPPER;
 
-					Faw_layer[ly] = soil.get_layer_soil_water(ly) * soil.soiltype.awc[ly]; // mm
-					ice_layer[ly] = soil.Frac_ice[ly + soil.IDX] * soil.Dz[ly + soil.IDX]; // mm
+						double layerwater = Faw_layer[ly] + ice_layer[ly];
 
-					ice_fraction += ice_layer[ly] / soil.soiltype.awc[ly] / (double)NSOILLAYER_UPPER;
+						potential_layer[ly] = soil.aw_max[ly] - layerwater;
+						total_potential += potential_layer[ly];
+						
+						if (potential_layer[ly] < -0.00001) {
+							fail("initial_infiltration (UPLAND SOIL) - error in a soil layer's water balance!\n");
+						}
 
-					// Water in this layer
-					double layerwater = Faw_layer[ly] + ice_layer[ly]; // mm
-
-					potential_layer[ly] = soil.aw_max[ly] - layerwater;
-					total_potential += potential_layer[ly];
-					
-					// Check balance
-					if (potential_layer[ly] < -0.00001) {
-						fail("initial_infiltration (UPLAND SOIL) - error in a soil layer's water balance!\n");
 					}
 
-				} // for loop (ly)
+					double water_in = 0.0;
+					double rain_melt_orig = soil.rain_melt;
+					double water_for_infiltration = soil.rain_melt;
 
-
-				double water_in = 0.0;
-				double rain_melt_orig = soil.rain_melt;
-
-				// Assume the amount of water available for initial infiltration is not limited by the ice content in the top layer
-				double water_for_infiltration = soil.rain_melt;
-
-				// Only infiltrate what we can. The rest remains in rain_melt.
-				if (water_for_infiltration >= total_potential) {
-					water_in = total_potential;
-					soil.rain_melt -= total_potential;
-				} 
-				else {
-					// Because ALL the water can infiltrate
-					water_in = water_for_infiltration; // was: soil.rain_melt; before water_for_infiltration
-					soil.rain_melt -= water_for_infiltration; // i.e. 0.0 when there is no ice
-				}
-
-				if (total_potential > 0.0) {
-
-					// Now add the rain_melt in proportion to the capacity if total_potential > 0.0 mm
-					for (int ly = 0; ly<NSOILLAYER_UPPER; ly++) {
-
-						double water_input_ly = water_in * (potential_layer[ly] / total_potential);
-
-						// Add water to the layer, and update wcont and Frac_water for this layer:
-						soil.add_layer_soil_water(ly, water_input_ly);
+					if (water_for_infiltration >= total_potential) {
+						water_in = total_potential;
+						soil.rain_melt -= total_potential;
+					} 
+					else {
+						water_in = water_for_infiltration;
+						soil.rain_melt -= water_for_infiltration;
 					}
-				} 
-				else {
-					soil.rain_melt = rain_melt_orig;
+
+					if (total_potential > 0.0) {
+						for (int ly = 0; ly<NSOILLAYER_UPPER; ly++) {
+							double water_input_ly = water_in * (potential_layer[ly] / total_potential);
+							soil.add_layer_soil_water(ly, water_input_ly);
+						}
+					} 
+					else {
+						soil.rain_melt = rain_melt_orig;
+					}
 				}
 
 			} // PEATLAND or not
@@ -436,65 +421,51 @@ void initial_infiltration(Patch& patch, Climate& climate) {
 
 		if (patch.stand.is_true_wetland_stand()) {
 
-			// MINERAL WETLANDS
+			if (iflandsymm_infiltration) {
+				saturate_nonpeat_wetlands(patch);
+			} else {
+				// LTS: MINERAL WETLANDS — inline saturation
+				double Faw_layer[NSOILLAYER];
+				double ice_layer[NSOILLAYER];
+				double potential_layer[NSOILLAYER];
 
-			// Saturate the soil
-			// The calculations rely on the fact that, in each layer: wcont = Faw_layer / soiltype.awc;
+				double total_potential = 0.0;
 
-			// available water for each soil layer (mm)
-			double Faw_layer[NSOILLAYER];
-			// ice each soil layer (mm)
-			double ice_layer[NSOILLAYER];
-			// water that can still be added to each soil layer (mm)
-			double potential_layer[NSOILLAYER];
+				for (int ly = 0; ly < NSOILLAYER; ly++) {
 
-			double total_potential = 0.0;
+					Faw_layer[ly] = soil.get_layer_soil_water(ly) * soil.soiltype.awc[ly];
+					ice_layer[ly] = soil.Frac_ice[ly + soil.IDX] * soil.Dz[ly + soil.IDX];
 
-			for (int ly = 0; ly < NSOILLAYER; ly++) {
+					double layerwater = Faw_layer[ly] + ice_layer[ly];
 
-				Faw_layer[ly] = soil.get_layer_soil_water(ly) * soil.soiltype.awc[ly]; // mm
-				ice_layer[ly] = soil.Frac_ice[ly + soil.IDX] * soil.Dz[ly + soil.IDX]; // mm
+					potential_layer[ly] = soil.aw_max[ly] - layerwater;
+					total_potential += potential_layer[ly];
 
-				// Water in this layer
-				double layerwater = Faw_layer[ly] + ice_layer[ly]; // mm
+					if (potential_layer[ly] < -0.00001) {
+						dprintf("initial_infiltration (MINERAL WETLANDS) - error in a soil layer's water balance!\n");
+						return;
+					}
 
-				potential_layer[ly] = soil.aw_max[ly] - layerwater;
-				total_potential += potential_layer[ly];
-
-				// Check balance
-				if (potential_layer[ly] < -0.00001) {
-					dprintf("initial_infiltration (MINERAL WETLANDS) - error in a soil layer's water balance!\n");
-					return;
 				}
 
-			} // for loop (ly)
-
-			if (soil.rain_melt < total_potential) {
-				// Extra water is needed to saturate the soil, in addition to the rainfall
-				patch.wetland_water_added_today = total_potential - soil.rain_melt; 
-				soil.rain_melt = 0.0; // All rain has been used to saturate the soil
-			}
-			else {
-				// No extra water needed to saturate the soil today, rainfall is enough
-				soil.rain_melt -= total_potential;
-				patch.wetland_water_added_today = 0.0; // Rainfall is enough to saturate. No need to add extra water
-			}
-
-			if (total_potential > 0.0) {
-
-				// Add water to saturate each soil soil layer if total_potential > 0.0 mm
-				for (int ly = 0; ly<NSOILLAYER; ly++) {
-
-					double water_input_ly = potential_layer[ly];
-
-					// Add water to the layer, and update wcont and Frac_water for this layer:
-					soil.add_layer_soil_water(ly, water_input_ly);
+				if (soil.rain_melt < total_potential) {
+					patch.wetland_water_added_today = total_potential - soil.rain_melt; 
+					soil.rain_melt = 0.0;
 				}
+				else {
+					soil.rain_melt -= total_potential;
+					patch.wetland_water_added_today = 0.0;
+				}
+
+				if (total_potential > 0.0) {
+					for (int ly = 0; ly<NSOILLAYER; ly++) {
+						double water_input_ly = potential_layer[ly];
+						soil.add_layer_soil_water(ly, water_input_ly);
+					}
+				}
+
+				soil.update_soil_water();
 			}
-
-			soil.update_soil_water(); // update wcont_evap, whc[], Frac_water etc. based on wcont
-
-			// END MINERAL WETLANDS
 		}
 
 	}
