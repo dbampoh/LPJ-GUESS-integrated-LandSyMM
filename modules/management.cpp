@@ -1823,18 +1823,31 @@ void harvest_pasture(Harvest_CN& i, Pft& pft, bool alive) {
 	i.cmass_leaf -= harvest;
 
 	// Nitrogen
-	harvest = pft.harv_eff * i.nmass_leaf;
+	if (iflandsymm_nharvest_simple) {
+		// Fork: only remove N_harvest_scale fraction, rest stays on plant
+		double N_harvest_scale = pft.n_harvest_scale >= 0 ? pft.n_harvest_scale : 0.25;
+		harvest = pft.harv_eff * i.nmass_leaf * N_harvest_scale;
 
-	if (ifslowharvestpool) {
-		i.nmass_harvested_products_slow += harvest * pft.harvest_slow_frac;
-		harvest = harvest * (1 - pft.harvest_slow_frac);
+		if (ifslowharvestpool) {
+			i.nmass_harvested_products_slow += harvest * pft.harvest_slow_frac;
+			harvest = harvest * (1 - pft.harvest_slow_frac);
+		}
+		i.nmass_leaf -= harvest;
+		i.anflux_harvest += harvest;
+	} else {
+		// LTS: remove all harvested N, return 75% as litter/manure
+		harvest = pft.harv_eff * i.nmass_leaf;
+
+		if (ifslowharvestpool) {
+			i.nmass_harvested_products_slow += harvest * pft.harvest_slow_frac;
+			harvest = harvest * (1 - pft.harvest_slow_frac);
+		}
+		i.nmass_leaf -= harvest;
+
+		double N_harvest_scale = 0.25;
+		i.anflux_harvest += harvest * N_harvest_scale;
+		i.nmass_litter_leaf += harvest * (1.0 - N_harvest_scale);
 	}
-	i.nmass_leaf -= harvest;
-
-	// Reduced removal of N relative to C during grazing.
-	double N_harvest_scale = 0.25; // Value that works. Needs to be verified in literature.
-	i.anflux_harvest += harvest * N_harvest_scale;
-	i.nmass_litter_leaf += harvest * (1.0 - N_harvest_scale);
 
 	if (grassforcrop && alive) {
 		// Carbon:
@@ -2143,8 +2156,8 @@ void harvest_crop(Harvest_CN& i, Pft& pft, bool alive, bool isintercropgrass) {
 			i.cmass_agpool = 0.0;
 
 			// Nitrogen:
-			// Reduced removal of N relative to C during grazing.
-			double N_harvest_scale = 0.25; // Value that works. Needs to be verified in literature.
+			double N_harvest_scale = iflandsymm_nharvest_simple ?
+				(pft.n_harvest_scale >= 0 ? pft.n_harvest_scale : 0.25) : 0.25;
 			harvest = pft.harv_eff * i.nmass_leaf * N_harvest_scale;
 
 			if (ifslowharvestpool) {
