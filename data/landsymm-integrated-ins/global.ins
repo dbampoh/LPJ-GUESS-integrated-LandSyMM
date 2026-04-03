@@ -101,15 +101,54 @@ firemodel "BLAZE"		! BLAZE, GLOBFIRM, NOFIRE
 fire_popdens_method 1           ! Fire popdens input methods: 0=(undefined), 1=simfire binary, 2=netcdf within cfxinput; use since otherwise popdens required even when it's not used for anything.
 weathergenerator "GWGEN"	! GWGEN, INTERP
 
-! === LandSyMM physics options (integrated LTS runtime parameters) ===
-ifphdependent_ncycle 1		! pH-dependent N cycling (Val Martin 2023, Parton 1996, Ma 2022)
-ifnesterov_tmax_filter 0	! No Tmax>0 filter on Nesterov index
-ifchilldays_warmest_reset 0	! No warmest-day chilldays reset
-blaze_cwd_factor 2.0		! Doubled CWD for BLAZE fuel calculation
-ifwania_freezethaw 1		! Wania-style freeze-thaw (T_old based)
-ifwania_cnsolver 1		! Wania CN solver (cnstep simplified)
-ifgwgen_dtr_halfrange 1		! Half-range DTR in GWGEN (0.5*(tmax-tmin))
-c_to_dm_factor 2.2422		! C-to-DM conversion (1/0.446) for yield
+! ===========================================================================
+! === LandSyMM RUNTIME PARAMETERS (integrated LTS behavioral switches) ===
+! ===========================================================================
+!
+! These parameters control the behavioral differences between the LTS (default)
+! and LandSyMM fork code paths. All default to LTS behavior (0 or LTS value).
+! Setting all to their LandSyMM values (shown below) reproduces fork behavior.
+!
+! --- Physics / soil / fire options (Steps 17-20) ---
+ifphdependent_ncycle 1		! 0=LTS (no pH), 1=LandSyMM (pH-dependent N cycling, Val Martin 2023)
+ifnesterov_tmax_filter 0	! 0=LTS (filter on), 1=LandSyMM (no Tmax>0 filter on Nesterov index)
+ifchilldays_warmest_reset 0	! 0=LTS (reset on), 1=LandSyMM (no warmest-day chilldays reset)
+blaze_cwd_factor 2.0		! 0.05=LTS, 2.0=LandSyMM (CWD scaling for BLAZE fuel)
+ifwania_freezethaw 1		! 0=LTS (energy-balance), 1=LandSyMM (Wania T_old freeze-thaw)
+ifwania_cnsolver 1		! 0=LTS (cnstep_full), 1=LandSyMM (cnstep simplified Wania solver)
+ifgwgen_dtr_halfrange 1		! 0=LTS (full range), 1=LandSyMM (half-range DTR in GWGEN)
+c_to_dm_factor 2.2422		! 2.0=LTS, 2.2422=LandSyMM (C-to-DM conversion = 1/0.446)
+!
+! --- GGCMI / ISIMIP protocol options (Step 20) ---
+ggcmi2 1			! 0=off (LTS default), 1=GGCMI Phase 2 fertilization/harvest protocol
+isimip3 0			! 0=off (LTS default), 1=ISIMIP3 protocol (mutually exclusive with ggcmi2)
+!
+! --- Data access (Step 26) ---
+lutomemory 0			! 0=LTS (FAST_DATA_ACCESS with map_text_file), 1=LandSyMM (all LU data to RAM)
+!
+! --- Nitrogen cycling / BNF (Steps 31-32) ---
+iflandsymm_nstress_simple 1	! 0=LTS (n_opt_isabovelim persists N-limitation on Vmax), 1=LandSyMM (simple nstress=false/ifnlim)
+iflandsymm_bnf_direct 1	! 0=LTS (BNF to soil NH4 pool), 1=LandSyMM (BNF direct to plant tissue)
+!
+! --- Crop senescence (Step 30) ---
+iflandsymm_senescence_d3 1	! 0=LTS (dev_stage>1.0 hardcoded), 1=LandSyMM (dev_stage>pft.d3, PFT-specific)
+!
+! --- Crop fertilization (Step 34) ---
+iflandsymm_nfert_init 1	! 0=LTS (nfert computed fresh each day), 1=LandSyMM (nfert set on day 1, add_fertilizer_manure)
+!
+! --- Hydrology / infiltration (Step 33) ---
+iflandsymm_infiltration 1	! 0=LTS (inline proportional), 1=LandSyMM (infiltrate_upland helper)
+!
+! --- Irrigation (Step 35) ---
+iflandsymm_irrigation_logic 1	! 0=LTS (isirrigated boolean), 1=LandSyMM (patch.hydrology enum dispatch)
+!
+! --- Pasture N harvest (Step 36) ---
+iflandsymm_nharvest_simple 1	! 0=LTS (all N removed, 75% returned as litter), 1=LandSyMM (only N_harvest_scale fraction removed)
+!
+! --- Forestry (Step 29) ---
+landsymm_simple_forestry 0	! 0=LTS full forestry, 1=LandSyMM simplified (only effective when run_forest=1)
+!
+! ===========================================================================
 npatch 25			! Number of replicate patches to simulate
 patcharea 1000			! Patch area (m2)
 estinterval 5			! Years between establishment events in cohort mode
