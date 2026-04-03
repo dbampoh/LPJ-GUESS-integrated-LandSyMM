@@ -549,6 +549,11 @@ extern bool save_state;
 /// Enables efficient usage of randomised gridlists for parallel simulations
 extern bool lutomemory;
 
+/// Whether to use fork's simplified pasture N harvest (only N_harvest_scale
+/// fraction removed, rest stays on plant) instead of LTS approach (all
+/// harvested N removed, 75% returned as litter). Default false = LTS.
+extern bool iflandsymm_nharvest_simple;
+
 /// Whether to use fork's irrigation water uptake logic with patch.hydrology
 /// enum dispatch, get_soil_water_status(), and dynamic vectors.
 /// Default false = LTS management-based isirrigated boolean logic.
