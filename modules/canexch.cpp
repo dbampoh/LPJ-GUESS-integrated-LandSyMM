@@ -992,7 +992,7 @@ void nstore_usage(Vegetation& vegetation) {
                 indiv.nstore_labile -= root_ndemand;
 
                 // nitrogen stressed photosynthesis is allowed only if optimal leaf nitrogen is above allowed level 
-                indiv.nstress = indiv.n_opt_isabovelim;
+                indiv.nstress = iflandsymm_nstress_simple ? false : indiv.n_opt_isabovelim;
             }
             else {
 
@@ -1017,13 +1017,13 @@ void nstore_usage(Vegetation& vegetation) {
                 }
 
                 // nitrogen stressed photosynthesis is allowed only when nitrogen limitation is turned on
-                indiv.nstress = ifnlim && date.year > freenyears;
+                indiv.nstress = iflandsymm_nstress_simple ? ifnlim : (ifnlim && date.year > freenyears);
                 
             }
         }
         else
             // photosynthesis will not be nitrogen stresses unless optimal leaf N is above maximum limit
-            indiv.nstress = indiv.n_opt_isabovelim;
+            indiv.nstress = iflandsymm_nstress_simple ? false : indiv.n_opt_isabovelim;
 
         vegetation.nextobj();
     }
