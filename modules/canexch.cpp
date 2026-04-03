@@ -1652,7 +1652,185 @@ double water_uptake_twolayer(double wcont[NSOILLAYER], double awc[NSOILLAYER],
 
 
 
-/// Plant water uptake for irrigated crops
+/// Fork version of irrigated_water_uptake using patch.hydrology enum dispatch,
+/// get_soil_water_status(), and dynamic vectors. Activated by iflandsymm_irrigation_logic=1.
+static double irrigated_water_uptake_fork(Patch& patch, Pft& pft, const Day& day) {
+	Patchpft& ppft = patch.pft[pft.id];
+
+	double Faw_layer[NSOILLAYER];
+	double ice_layer[NSOILLAYER];
+	double potential_layer[NSOILLAYER];
+	double total_potential = 0.0;
+	bool negative_potential = false;
+	get_soil_water_status(patch.soil, NSOILLAYER, total_potential, Faw_layer, ice_layer, potential_layer, negative_potential);
+	if (negative_potential)
+		fail("irrigated_water_uptake_fork() - negative potential before adding water\n");
+
+	double initial_water_in_column = 0.0;
+	for (int ly = 0; ly < NSOILLAYER; ly++)
+		initial_water_in_column += Faw_layer[ly] + ice_layer[ly];
+
+	double awc0 = patch.soil.soiltype.gawc[0];
+	double awc1 = patch.soil.soiltype.gawc[1];
+	double grootdist[2] = {0.0, 0.0};
+
+	double wcont_cp[NSOILLAYER];
+	double ice_cp[NSOILLAYER];
+	for (int i = 0; i < NSOILLAYER; i++) {
+		wcont_cp[i] = patch.soil.get_layer_soil_water(i);
+		ice_cp[i] = patch.soil.get_layer_soil_ice(i, patch.soil.soiltype.awc[i]);
+		if (i < NSOILLAYER_UPPER)
+			grootdist[0] += pft.rootdist[i];
+		else
+			grootdist[1] += pft.rootdist[i];
+	}
+
+	if (day.isstart) {
+		ppft.water_deficit_d = 0.0;
+		if (date.day == 0)
+			ppft.water_deficit_y = 0.0;
+	}
+
+	bool just_inund_upper = patch.hydrology < INUNDATED;
+	int nsoillayer_to_irrigate = just_inund_upper ? NSOILLAYER_UPPER : NSOILLAYER;
+
+	std::vector<double> wcont_opt(nsoillayer_to_irrigate, 0.0);
+	std::vector<bool> add_water(nsoillayer_to_irrigate, true);
+
+	if (ppft.phen > 0.0 && patch.soil.get_soil_water_upper() < restrict_irr_wcont) {
+		double wcont_0_opt = 0.0;
+		double wcont_1_opt = 0.0;
+		double wr_opt = min(1.0, patch.wdemand / ppft.phen / pft.emax);
+
+		if (wateruptake == WR_ROOTDIST) {
+			if (patch.hydrology >= IRRIGATED_SAT) {
+				wcont_0_opt = 1.0;
+				wcont_1_opt = 1.0;
+			} else {
+				wcont_0_opt = (wr_opt * pft.emax - min(patch.soil.get_soil_water_lower() * awc1 * patch.fpc_rescale, pft.emax * grootdist[1])) / awc0 / patch.fpc_rescale;
+				if (wcont_0_opt * awc0 * patch.fpc_rescale > pft.emax * grootdist[0])
+					wcont_0_opt = pft.emax * grootdist[0] / awc0 / patch.fpc_rescale;
+			}
+
+			if (!iftwolayersoil) {
+				for (int i = 0; i < nsoillayer_to_irrigate; i++) {
+					if (patch.hydrology >= IRRIGATED_SAT) {
+						wcont_opt[i] = 1.0;
+					} else {
+						wcont_opt[i] = (wr_opt * pft.emax - min(patch.soil.get_soil_water_lower() * awc1 * patch.fpc_rescale, pft.emax * grootdist[1]) / NSOILLAYER_UPPER) / patch.soil.soiltype.awc[i] / patch.fpc_rescale;
+						if (wcont_opt[i] * patch.soil.soiltype.awc[i] * patch.fpc_rescale > pft.emax * pft.rootdist[i])
+							wcont_opt[i] = pft.emax * pft.rootdist[i] / patch.soil.soiltype.awc[i] / patch.fpc_rescale;
+					}
+					if (wcont_cp[i] > wcont_opt[i]) {
+						wcont_opt[i] = wcont_cp[i];
+						add_water[i] = false;
+					}
+				}
+			}
+		} else {
+			fail("Irrigation soil water only balanced for WR_ROOTDIST currently!\n");
+		}
+
+		bool irrigate_soil = false;
+		if (iftwolayersoil) {
+			if (!just_inund_upper && (wcont_0_opt > patch.soil.get_soil_water_upper() || wcont_1_opt > patch.soil.get_soil_water_lower()))
+				irrigate_soil = true;
+			else if (wcont_0_opt > patch.soil.get_soil_water_upper())
+				irrigate_soil = true;
+		} else {
+			for (int i = 0; i < nsoillayer_to_irrigate; i++)
+				if (add_water[i])
+					irrigate_soil = true;
+		}
+
+		if (irrigate_soil && patch.soil.dsnowdepth <= 0.001 && !patch.soil.ice_in_top_layer(nsoillayer_to_irrigate, restrict_irr_ice)) {
+
+			double water_to_add = 0.0;
+			std::vector<double> water_to_add_ly(nsoillayer_to_irrigate, 0.0);
+			std::vector<double> too_much_ice_ly(nsoillayer_to_irrigate, 0.0);
+
+			if (iftwolayersoil) {
+				double wcont_0 = patch.soil.get_soil_water_upper();
+				double wcont_1 = patch.soil.get_soil_water_lower();
+				double ice_0 = patch.soil.get_soil_ice_upper();
+				double ice_1 = patch.soil.get_soil_ice_lower();
+				water_to_add_ly[0] = max(0.0, (wcont_0_opt - wcont_0) * awc0);
+				if (wcont_0 + ice_0 + water_to_add_ly[0] / awc0 > 1.0) {
+					double tmp = max(0.0, (1.0 - (wcont_0 + ice_0)) * awc0);
+					too_much_ice_ly[0] = (water_to_add_ly[0] - tmp) / awc0;
+					water_to_add_ly[0] = tmp;
+				}
+				water_to_add += water_to_add_ly[0];
+				if (!just_inund_upper) {
+					water_to_add_ly[1] = max(0.0, (wcont_1_opt - wcont_1) * awc1);
+					if (wcont_1 + ice_1 + water_to_add_ly[1] / awc1 > 1.0) {
+						double tmp = max(0.0, (1.0 - (wcont_1 + ice_1)) * awc1);
+						too_much_ice_ly[1] = (water_to_add_ly[1] - tmp) / awc1;
+						water_to_add_ly[1] = tmp;
+					}
+					water_to_add += water_to_add_ly[1];
+				}
+			} else {
+				for (int i = 0; i < nsoillayer_to_irrigate; i++) {
+					if (add_water[i]) {
+						water_to_add_ly[i] = max((wcont_opt[i] - wcont_cp[i]) * patch.soil.soiltype.awc[i], 0.0);
+						if (wcont_cp[i] + ice_cp[i] + water_to_add_ly[i] / patch.soil.soiltype.awc[i] > 1.0) {
+							double tmp = max(0.0, (1.0 - (wcont_cp[i] + ice_cp[i])) * patch.soil.soiltype.awc[i]);
+							too_much_ice_ly[i] = (water_to_add_ly[i] - tmp) / patch.soil.soiltype.awc[i];
+							water_to_add_ly[i] = tmp;
+						}
+						water_to_add += water_to_add_ly[i];
+					}
+				}
+			}
+
+			ppft.water_deficit_d += water_to_add;
+
+			std::vector<double> Fw_liq_layer(nsoillayer_to_irrigate, 0.0);
+			std::vector<double> Fw_ice_layer(nsoillayer_to_irrigate, 0.0);
+			std::vector<double> pot_layer(nsoillayer_to_irrigate, 0.0);
+
+			Soil& soil = patch.soil;
+			double potential_water = 0.0;
+
+			for (int ly = 0; ly < nsoillayer_to_irrigate; ly++) {
+				if (add_water[ly]) {
+					Fw_liq_layer[ly] = soil.get_layer_soil_water(ly) * soil.soiltype.awc[ly];
+					Fw_ice_layer[ly] = soil.get_layer_soil_ice_mm(ly);
+					pot_layer[ly] = soil.aw_max[ly] - Fw_liq_layer[ly] - Fw_ice_layer[ly];
+					potential_water += pot_layer[ly];
+				}
+			}
+
+			double new_wcont;
+			for (int s = 0; s < nsoillayer_to_irrigate; s++) {
+				if (add_water[s]) {
+					double water_input_ly = iftwolayersoil ? water_to_add * (pot_layer[s] / potential_water) : water_to_add_ly[s];
+					Fw_liq_layer[s] += water_input_ly;
+					wcont_cp[s] = Fw_liq_layer[s] / soil.soiltype.awc[s];
+					new_wcont = wcont_cp[s];
+					oob_check_wcont(new_wcont);
+					soil.set_layer_soil_water(s, new_wcont);
+				}
+				oob_check_wcont(wcont_cp[s]);
+			}
+		}
+
+		if (day.isend) {
+			ppft.water_deficit_d /= date.subdaily;
+			ppft.water_deficit_y += ppft.water_deficit_d;
+		}
+	}
+
+	if (iftwolayersoil)
+		return water_uptake_twolayer(wcont_cp, patch.soil.soiltype.awc, pft.rootdist, pft.emax, patch.fpc_rescale,
+			ppft.fwuptake, pft.lifeform == TREE, pft.drought_tolerance);
+	else
+		return water_uptake(wcont_cp, patch.soil.soiltype.awc, pft.rootdist, pft.emax, patch.fpc_rescale,
+			ppft.fwuptake, pft.lifeform == TREE, pft.drought_tolerance);
+}
+
+/// Plant water uptake for irrigated crops (LTS version)
 /**
  * Returns plant water uptake (point scale, or mean for patch) as a fraction of
  * maximum possible (daily basis), after adding required water to obtain maximum
@@ -1957,7 +2135,9 @@ void aet_water_stress(Patch& patch, Vegetation& vegetation, const Day& day) {
             double wr;
  
             if (irrigate_this_pft) {
-                wr = irrigated_water_uptake(patch, pft, day);
+                wr = iflandsymm_irrigation_logic ?
+                    irrigated_water_uptake_fork(patch, pft, day) :
+                    irrigated_water_uptake(patch, pft, day);
             } 
             else {
                 double wcont_local[NSOILLAYER];
