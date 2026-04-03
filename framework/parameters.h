@@ -549,6 +549,11 @@ extern bool save_state;
 /// Enables efficient usage of randomised gridlists for parallel simulations
 extern bool lutomemory;
 
+/// Whether to use fork's day-1 nfert initialization and add_fertilizer_manure()
+/// instead of LTS per-event direct application with inline manure.
+/// Default false = LTS per-event application with StandType-level nfert.
+extern bool iflandsymm_nfert_init;
+
 /// Whether to use fork's infiltration routing (infiltrate_upland() helper
 /// and saturate_nonpeat_wetlands()) instead of LTS inline proportional
 /// distribution. Default false = LTS inline infiltration.
