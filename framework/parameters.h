@@ -549,6 +549,11 @@ extern bool save_state;
 /// Enables efficient usage of randomised gridlists for parallel simulations
 extern bool lutomemory;
 
+/// Whether to use simplified N-stress assignment (fork behavior):
+/// nstress=false when labile N covers demand, nstress=ifnlim when not.
+/// LTS default (false) uses n_opt_isabovelim to persist N-limitation on Vmax.
+extern bool iflandsymm_nstress_simple;
+
 /// Whether to use PFT-specific d3 parameter for leaf senescence threshold
 /// (fork behavior) instead of hardcoded 1.0 at anthesis (LTS behavior)
 extern bool iflandsymm_senescence_d3;

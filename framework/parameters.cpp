@@ -169,6 +169,7 @@ bool restart;
 bool save_state;
 bool lutomemory;
 bool landsymm_simple_forestry;
+bool iflandsymm_nstress_simple;
 bool iflandsymm_senescence_d3;
 int state_year;
 int& restart_year = state_year;
@@ -477,6 +478,7 @@ void initsettings() {
 	save_state = false;
 	lutomemory = false;
 	landsymm_simple_forestry = false;
+	iflandsymm_nstress_simple = false;
 	iflandsymm_senescence_d3 = false;
 	restart = false;
 	verbosity=WARNING;
@@ -927,6 +929,7 @@ void plib_declarations(int id,xtring setname) {
 		declareitem("save_state", &save_state, 1, CB_NONE, "Whether to save new state files");
 		declareitem("lutomemory", &lutomemory, 1, CB_NONE, "Whether to write land use fraction data to memory; enables efficient usage of randomised gridlists for parallel simulations");
 		declareitem("landsymm_simple_forestry", &landsymm_simple_forestry, 1, CB_NONE, "Whether to use LandSyMM simplified forestry for externally-driven forest management (only effective when run_forest=1)");
+		declareitem("iflandsymm_nstress_simple", &iflandsymm_nstress_simple, 1, CB_NONE, "Whether to use simplified N-stress (1=fork: nstress=false/ifnlim) or LTS n_opt_isabovelim persistence (0=default)");
 		declareitem("iflandsymm_senescence_d3", &iflandsymm_senescence_d3, 1, CB_NONE, "Whether to use PFT-specific d3 for leaf senescence threshold (1=fork) or hardcoded 1.0 at anthesis (0=LTS default)");
 		declareitem("state_year", &state_year, 1, 20000, 1, CB_NONE, "Save/restart year. Unspecified means just after spinup");
 		declareitem("restart_year", &state_year, 1, 20000, 1, CB_NONE, "Restart year (calendar year). LandSyMM alias for state_year.");
