@@ -3079,13 +3079,12 @@ void crop_rotation(Stand& stand) {
 ///////////////////////////////////////////////////////////////////////////////////////
 // LandSyMM SIMPLIFIED FORESTRY
 //
-// Alternative forestry functions used when LANDSYMM_SIMPLE_FORESTRY is defined.
+// Alternative forestry functions used when landsymm_simple_forestry=1 (runtime).
 // These provide a simpler management model where forest harvesting is driven by
 // externally provided land-use data (via PLUM/PLUMharm) rather than LPJ-GUESS's
 // built-in sophisticated forest management framework.
+// Activated via: landsymm_simple_forestry 1 in .ins file (default 0 = full LTS forestry)
 ///////////////////////////////////////////////////////////////////////////////////////
-
-#ifdef LANDSYMM_SIMPLE_FORESTRY
 
 /// LandSyMM: Simplified clearcut — harvests all tree biomass and resets patch age
 static void landsymm_clearcut(Individual& indiv, double anpp, bool& killed) {
@@ -3144,8 +3143,6 @@ double cut_fraction(Patch& patch) {
 
 	return frac;
 }
-
-#endif // LANDSYMM_SIMPLE_FORESTRY
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
