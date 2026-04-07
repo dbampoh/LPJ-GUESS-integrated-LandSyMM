@@ -201,8 +201,10 @@ void nitrification(Patch& patch, Soil& soil, Climate& climate) {
 	// New NO3-
 	soil.NO3_mass_d += no3_inc;
 
-	soil.NO3_mass_d += soil.NO2_mass_d;
-	soil.NO2_mass_d = 0.0;
+	if (!iflandsymm_nitri_gas_fork) {
+		soil.NO3_mass_d += soil.NO2_mass_d;
+		soil.NO2_mass_d = 0.0;
+	}
 
 	// Report gross nitrification
 	patch.fluxes.report_flux(Fluxes::GROSS_NITRIF, gross_nitrif);
