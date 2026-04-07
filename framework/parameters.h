@@ -549,6 +549,19 @@ extern bool save_state;
 /// Enables efficient usage of randomised gridlists for parallel simulations
 extern bool lutomemory;
 
+/// Whether to use fork's simpler natural vegetation establishment and mortality
+/// rules (no cloned_or_changed_man check, no mt.stochestab/mt.stochmort,
+/// managed_this_year mortality skip, global distinterval).
+/// This is the primary driver of natural vegetation parity.
+extern bool iflandsymm_vegdyn_fork;
+
+/// Whether to use fork's nitrification gas loss parameter (f_nitri_gas_max)
+/// instead of the LTS corrected parameter (f_denitri_gas_max) in the
+/// nitrification function. The fork uses f_nitri_gas_max (0.25); the LTS
+/// uses f_denitri_gas_max (0.5). This is the single largest driver of
+/// natural vegetation divergence. Default false = LTS (f_denitri_gas_max).
+extern bool iflandsymm_nitri_gas_fork;
+
 /// Whether to use fork's simplified pasture N harvest (only N_harvest_scale
 /// fraction removed, rest stays on plant) instead of LTS approach (all
 /// harvested N removed, 75% returned as litter). Default false = LTS.

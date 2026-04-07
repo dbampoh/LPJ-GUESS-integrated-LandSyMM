@@ -169,6 +169,8 @@ bool restart;
 bool save_state;
 bool lutomemory;
 bool landsymm_simple_forestry;
+bool iflandsymm_vegdyn_fork;
+bool iflandsymm_nitri_gas_fork;
 bool iflandsymm_nharvest_simple;
 bool iflandsymm_irrigation_logic;
 bool iflandsymm_nfert_init;
@@ -483,6 +485,8 @@ void initsettings() {
 	save_state = false;
 	lutomemory = false;
 	landsymm_simple_forestry = false;
+	iflandsymm_vegdyn_fork = false;
+	iflandsymm_nitri_gas_fork = false;
 	iflandsymm_nharvest_simple = false;
 	iflandsymm_irrigation_logic = false;
 	iflandsymm_nfert_init = false;
@@ -939,6 +943,8 @@ void plib_declarations(int id,xtring setname) {
 		declareitem("save_state", &save_state, 1, CB_NONE, "Whether to save new state files");
 		declareitem("lutomemory", &lutomemory, 1, CB_NONE, "Whether to write land use fraction data to memory; enables efficient usage of randomised gridlists for parallel simulations");
 		declareitem("landsymm_simple_forestry", &landsymm_simple_forestry, 1, CB_NONE, "Whether to use LandSyMM simplified forestry for externally-driven forest management (only effective when run_forest=1)");
+		declareitem("iflandsymm_vegdyn_fork", &iflandsymm_vegdyn_fork, 1, CB_NONE, "Whether to use fork vegetation dynamics (simpler establishment, mortality, disturbance rules) or LTS (0=default)");
+		declareitem("iflandsymm_nitri_gas_fork", &iflandsymm_nitri_gas_fork, 1, CB_NONE, "Whether to use fork f_nitri_gas_max (1) or LTS f_denitri_gas_max (0=default) for nitrification gas loss fraction");
 		declareitem("iflandsymm_nharvest_simple", &iflandsymm_nharvest_simple, 1, CB_NONE, "Whether to use fork pasture N harvest (N_harvest_scale fraction removed, rest on plant) or LTS (all removed, 75pct returned as litter) (0=default)");
 		declareitem("iflandsymm_irrigation_logic", &iflandsymm_irrigation_logic, 1, CB_NONE, "Whether to use fork irrigation dispatch with patch.hydrology enum (1) or LTS management-based isirrigated logic (0=default)");
 		declareitem("iflandsymm_nfert_init", &iflandsymm_nfert_init, 1, CB_NONE, "Whether to use fork day-1 nfert initialization with add_fertilizer_manure (1) or LTS per-event direct application (0=default)");

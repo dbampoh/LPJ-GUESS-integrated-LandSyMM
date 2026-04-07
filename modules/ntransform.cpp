@@ -182,7 +182,7 @@ void nitrification(Patch& patch, Soil& soil, Climate& climate) {
 	gross_nitrif     = no3_inc;
 	soil.NH4_mass_d -= no3_inc;
 
-	double ngas_inc = f_denitri_gas_max * no3_inc;
+	double ngas_inc = iflandsymm_nitri_gas_fork ? (f_nitri_gas_max * no3_inc) : (f_denitri_gas_max * no3_inc);
 
 	double wfps = soil.wfps(0);
 
