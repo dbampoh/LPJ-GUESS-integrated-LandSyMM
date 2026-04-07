@@ -1134,6 +1134,9 @@ void ndemand(Patch& patch, Vegetation& vegetation) {
         // Total nitrogen demand
         double ndemand_tot = indiv.leafndemand + indiv.rootndemand + indiv.sapndemand + indiv.storendemand + indiv.hondemand;
 
+        if (iflandsymm_bnf_direct)
+            indiv.ndemand_total = ndemand_tot;
+
         // Calculate scalars to possible nitrogen uptake
 
         // Current plant mobile nitrogen concentration
