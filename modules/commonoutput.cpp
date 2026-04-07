@@ -239,6 +239,7 @@ void CommonOutput::define_output_tables() {
 
 	// CFLUX
 	ColumnDescriptors cflux_columns;
+	cflux_columns += ColumnDescriptor("Manure",            11, 6);
 	cflux_columns += ColumnDescriptor("Veg",               8, 3);
 	cflux_columns += ColumnDescriptor("Repr",              8, 3);
 	cflux_columns += ColumnDescriptor("Soil",              8, 3);
@@ -765,7 +766,7 @@ void outlimit(OutputRows& out, const Table& table, double d) {
 void CommonOutput::outannual(Gridcell& gridcell) {
 
 	int c, m;
-	double flux_veg, flux_repr, flux_soil, flux_fire, flux_est, flux_seed, flux_charvest;
+	double flux_man, flux_veg, flux_repr, flux_soil, flux_fire, flux_est, flux_seed, flux_charvest;
 	double c_fast, c_slow, c_harv_slow;
 
 	double surfsoillitterc,surfsoillittern,cwdc,cwdn,centuryc,centuryn,n_harv_slow,availn;
@@ -1246,7 +1247,7 @@ void CommonOutput::outannual(Gridcell& gridcell) {
 
 	} // *** End of PFT loop ***
 
-	flux_veg = flux_repr = flux_soil = flux_fire = flux_est = flux_seed = flux_charvest = 0.0;
+	flux_man = flux_veg = flux_repr = flux_soil = flux_fire = flux_est = flux_seed = flux_charvest = 0.0;
 
 	// guess2008 - carbon pools
 	c_fast = c_slow = c_harv_slow = 0.0;
@@ -1285,6 +1286,7 @@ void CommonOutput::outannual(Gridcell& gridcell) {
 
 			double to_gridcell_average = stand.get_gridcell_fraction() / (double)stand.npatch();
 
+			flux_man+=-patch.fluxes.get_annual_flux(Fluxes::MANUREC)*to_gridcell_average;
 			flux_veg+=-patch.fluxes.get_annual_flux(Fluxes::NPP)*to_gridcell_average;
 			flux_repr+=-patch.fluxes.get_annual_flux(Fluxes::REPRC)*to_gridcell_average;
 			flux_soil+=patch.fluxes.get_annual_flux(Fluxes::SOILC)*to_gridcell_average;
@@ -1696,6 +1698,7 @@ void CommonOutput::outannual(Gridcell& gridcell) {
 
 	Landcover& lc = gridcell.landcover;
 
+	outlimit(out,out_cflux, flux_man);
 	outlimit(out,out_cflux, flux_veg);
 	outlimit(out,out_cflux, -flux_repr);
 	outlimit(out,out_cflux, flux_soil + c_org_leach_gridcell);
@@ -1707,7 +1710,7 @@ void CommonOutput::outannual(Gridcell& gridcell) {
 			outlimit(out,out_cflux, lc.acflux_wood_harvest + lc.acflux_clearing + lc.acflux_landuse_change);
 			outlimit(out,out_cflux, lc.acflux_harvest_slow);
 	}
-	outlimit(out,out_cflux, flux_veg - flux_repr + flux_soil + flux_fire + flux_est + c_org_leach_gridcell +
+	outlimit(out,out_cflux, flux_man + flux_veg - flux_repr + flux_soil + flux_fire + flux_est + c_org_leach_gridcell +
 				flux_seed + flux_charvest + lc.acflux_wood_harvest + lc.acflux_clearing + lc.acflux_landuse_change + lc.acflux_harvest_slow);
 
 	outlimit(out,out_doc, (c_org_leach_gridcell) * M2_PER_HA);

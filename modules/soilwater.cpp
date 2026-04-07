@@ -491,7 +491,9 @@ void irrigation(Patch& patch) {
 
 		Patchpft& ppft = patch.pft[i];
 		Standpft& spft = patch.stand.pft[i];
-		if (spft.active && spft.irrigated && ppft.growingseason()) {
+		bool is_irrigated_pft = iflandsymm_irrigation_logic ?
+			(spft.hydrology > RAINFED) : (spft.active && spft.irrigated);
+		if (is_irrigated_pft && ppft.growingseason()) {
 			if (ppft.water_deficit_d < 0.0) {
 				fail("irrigation(): Negative water deficit for PFT %s!\n", (char*)ppft.pft.name);
 			}
