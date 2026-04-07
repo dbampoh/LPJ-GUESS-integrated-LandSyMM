@@ -2124,7 +2124,9 @@ void aet_water_stress(Patch& patch, Vegetation& vegetation, const Day& day) {
         // Retrieve PFT
         Pft& pft = ppft.pft;
 
-        bool irrigate_this_pft = patch.stand.isirrigated && pft.id == patch.stand.pftid;
+        bool irrigate_this_pft = iflandsymm_irrigation_logic ?
+            (spft.hydrology > RAINFED && pft.id == patch.stand.pftid) :
+            (patch.stand.isirrigated && pft.id == patch.stand.pftid);
 
         if (day.isstart || irrigate_this_pft) {
 
