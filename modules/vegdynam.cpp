@@ -447,7 +447,7 @@ void establishment_guess(Stand& stand,Patch& patch) {
 	Vegetation& vegetation=patch.vegetation;
 
 	const bool establish_active_pfts_before_management = true;
-	const bool cloned_or_changed_man = stand.cloned || stand.current_rot;
+	const bool cloned_or_changed_man = iflandsymm_vegdyn_fork ? false : (stand.cloned || stand.current_rot);
 
 	ManagementType& mt = patch.stand.get_current_management();
 	if(patch.plant_this_year && mt.set_planting_density && mt.planting_system != "") {
@@ -970,6 +970,9 @@ void mortality_lpj(Stand& stand, Patch& patch, const Climate& climate, double fi
 
 
 void mortality_guess(Stand& stand, Patch& patch, const Climate& climate, double fireprob) {
+
+	if (iflandsymm_vegdyn_fork && patch.managed_this_year)
+		return;
 
 	// DESCRIPTION
 	// Mortality in cohort and individual modes.
@@ -1669,7 +1672,7 @@ void vegetation_dynamics(Stand& stand,Patch& patch) {
 										   date.year >= patch.soil.solvesomcent_beginyr &&
 										   date.year <= patch.soil.solvesomcent_endyr;
 
-			double distinterval_ = stand.get_distinterval();	
+			double distinterval_ = iflandsymm_vegdyn_fork ? distinterval : stand.get_distinterval();	
 			if (patch.age && !during_century_solvesom) {
 				disturbance(patch,1.0 / distinterval_);
 				if (patch.disturbed) {

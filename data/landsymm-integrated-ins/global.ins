@@ -142,6 +142,12 @@ iflandsymm_infiltration 1	! 0=LTS (inline proportional), 1=LandSyMM (infiltrate_
 ! --- Irrigation (Step 35) ---
 iflandsymm_irrigation_logic 1	! 0=LTS (isirrigated boolean), 1=LandSyMM (patch.hydrology enum dispatch)
 !
+! --- Vegetation dynamics (Step 39) ---
+iflandsymm_vegdyn_fork 1	! 0=LTS (cloned_or_changed_man check, per-stand distinterval), 1=LandSyMM (simpler rules)
+!
+! --- Nitrification gas loss (Step 39) ---
+iflandsymm_nitri_gas_fork 1	! 0=LTS (f_denitri_gas_max=0.5), 1=LandSyMM (f_nitri_gas_max=0.25). CRITICAL for natural veg parity.
+!
 ! --- Pasture N harvest (Step 36) ---
 iflandsymm_nharvest_simple 1	! 0=LTS (all N removed, 75% returned as litter), 1=LandSyMM (only N_harvest_scale fraction removed)
 !
