@@ -891,6 +891,14 @@ void Stand::init_stand_lu(StandType& st, double fraction, bool suppress_disturba
 	st_origin = st.id;
 
 	ManagementType& mt0 = st.get_management(0);
+	pftid = pftlist.getpftid(mt0.pftname);
+	current_rot = 0;
+
+	if (iflandsymm_irrigation_logic && mt0.hydrology > RAINFED) {
+		hydrology = mt0.hydrology;
+		if (pftid >= 0)
+			pft[pftid].hydrology = mt0.hydrology;
+	}
 
 	if(suppress_disturbance || date.get_calendar_year() >= mt0.firstmanageyear) {
 		for(unsigned int i=0;i<npatch();i++)
