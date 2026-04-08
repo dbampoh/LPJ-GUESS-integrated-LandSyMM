@@ -1267,7 +1267,7 @@ void MiscOutput::outannual(Gridcell& gridcell) {
 				standpft_nlitter += patchpft.nmass_litter_leaf + patchpft.nmass_litter_root + patchpft.nmass_litter_sap
 					+ patchpft.nmass_litter_heart;
 
-				if (pft.landcover == CROPLAND) {
+				if (pft.landcover == CROPLAND && standpft.active) {
 					standpft_gsirr += patch.irrigation_y;
 					if (patchpft.cmass_ho_harvest_lastyear > 0.0)
 						standpft_yield_lastyear += patchpft.cmass_ho_harvest_lastyear / 0.446;
@@ -1344,7 +1344,6 @@ void MiscOutput::outannual(Gridcell& gridcell) {
 			standpft_yield/=(double)stand.npatch();
 			standpft_yield1/=(double)stand.npatch();
 			standpft_yield2/=(double)stand.npatch();
-			standpft_gsirr/=(double)stand.npatch();
 			standpft_yield_lastyear/=(double)stand.npatch();
 
 			//Update landcover totals
