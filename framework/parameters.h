@@ -602,6 +602,12 @@ extern bool iflandsymm_senescence_d3;
 /// Only has effect when run_forest=1. Default false uses full LTS forestry.
 extern bool landsymm_simple_forestry;
 
+/// Whether to use fork's linear fpc_today() (fpc*phen) instead of LTS
+/// Lambert-Beer extinction approach. The fork simplification is a crude
+/// approximation; LTS is more physically correct but produces different
+/// competitive dynamics during phenology transitions.
+extern bool iflandsymm_fpc_linear;
+
 /// Whether to use fork's BLAZE fire model behavior: no grass anpp reduction
 /// after fire, pasture scale_indiv before fire, no mt.stochmort guard on
 /// stochastic fire mortality, fork-style fire diagnostics accumulation,
