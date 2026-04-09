@@ -602,6 +602,12 @@ extern bool iflandsymm_senescence_d3;
 /// Only has effect when run_forest=1. Default false uses full LTS forestry.
 extern bool landsymm_simple_forestry;
 
+/// Whether to use fork's BLAZE fire model behavior: no grass anpp reduction
+/// after fire, pasture scale_indiv before fire, no mt.stochmort guard on
+/// stochastic fire mortality, fork-style fire diagnostics accumulation,
+/// no ppft.cmass_fire tracking.
+extern bool iflandsymm_blaze_fork;
+
 /// Save/restart year (LTS name)
 extern int state_year;
 

@@ -37,6 +37,7 @@
 #include "somdynam.h"
 #include "simfire.h"
 #include "guessmath.h"
+#include "management.h"
 
 /* combustion rates depending on fire-line-intensities [kW/m]
  *       <750|<3000|<7000| >=7000 (Sprouters|Seeders)
@@ -613,12 +614,17 @@ bool blaze(Patch& patch, Climate& climate) {
 			killed=false;
 
 			if (indiv.pft.lifeform==GRASS) {
+				if (iflandsymm_blaze_fork && patch.stand.landcover==PASTURE) {
+					scale_indiv(indiv, false);
+				}
 				// Reduce individual live biomass and freshly created litter
 				indiv.reduce_biomass(MAX_GRASS_BURN,MAX_GRASS_BURN);
 				
-				// Remove NPP and put it to fire flux
-				patch.fluxes.report_flux(Fluxes::FIREC,indiv.anpp*MAX_GRASS_BURN);
-				indiv.anpp *= (1. - MAX_GRASS_BURN);
+				if (!iflandsymm_blaze_fork) {
+					// LTS: Remove NPP and put it to fire flux
+					patch.fluxes.report_flux(Fluxes::FIREC,indiv.anpp*MAX_GRASS_BURN);
+					indiv.anpp *= (1. - MAX_GRASS_BURN);
+				}
 
 				// Kill object if burn is total
 				if ( MAX_GRASS_BURN == 1.0 ) {
@@ -634,7 +640,7 @@ bool blaze(Patch& patch, Climate& climate) {
 			else {
 				// TREE PFT
 
-				if (ifstochmort && mt.stochmort) {
+				if (ifstochmort && (iflandsymm_blaze_fork || mt.stochmort)) {
 					/* Impose stochastic mortality.
 					 * Each individual in cohort dies with probability 'mort_fire'
 					 * Number of individuals represented by 'indiv'
@@ -947,7 +953,8 @@ void Individual::blaze_reduce_biomass(Patch& patch, double frac_survive) {
 		anpp     -= loss_anpp;
 	}
 
-	ppft.cmass_fire += loss_anpp + loss_tot;
+	if (!iflandsymm_blaze_fork)
+		ppft.cmass_fire += loss_anpp + loss_tot;
 
 	// Report C live -> atm flux 
 	patch.fluxes.report_flux(Fluxes::FIREC, cleaf2atm + csapw2atm + chrtw2atm + anpp2atm);
