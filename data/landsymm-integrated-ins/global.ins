@@ -151,6 +151,9 @@ iflandsymm_nitri_gas_fork 1	! 0=LTS (f_denitri_gas_max=0.5), 1=LandSyMM (f_nitri
 ! --- Pasture N harvest (Step 36) ---
 iflandsymm_nharvest_simple 1	! 0=LTS (all N removed, 75% returned as litter), 1=LandSyMM (only N_harvest_scale fraction removed)
 !
+! --- FPC calculation (Step 45) ---
+iflandsymm_fpc_linear 1	! 0=LTS (Lambert-Beer extinction), 1=LandSyMM (linear fpc*phen). CRITICAL for multi-biome parity.
+!
 ! --- BLAZE fire model (Step 44) ---
 iflandsymm_blaze_fork 1	! 0=LTS (grass anpp reduction, mt.stochmort, cmass_fire), 1=LandSyMM (fork fire behavior)
 !

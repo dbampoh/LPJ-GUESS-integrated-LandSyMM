@@ -2407,7 +2407,12 @@ double Individual::fpc_today() const {
 	if (pft.phenology == CROPGREEN) {
 		return patchpft().cropphen->growingseason ? fpc_daily : 0.0;
 	}
-	else if (phen == 1.0) {
+
+	if (iflandsymm_fpc_linear) {
+		return fpc * phen;
+	}
+
+	if (phen == 1.0) {
 		return fpc;
 	}
 	else if (phen == 0.0) {
@@ -2418,7 +2423,6 @@ double Individual::fpc_today() const {
 			return crownarea * densindiv * (1.0 - lambertbeer(lai_indiv_today()));
 		}
 		else {
-			// Grass and mosses
 			return 1.0 - lambertbeer(lai_indiv_today());
 		}
 	}
