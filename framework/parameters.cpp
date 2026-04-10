@@ -169,6 +169,7 @@ bool restart;
 bool save_state;
 bool lutomemory;
 bool landsymm_simple_forestry;
+bool iflandsymm_lc_before_management;
 bool iflandsymm_tillage_fixed;
 bool iflandsymm_century_nc;
 bool iflandsymm_weathergen_floors;
@@ -490,6 +491,7 @@ void initsettings() {
 	save_state = false;
 	lutomemory = false;
 	landsymm_simple_forestry = false;
+	iflandsymm_lc_before_management = false;
 	iflandsymm_tillage_fixed = false;
 	iflandsymm_century_nc = false;
 	iflandsymm_weathergen_floors = false;
@@ -953,6 +955,7 @@ void plib_declarations(int id,xtring setname) {
 		declareitem("save_state", &save_state, 1, CB_NONE, "Whether to save new state files");
 		declareitem("lutomemory", &lutomemory, 1, CB_NONE, "Whether to write land use fraction data to memory; enables efficient usage of randomised gridlists for parallel simulations");
 		declareitem("landsymm_simple_forestry", &landsymm_simple_forestry, 1, CB_NONE, "Whether to use LandSyMM simplified forestry for externally-driven forest management (only effective when run_forest=1)");
+		declareitem("iflandsymm_lc_before_management", &iflandsymm_lc_before_management, 1, CB_NONE, "Whether to run landcover_dynamics before getmanagement in yearly sequence (0=LTS management-first default)");
 		declareitem("iflandsymm_tillage_fixed", &iflandsymm_tillage_fixed, 1, CB_NONE, "Whether to use fork fixed tillage factor (33/17) instead of LTS per-management tillage_fact (0=LTS default)");
 		declareitem("iflandsymm_century_nc", &iflandsymm_century_nc, 1, CB_NONE, "Whether to use fork Century SOM N-C immobilization (adaptive reduction on 3 pools, no SURFMICRO/PASSIVESOM reset) (0=LTS default)");
 		declareitem("iflandsymm_weathergen_floors", &iflandsymm_weathergen_floors, 1, CB_NONE, "Whether to use fork weather generator radiation floors (min cloud weight 0.01, min SW 0.001, no dsol zeroing) (0=LTS default)");

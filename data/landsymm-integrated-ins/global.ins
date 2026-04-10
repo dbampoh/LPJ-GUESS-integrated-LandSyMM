@@ -151,6 +151,9 @@ iflandsymm_nitri_gas_fork 1	! 0=LTS (f_denitri_gas_max=0.5), 1=LandSyMM (f_nitri
 ! --- Pasture N harvest (Step 36) ---
 iflandsymm_nharvest_simple 1	! 0=LTS (all N removed, 75% returned as litter), 1=LandSyMM (only N_harvest_scale fraction removed)
 !
+! --- Landcover/management ordering (Step 49d) ---
+iflandsymm_lc_before_management 1	! 0=LTS (management first), 1=LandSyMM (landcover_dynamics first)
+!
 ! --- Tillage factor (Step 49a) ---
 iflandsymm_tillage_fixed 1	! 0=LTS (per-management continuous tillage_fact), 1=LandSyMM (fixed 33/17 bool on/off)
 !

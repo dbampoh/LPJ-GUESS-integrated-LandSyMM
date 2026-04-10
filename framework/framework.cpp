@@ -121,13 +121,17 @@ void simulate_day(Gridcell& gridcell, InputModule* input_module) {
 	// Update crop sowing date calculation framework
 	crop_sowing_gridcell(gridcell);
 
-	// Update dynamic management options
-	input_module->getmanagement(gridcell);
-
-	// Update dynamic landcover and crop fraction data during historical
-	// period and create/kill stands.
-	if (!just_phu_pvd || date.year < 2) {
-		landcover_dynamics(gridcell, input_module);
+	if (iflandsymm_lc_before_management) {
+		if (!just_phu_pvd || date.year < 2) {
+			landcover_dynamics(gridcell, input_module);
+		}
+		input_module->getmanagement(gridcell);
+	}
+	else {
+		input_module->getmanagement(gridcell);
+		if (!just_phu_pvd || date.year < 2) {
+			landcover_dynamics(gridcell, input_module);
+		}
 	}
 
 	// Perform forest management for all stands this year
