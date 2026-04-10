@@ -602,6 +602,11 @@ extern bool iflandsymm_senescence_d3;
 /// Only has effect when run_forest=1. Default false uses full LTS forestry.
 extern bool landsymm_simple_forestry;
 
+/// Whether to use fork's weather generator radiation floors (min cloud
+/// weight 0.01, min daily shortwave 0.001) instead of LTS zeros. Also
+/// skips the dsol zeroing loop before SW redistribution.
+extern bool iflandsymm_weathergen_floors;
+
 /// Whether to use fork's linear fpc_today() (fpc*phen) instead of LTS
 /// Lambert-Beer extinction approach. The fork simplification is a crude
 /// approximation; LTS is more physically correct but produces different
