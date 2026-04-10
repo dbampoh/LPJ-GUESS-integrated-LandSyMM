@@ -164,14 +164,20 @@ void simulate_day(Gridcell& gridcell, InputModule* input_module) {
 			// Update daily soil drivers including soil temperature
 			dailyaccounting_patch(patch);
 
-			// Determine nitrogen fertilisation amount 
-			if(run_landcover && (!just_phu_pvd || date.year < 2))
-				nfert(patch);
+			if (!iflandsymm_nfert_after_phenology) {
+				if(run_landcover && (!just_phu_pvd || date.year < 2))
+					nfert(patch);
+			}
 
 			// Calculate crop sowing dates
 			crop_sowing_patch(patch);
 			// Crop phenology
 			crop_phenology(patch);
+
+			if (iflandsymm_nfert_after_phenology) {
+				if(run_landcover && (!just_phu_pvd || date.year < 2))
+					nfert(patch);
+			}
 
 			if (!just_phu_pvd || date.year < 2) {
 

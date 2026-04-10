@@ -602,6 +602,12 @@ extern bool iflandsymm_senescence_d3;
 /// Only has effect when run_forest=1. Default false uses full LTS forestry.
 extern bool landsymm_simple_forestry;
 
+/// Whether to run nfert() after crop_sowing_patch()+crop_phenology()
+/// instead of before them. Fork runs nfert after phenology so that
+/// crops are already actively growing when fertilizer is applied;
+/// LTS runs nfert before sowing/phenology.
+extern bool iflandsymm_nfert_after_phenology;
+
 /// Whether to run landcover_dynamics() before getmanagement() in the
 /// annual sequence. Fork runs landcover first (new stands created before
 /// management applied); LTS runs management first (management loaded
