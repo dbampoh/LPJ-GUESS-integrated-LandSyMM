@@ -602,6 +602,12 @@ extern bool iflandsymm_senescence_d3;
 /// Only has effect when run_forest=1. Default false uses full LTS forestry.
 extern bool landsymm_simple_forestry;
 
+/// Whether to run landcover_dynamics() before getmanagement() in the
+/// annual sequence. Fork runs landcover first (new stands created before
+/// management applied); LTS runs management first (management loaded
+/// before stands created/destroyed).
+extern bool iflandsymm_lc_before_management;
+
 /// Whether to use fork's tillage factor approach: bool on/off with fixed
 /// TILLAGE_FACTOR (33/17 ≈ 1.94) instead of LTS per-management continuous
 /// tillage_fact from stand.get_current_management().tillage_fact.
