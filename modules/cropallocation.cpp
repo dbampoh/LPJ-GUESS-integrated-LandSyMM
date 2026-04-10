@@ -141,11 +141,11 @@ void crop_allocation_devries(cropphen_struct& ppftcrop, Individual& indiv) {
 	// between ds and fphu to allow for dynamic variety selection (Lindeskog 2013).
 
 	double t = 0.0;
-	if(ppftcrop.fphu < 0.4367) {
-		t = -0.07 + 2.45 * ppftcrop.fphu;
+	if(ppftcrop.fphu < indiv.pft.fphu_anthesis) {
+		t = indiv.pft.a_fphu_ds_1 + indiv.pft.b_fphu_ds_1 * ppftcrop.fphu;
 	}
 	else {
-		t = 0.2247 + 1.7753 * ppftcrop.fphu;
+		t = indiv.pft.a_fphu_ds_2 + indiv.pft.b_fphu_ds_2 * ppftcrop.fphu;
 	}
 	// Comment out this line if ds should be calculated according to Olin et al. 2015.
 	ppftcrop.dev_stage = max(0.0,min(2.0,t));
@@ -345,7 +345,10 @@ void allocation_crop_nlim(Individual& indiv, double cmass_seed, double nmass_see
 	double avail_N = avail_leaf_N + avail_root_N + avail_stem_N;
 
 	if (avail_N > 0.0 && cropindiv.dcmass_ho > 0.0) {
-		ndemand_ho = cropindiv.dcmass_ho / indiv.pft.cton_leaf_avr;
+		if (iflandsymm_bnf_direct && indiv.pft.fixer)
+			ndemand_ho = cropindiv.dcmass_ho / indiv.pft.cton_leaf_min;
+		else
+			ndemand_ho = cropindiv.dcmass_ho / indiv.pft.cton_leaf_avr;
 	}
 	// N mass to be translocated from leaves and roots
 	double trans_leaf_N = 0.0;
