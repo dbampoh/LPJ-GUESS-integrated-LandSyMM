@@ -602,6 +602,12 @@ extern bool iflandsymm_senescence_d3;
 /// Only has effect when run_forest=1. Default false uses full LTS forestry.
 extern bool landsymm_simple_forestry;
 
+/// Whether to use fork's Century SOM N-C immobilization algorithm.
+/// Fork: adaptive ntoc_reduction on 3 pools (SLOWSOM, SOILMICRO, SURFHUMUS)
+/// without resetting SURFMICRO/PASSIVESOM. LTS: fixed 0.8 reduction on all
+/// 5 flexible pools, then resets SURFMICRO and PASSIVESOM to initial ntoc.
+extern bool iflandsymm_century_nc;
+
 /// Whether to use fork's weather generator radiation floors (min cloud
 /// weight 0.01, min daily shortwave 0.001) instead of LTS zeros. Also
 /// skips the dsol zeroing loop before SW redistribution.

@@ -599,9 +599,10 @@ void somfluxes(Patch& patch, bool ifequilsom, double tillage_fact) {
 	bool net_mineralization = false;
 	int times = 0;
 	double decay_reduction[NSOMPOOL] = {0.0};
-	const double ntoc_reduction = 0.8;
+	double ntoc_reduction = 0.8;
 	double init_surfmicro_ntoc = soil.sompool[SURFMICRO].ntoc;
 	double init_passivesom_ntoc = soil.sompool[PASSIVESOM].ntoc;
+	double init_negative_nmass = 0.0, init_ntoc_reduction = 0.0;
 
 	// If necessary, the decay rates in the pools will be reduced in groups, one group
 	// is reduced after each iteration in the loop below. The groups are defined by
@@ -742,46 +743,70 @@ void somfluxes(Patch& patch, bool ifequilsom, double tillage_fact) {
 
 		// Estimate daily soil mineral nitrogen pool after decomposition
 		// (negative value = immobilisation)
-		if (tot_net_min + nmin_mass + EPS >= 0.0) {
-
-			net_mineralization = true;
-		}
-		else if (!ifnlim) {
-
-			// Not minding immobilisation higher than nmass_avail during free nitrogen years
-			if (date.year > freenyears) {
-
-				// Immobilization larger than soil available nitrogen
-				// Reduce targeted N concentration in SOM pool with flexible N:C ratios
-				soil.sompool[SURFMICRO].ntoc *= ntoc_reduction;
-				soil.sompool[SURFHUMUS].ntoc *= ntoc_reduction;
-				soil.sompool[SOILMICRO].ntoc *= ntoc_reduction;
-				soil.sompool[SLOWSOM].ntoc *= ntoc_reduction;
-				soil.sompool[PASSIVESOM].ntoc *= ntoc_reduction;
-
-				// Continue until a positive tot_net_min is reached, times doesn't matter
-				times--;
-
-				net_mineralization = false;
+		if (iflandsymm_century_nc) {
+			// Fork algorithm: accept immediately when !ifnlim
+			if ((tot_net_min + nmin_mass + EPS >= 0.0) || !ifnlim) {
+				net_mineralization = true;
+			}
+			else if (!ifnlim) {
+				if (date.year > freenyears) {
+					if (times == 0) {
+						init_negative_nmass = tot_net_min + nmin_mass;
+						init_ntoc_reduction = ntoc_reduction;
+					}
+					else {
+						ntoc_reduction = min(init_ntoc_reduction,
+							pow(init_ntoc_reduction, 1.0 / (1.0 - (tot_net_min + nmin_mass) / init_negative_nmass) + 1.0));
+					}
+					soil.sompool[SLOWSOM].ntoc *= ntoc_reduction;
+					soil.sompool[SOILMICRO].ntoc *= ntoc_reduction;
+					soil.sompool[SURFHUMUS].ntoc *= ntoc_reduction;
+					net_mineralization = false;
+				}
+				else {
+					net_mineralization = true;
+				}
 			}
 			else {
-				net_mineralization = true;
+				if (times < 4) {
+					reduce_decay_rates(decay_reduction, net_min, reduction_groups[times], tot_net_min + nmin_mass);
+				}
+				net_mineralization = false;
 			}
 		}
 		else {
-
-			// Immobilization larger than soil available nitrogen -> reduce decay rates
-			if (times < 4) {
-				reduce_decay_rates(decay_reduction, net_min, reduction_groups[times], tot_net_min + nmin_mass);
+			// LTS algorithm: fixed 0.8 reduction on all 5 pools
+			if (tot_net_min + nmin_mass + EPS >= 0.0) {
+				net_mineralization = true;
 			}
-			net_mineralization = false;
+			else if (!ifnlim) {
+				if (date.year > freenyears) {
+					soil.sompool[SURFMICRO].ntoc *= ntoc_reduction;
+					soil.sompool[SURFHUMUS].ntoc *= ntoc_reduction;
+					soil.sompool[SOILMICRO].ntoc *= ntoc_reduction;
+					soil.sompool[SLOWSOM].ntoc *= ntoc_reduction;
+					soil.sompool[PASSIVESOM].ntoc *= ntoc_reduction;
+					times--;
+					net_mineralization = false;
+				}
+				else {
+					net_mineralization = true;
+				}
+			}
+			else {
+				if (times < 4) {
+					reduce_decay_rates(decay_reduction, net_min, reduction_groups[times], tot_net_min + nmin_mass);
+				}
+				net_mineralization = false;
+			}
 		}
 		times++;
 	}
 
-	// Reset surface microbial and passivesom pools N:C ratio
-	soil.sompool[SURFMICRO].ntoc = init_surfmicro_ntoc;
-	soil.sompool[PASSIVESOM].ntoc = init_passivesom_ntoc;
+	if (!iflandsymm_century_nc) {
+		soil.sompool[SURFMICRO].ntoc = init_surfmicro_ntoc;
+		soil.sompool[PASSIVESOM].ntoc = init_passivesom_ntoc;
+	}
 
 	// Update pool sizes
 
