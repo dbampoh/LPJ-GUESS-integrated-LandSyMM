@@ -1692,8 +1692,9 @@ void vegetation_dynamics(Stand& stand,Patch& patch) {
 										   date.year >= patch.soil.solvesomcent_beginyr &&
 										   date.year <= patch.soil.solvesomcent_endyr;
 
-			double distinterval_ = iflandsymm_vegdyn_fork ? distinterval : stand.get_distinterval();	
-			if (patch.age && !during_century_solvesom) {
+			double distinterval_ = iflandsymm_vegdyn_fork ? distinterval : stand.get_distinterval();
+			bool skip_clone_year = iflandsymm_vegdyn_fork && date.year == stand.clone_year;
+			if (patch.age && !during_century_solvesom && !skip_clone_year) {
 				disturbance(patch,1.0 / distinterval_);
 				if (patch.disturbed) {
 					return; // no mortality or establishment this year
