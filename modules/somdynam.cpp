@@ -1658,7 +1658,14 @@ void som_dynamics_century(Patch& patch, Climate& climate, double tillage_fact) {
 void som_dynamics(Patch& patch, Climate& climate) {
 
 	Stand& stand = patch.stand;
-	double tillage_fact = iftillage && stand.landcover == CROPLAND ? stand.get_current_management().tillage_fact : 1.0;
+	double tillage_fact;
+	if (iflandsymm_tillage_fixed) {
+		static const double TILLAGE_FACTOR = 33.0 / 17.0;
+		tillage_fact = (iftillage && stand.landcover == CROPLAND) ? TILLAGE_FACTOR : 1.0;
+	}
+	else {
+		tillage_fact = (iftillage && stand.landcover == CROPLAND) ? stand.get_current_management().tillage_fact : 1.0;
+	}
 	if (ifcentury) {
 		som_dynamics_century(patch, climate, tillage_fact);
 	}

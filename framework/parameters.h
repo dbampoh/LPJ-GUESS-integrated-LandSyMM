@@ -602,6 +602,11 @@ extern bool iflandsymm_senescence_d3;
 /// Only has effect when run_forest=1. Default false uses full LTS forestry.
 extern bool landsymm_simple_forestry;
 
+/// Whether to use fork's tillage factor approach: bool on/off with fixed
+/// TILLAGE_FACTOR (33/17 ≈ 1.94) instead of LTS per-management continuous
+/// tillage_fact from stand.get_current_management().tillage_fact.
+extern bool iflandsymm_tillage_fixed;
+
 /// Whether to use fork's Century SOM N-C immobilization algorithm.
 /// Fork: adaptive ntoc_reduction on 3 pools (SLOWSOM, SOILMICRO, SURFHUMUS)
 /// without resetting SURFMICRO/PASSIVESOM. LTS: fixed 0.8 reduction on all
