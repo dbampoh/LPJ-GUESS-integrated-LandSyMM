@@ -423,6 +423,9 @@ void decayrates_century(Soil& soil, double temp_soil, double wcont_soil, double 
 
 	// Modify decomposition below if this is a wetland on mineral soils
 	bool ismineralwetland = soil.patch.stand.is_true_wetland_stand();
+	if (iflandsymm_infiltration) {
+		ismineralwetland = ismineralwetland || soil.patch.stand.hydrology == INUNDATED;
+	}
 
 	const double texture_mod = 1.0 - 0.75 * (soil.soiltype.clay_frac + soil.soiltype.silt_frac);
 	const double texture_mod_peat = 1.0 - 0.75 * (soil.soiltype.clay_frac_peat + soil.soiltype.silt_frac_peat); // = 1
