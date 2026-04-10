@@ -2615,7 +2615,8 @@ void weathergen_get_met(Gridcell& gridcell, double* in_mtemp, double* in_mprec, 
 			doy++;
 
 			// Compute days max rad (i.e. cldfr=0.) for weighting
-			cldwght[day] = max(0.,cldf2rad(0.0,lat,doy,true));
+			double cldwght_floor = iflandsymm_weathergen_floors ? 0.01 : 0.0;
+			cldwght[day] = max(cldwght_floor, cldf2rad(0.0,lat,doy,true));
 			tot_cldwght += cldwght[day];
 		}
 
@@ -2666,18 +2667,21 @@ void weathergen_get_met(Gridcell& gridcell, double* in_mtemp, double* in_mprec, 
 
 		// Redistribute limited parameters like relhum and cloud-fraction
 		double limit[2] = {0.,1.};
-        for (int day=0;day<ndaymon;day++) {
-            dsol[day] = 0.;
-        }
+		if (!iflandsymm_weathergen_floors) {
+			for (int day=0;day<ndaymon;day++) {
+				dsol[day] = 0.;
+			}
+		}
 		if ( in_msol[mon] > 0. ) {
 	
 			if (in_mcldf[mon] > 0.)
 				redist_restricted_vals(dcldf, ndaymon, in_mcldf[mon], limit, cldwght);
 			
 			solcor = 0.;
+			double dsol_floor = iflandsymm_weathergen_floors ? 0.001 : 0.0;
 			for (int day=0;day<ndaymon;day++) {
 				int ldoy = accumday+day+1;
-				dsol[day] = max(0.,cldf2rad(dcldf[day],lat,ldoy,true));
+				dsol[day] = max(dsol_floor, cldf2rad(dcldf[day],lat,ldoy,true));
 				solcor += dsol[day];
 			}
 			if (solcor > 0.) {
