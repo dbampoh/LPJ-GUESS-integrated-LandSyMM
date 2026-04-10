@@ -2852,20 +2852,32 @@ void init_canexch(Patch& patch, Climate& climate, Vegetation& vegetation) {
 
 /// BNF response to development stage (trapezoidal)
 double bnf_func_developmentstage(double ds, Pft& pft) {
-	if (ds < pft.bnf_ds_min || ds > pft.bnf_ds_max)
+	double g = ds;
+	if (iflandsymm_bnf_direct && pft.phenology == CROPGREEN)
+		g /= 2.0;
+	if (g < pft.bnf_ds_min || g > pft.bnf_ds_max)
 		return 0.0;
-	if (ds < pft.bnf_ds_opt_low)
-		return (ds - pft.bnf_ds_min) / (pft.bnf_ds_opt_low - pft.bnf_ds_min);
-	if (ds <= pft.bnf_ds_opt_high)
+	if (g < pft.bnf_ds_opt_low)
+		return (g - pft.bnf_ds_min) / (pft.bnf_ds_opt_low - pft.bnf_ds_min);
+	if (g <= pft.bnf_ds_opt_high)
 		return 1.0;
-	return (pft.bnf_ds_max - ds) / (pft.bnf_ds_max - pft.bnf_ds_opt_high);
+	return (pft.bnf_ds_max - g) / (pft.bnf_ds_max - pft.bnf_ds_opt_high);
 }
 
 /// BNF response to soil water content
 double bnf_func_wcont(double w, Pft& pft) {
-	if (w < pft.bnf_wcont_min || w > pft.bnf_wcont_max)
+	if (w <= pft.bnf_wcont_min)
 		return 0.0;
-	return min(1.0, pft.bnf_wcont_intercept + pft.bnf_wcont_rate * w);
+	if (iflandsymm_bnf_direct) {
+		if (w > pft.bnf_wcont_max)
+			return 1.0;
+		return pft.bnf_wcont_intercept + w * pft.bnf_wcont_rate;
+	}
+	else {
+		if (w > pft.bnf_wcont_max)
+			return 0.0;
+		return min(1.0, pft.bnf_wcont_intercept + pft.bnf_wcont_rate * w);
+	}
 }
 
 /// BNF response to soil temperature
