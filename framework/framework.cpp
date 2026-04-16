@@ -308,10 +308,17 @@ int framework(const CommandLineArguments& args) {
 		// Create and initialise a new Gridcell object for each locality
 		Gridcell gridcell;
 
+		// Initialize multi-part climate file queues for this gridcell
+		input_module->setup_multipart();
+
 		// Call input module to obtain latitude and driver data for this grid cell.
 		if (!input_module->getgridcell(gridcell)) {
 			break;
 		}
+
+		// Reset and re-initialize for multi-part climate file reading
+		input_module->reset();
+		input_module->setup_multipart();
 
 		// Initialise certain climate and soil drivers
 		gridcell.climate.initdrivers(gridcell.get_lat());
