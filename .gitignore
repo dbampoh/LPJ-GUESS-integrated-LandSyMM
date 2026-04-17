@@ -6,3 +6,14 @@ cmake-build-release
 .idea
 tests/test_outputs/*.out
 .vscode/
+
+# LPJ-GUESS output files
+*.out
+state/
+*.state
+meta.bin
+
+# Large gridlist files (keep small test gridlists)
+data/landsymm-integrated-ins/gridlist_hurtt_RNDM_midpoint.txt
+data/landsymm-integrated-ins/gridlist_in_62892_and_climate.txt
+data/landsymm-integrated-ins/gridlist_hurtt_RNDM_midpoint_eu.txt

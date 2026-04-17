@@ -8,10 +8,11 @@
 ! Input files
 !
 
-!param "file_lu"      	(str "/bg/data/lpj/bampoh-d/landsymm_lu/hildaplus_hist/remaps_v10_old_62892_gL/LU.remapv10_old_62892_gL.txt")
-!param "file_lucrop"	(str "/bg/data/lpj/bampoh-d/landsymm_lu/hildaplus_hist/remaps_v10_old_62892_gL/cropfracs.remapv10_old_62892_gL.txt")
-param "file_lu"      	(str "/bg/data/lpj/bampoh-d/landsymm_lu/plum_scen/ssp126/landcover.txt")
-param "file_lucrop"	(str "/bg/data/lpj/bampoh-d/landsymm_lu/plum_scen/ssp126/cropfractions.txt")
+! SSP126 land-use (overrides historical)
+!param "file_lu"      	(str "<LU_ROOT>/hildaplus_hist/remaps_v10_old_62892_gL/LU.remapv10_old_62892_gL.txt")
+!param "file_lucrop"	(str "<LU_ROOT>/hildaplus_hist/remaps_v10_old_62892_gL/cropfracs.remapv10_old_62892_gL.txt")
+param "file_lu"      	(str "<LU_ROOT>/plum_scen/ssp126/landcover.txt")
+param "file_lucrop"	(str "<LU_ROOT>/plum_scen/ssp126/cropfractions.txt")
 do_potyield 0
 param "file_lupasture"  (str "")
 param "file_lunatural"  (str "")

@@ -14,15 +14,18 @@ param "file_hdates" (str "")
 param "file_growseaslength_in" (str "")
 param "file_Nfertdate2_in" (str "")
 
-param "file_Nfert" (str "/bg/data/lpj/bampoh-d/landsymm_lu/hildaplus_hist/remaps_v10_old_62892_gL/nfert.remapv10_old_62892_gL.txt")
-!param "file_Nfert" (str "/bg/data/lpj/bampoh-d/landsymm_lu/plum_scen/ssp126/nfert.txt")
+! N fertilization file — produced by landsymm_py remapping pipeline
+! Historical:
+param "file_Nfert" (str "<LU_ROOT>/hildaplus_hist/remaps_v10_old_62892_gL/nfert.remapv10_old_62892_gL.txt")
+! SSP126 scenario — uncomment for future runs:
+!param "file_Nfert" (str "<LU_ROOT>/plum_scen/ssp126/nfert.txt")
 param "file_Nfert_st" (str "")
 param "file_NfertMan" (str "")
 
 param "file_phu_in" (str "")
 param "file_pvd_in" (str "")
 
-!param "file_irrigintens" (str "/bg/data/lpj/bampoh-d/landsymm_lu/plum_scen/ssp126/irrig.txt")
+!param "file_irrigintens" (str "<LU_ROOT>/plum_scen/ssp126/irrig.txt")
 param "file_irrigintens" (str "")
 
 isimip3 0

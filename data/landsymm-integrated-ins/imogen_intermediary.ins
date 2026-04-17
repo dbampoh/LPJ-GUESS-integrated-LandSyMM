@@ -7,7 +7,7 @@ firstyear 1850
 lastyear 2100
 lpjg_start_year 1901
 lpjg_end_year 2100
-baseDirectory "C:\GitHub\LPJG-IMOGEN-COUPLED-MODEL-FRAMEWORK\"
+baseDirectory "<IMOGEN_ROOT>/"
 pathToLogFile "Intermediary\Data\Emissions\log.txt"
 myPLUMDataFilePath "Intermediary\Data\PLUM_data\animals_sspSSP.txt"
 lpjgOutputDirectory "Data\LPJG_Output\NETCDF_RUNS_24_10_2023\lsa_stepsec_sspSSPRCP_ipsl\output-2023-10-24\"
@@ -53,16 +53,16 @@ param "searchradius" (num 50)         	!Search radius for imogen climate data
 !IMOGEN RELATED PARAMS
 !////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-DIR_COMMON "C:\GitHub\dbampoh\LPJG-IMOGEN-COUPLED-MODEL-FRAMEWORK\Common-directory"
-DIR_COMMON_OUT "C:\GitHub\dbampoh\LPJG-IMOGEN-COUPLED-MODEL-FRAMEWORK\Common-directory" !For parallel runs, must be ".\"
-DIR_PATT "C:\GitHub\dbampoh\LPJG-IMOGEN-COUPLED-MODEL-FRAMEWORK\Common-directory\IMOGEN-codebase\patterns\CEN_IPSL_MOD_IPSL-CM5A-MR\"
-DIR_CLIM "C:\GitHub\dbampoh\LPJG-IMOGEN-COUPLED-MODEL-FRAMEWORK\Common-directory\IMOGEN-codebase\CRUNCEP_1960_1989\"
-FILE_SCEN_EMITS "C:\GitHub\LPJG-IMOGEN-COUPLED-MODEL-FRAMEWORK\Data\Imogen\emiss\new_emission_data\co2_emissions_fossilonly_historical_rcp85.txt"
-FILE_NON_CO2_VALS "C:\GitHub\LPJG-IMOGEN-COUPLED-MODEL-FRAMEWORK\Data\Imogen\emiss\new_emission_data\nonco2_ch4_n2o_RF_historical_rcp26.txt" 
-FILE_CH4_N2O_EMITS "C:\GitHub\LPJG-IMOGEN-COUPLED-MODEL-FRAMEWORK\Data\Imogen\emiss\new_emission_data\ch4_n2o_annual_historical_rcp26_allsources_1850_2100.txt"
-FILE_LPJG_FLUX "C:\GitHub\dbampoh\LPJG-IMOGEN-COUPLED-MODEL-FRAMEWORK\Common-directory\LPJG_main\IMOGEN\imogen_lpjg_flux.txt"
+DIR_COMMON "<IMOGEN_ROOT>"
+DIR_COMMON_OUT "<IMOGEN_ROOT>" !For parallel runs, must be ".\"
+DIR_PATT "<IMOGEN_ROOT>\IMOGEN-codebase\patterns\CEN_IPSL_MOD_IPSL-CM5A-MR\"
+DIR_CLIM "<IMOGEN_ROOT>\IMOGEN-codebase\CRUNCEP_1960_1989\"
+FILE_SCEN_EMITS "<IMOGEN_ROOT>/Data\Imogen\emiss\new_emission_data\co2_emissions_fossilonly_historical_rcp85.txt"
+FILE_NON_CO2_VALS "<IMOGEN_ROOT>/Data\Imogen\emiss\new_emission_data\nonco2_ch4_n2o_RF_historical_rcp26.txt" 
+FILE_CH4_N2O_EMITS "<IMOGEN_ROOT>/Data\Imogen\emiss\new_emission_data\ch4_n2o_annual_historical_rcp26_allsources_1850_2100.txt"
+FILE_LPJG_FLUX "<IMOGEN_ROOT>\LPJG_main\IMOGEN\imogen_lpjg_flux.txt"
 FILE_GRIDLIST "gridlist_hurtt_RNDM_midpoint_3698.txt"
-FILE_LPJG_CH4_N2O_FLUX "C:\GitHub\dbampoh\LPJG-IMOGEN-COUPLED-MODEL-FRAMEWORK\Common-directory\LPJG_main\IMOGEN\imogen_lpjg_ch4_n2o_flux.txt"
+FILE_LPJG_CH4_N2O_FLUX "<IMOGEN_ROOT>\LPJG_main\IMOGEN\imogen_lpjg_ch4_n2o_flux.txt"
 !FILE_SCEN_CO2_PPMV
 STEP_DAY 1		!IN Number of daily timesteps of IMPACTS_MODEL !NOTE: Formerly set to 24 - TP 13.07.15
 T_OCEAN_INIT 289.28	!IN Initial ocean temperature (K)
@@ -99,14 +99,14 @@ CO2_RF_FAIR 0      	!IN Whether to use the CO2 radiative forcing calculation fro
 
 
 !//////////////OFFLINE IMOGEN RElATED PARAMS////////////////////////
-param "file_temp" (str "C:\GitHub\dbampoh\LPJG-IMOGEN-COUPLED-MODEL-FRAMEWORK\Common-directory\IMOGEN\output\YYYY\T_anom.dat") 	! imogen temperature data ! For parallel runs, has to be ".\IMOGEN\output\YYYY\T_anom.dat"
-param "file_prec" (str "C:\GitHub\dbampoh\LPJG-IMOGEN-COUPLED-MODEL-FRAMEWORK\Common-directory\IMOGEN\output\YYYY\P_anom.dat")  	! imogen precipitation data
-param "file_insol" (str "C:\GitHub\dbampoh\LPJG-IMOGEN-COUPLED-MODEL-FRAMEWORK\Common-directory\IMOGEN\output\YYYY\SW_anom.dat")  	! imogen insolation data
-param "file_wetdays" (str "C:\GitHub\dbampoh\LPJG-IMOGEN-COUPLED-MODEL-FRAMEWORK\Common-directory\IMOGEN\output\YYYY\WET.dat")  	! imogen wet-days data
-param "file_dtr" (str "C:\GitHub\dbampoh\LPJG-IMOGEN-COUPLED-MODEL-FRAMEWORK\Common-directory\IMOGEN\output\YYYY\DTEMP_anom.dat")       !imogen-dtemp
-param "file_co2" (str "C:\GitHub\dbampoh\LPJG-IMOGEN-COUPLED-MODEL-FRAMEWORK\Common-directory\IMOGEN\output\YYYY\CO2.dat")! imogen CO2 data !imogen co2
-param "file_wind" (str "C:\GitHub\dbampoh\LPJG-IMOGEN-COUPLED-MODEL-FRAMEWORK\Common-directory\IMOGEN\output\YYYY\W_anom.dat")  !imogen wind
-param "file_relhum" (str "C:\GitHub\dbampoh\LPJG-IMOGEN-COUPLED-MODEL-FRAMEWORK\Common-directory\IMOGEN\output\YYYY\Rh_anom.dat") !imogen rh
+param "file_temp" (str "<IMOGEN_ROOT>\IMOGEN\output\YYYY\T_anom.dat") 	! imogen temperature data ! For parallel runs, has to be ".\IMOGEN\output\YYYY\T_anom.dat"
+param "file_prec" (str "<IMOGEN_ROOT>\IMOGEN\output\YYYY\P_anom.dat")  	! imogen precipitation data
+param "file_insol" (str "<IMOGEN_ROOT>\IMOGEN\output\YYYY\SW_anom.dat")  	! imogen insolation data
+param "file_wetdays" (str "<IMOGEN_ROOT>\IMOGEN\output\YYYY\WET.dat")  	! imogen wet-days data
+param "file_dtr" (str "<IMOGEN_ROOT>\IMOGEN\output\YYYY\DTEMP_anom.dat")       !imogen-dtemp
+param "file_co2" (str "<IMOGEN_ROOT>\IMOGEN\output\YYYY\CO2.dat")! imogen CO2 data !imogen co2
+param "file_wind" (str "<IMOGEN_ROOT>\IMOGEN\output\YYYY\W_anom.dat")  !imogen wind
+param "file_relhum" (str "<IMOGEN_ROOT>\IMOGEN\output\YYYY\Rh_anom.dat") !imogen rh
 
 
 
