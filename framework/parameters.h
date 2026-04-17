@@ -642,6 +642,12 @@ extern bool iflandsymm_fpc_linear;
 /// no ppft.cmass_fire tracking.
 extern bool iflandsymm_blaze_fork;
 
+/// Whether to use fork crop management pipeline (cropphen_col, getphu, getpvd, etc.)
+/// When true: getsowingdates/getharvestdates use cropphen_col for per-crop column lookup;
+/// getphu/getpvd/getgrowseaslength load per-crop PHU/PVD from file_phu_in/file_pvd_in.
+/// When false (default): LTS behavior — uses pftlist[i].name, no PHU/PVD file loading.
+extern bool iflandsymm_crop_management;
+
 /// Save/restart year (LTS name)
 extern int state_year;
 
