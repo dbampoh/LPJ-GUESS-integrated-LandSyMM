@@ -2062,6 +2062,39 @@ void ManagementInput::init() {
 				readNman = true;
 			}
 		}
+
+		if (iflandsymm_crop_management) {
+			file_phu_in=param["file_phu_in"].str;
+			if(file_phu_in != "") {
+				if(!phus.Open(file_phu_in, gridlist))
+					fail("initio: could not open %s for input",(char*)file_phu_in);
+				readphu = true;
+			}
+			file_pvd_in=param["file_pvd_in"].str;
+			if(file_pvd_in != "") {
+				if(!pvds.Open(file_pvd_in, gridlist))
+					fail("initio: could not open %s for input",(char*)file_pvd_in);
+				readpvd = true;
+			}
+			file_growseaslength_in=param["file_growseaslength_in"].str;
+			if(file_growseaslength_in != "") {
+				if(!growseaslength.Open(file_growseaslength_in, gridlist))
+					fail("initio: could not open %s for input",(char*)file_growseaslength_in);
+				readgrowseaslength = true;
+			}
+			if (readgrowseaslength && (readharvestdates || readphu)) {
+				fail("Input file specified for growing season length but also harvest dates and/or PHU requirements.");
+			}
+			if (readphu && readpvd && ifcalcdynamic_phu) {
+				fail("Input files specified for PHU and PVD, but also ifcalcdynamic_phu==TRUE.");
+			}
+			file_Nfertdate2_in=param["file_Nfertdate2_in"].str;
+			if(file_Nfertdate2_in != "") {
+				if(!Nfertdate2.Open(file_Nfertdate2_in, gridlist))
+					fail("initio: could not open %s for input",(char*)file_Nfertdate2_in);
+				readNfertdate2 = true;
+			}
+		}
 	}
 
 	if(run_landcover) {
@@ -2155,6 +2188,24 @@ bool ManagementInput::loadmanagement(double lon, double lat) {
 			dprintf("N fertilization data for stand types not found in input file for %.2f,%.2f.\n\n", c.lon, c.lat);
 		}
 	}
+	if(readphu && !LUerror) {
+		if(!phus.Load(c)) {
+			fail("Problems with %.3f,%.3f in PHU input file. Failing.\n\n", c.lon, c.lat);
+			LUerror = true;
+		}
+	}
+	if(readpvd && !LUerror) {
+		if(!pvds.Load(c)) {
+			fail("Problems with %.3f,%.3f in PVD input file. Failing.\n\n", c.lon, c.lat);
+			LUerror = true;
+		}
+	}
+	if(readgrowseaslength && !LUerror) {
+		if(!growseaslength.Load(c)) {
+			fail("Problems with %.3f,%.3f in growing season length input file. Failing.\n\n", c.lon, c.lat);
+			LUerror = true;
+		}
+	}
 	if(readwoodharvest_frac && !LUerror) {
 		if(!woodharv_frac.Load(c)) {
 				dprintf("Problems with wood harvest fraction input file. EXCLUDING STAND at %.3f,%.3f from simulation.\n\n", c.lon, c.lat);
@@ -2224,7 +2275,12 @@ void ManagementInput::getsowingdates(Gridcell& gridcell) {
 	for(int i=0; i<npft; i++) {
 		if(pftlist[i].phenology == CROPGREEN) {	
 
-			gridcell.pft[i].sdate_force = (int)sdates.Get(year,pftlist[i].name);
+			xtring thisname = pftlist[i].name;
+			if (iflandsymm_crop_management && pftlist[i].cropphen_col != "") {
+				thisname = pftlist[i].cropphen_col;
+			}
+
+			gridcell.pft[i].sdate_force = (int)sdates.Get(year,thisname);
 
 			// Copy gridcellpft-value to standpft-value. If standtype values are required, modify code and input files.
 			for(unsigned int j=0; j<gridcell.nbr_stands(); j++) {
@@ -2246,7 +2302,12 @@ void ManagementInput::getharvestdates(Gridcell& gridcell) {
 	for(int i=0; i<npft; i++)	{
 		if(pftlist[i].phenology == CROPGREEN) {		
 
-			gridcell.pft[pftlist[i].id].hdate_force = (int)hdates.Get(year,pftlist[i].name);
+			xtring thisname = pftlist[i].name;
+			if (iflandsymm_crop_management && pftlist[i].cropphen_col != "") {
+				thisname = pftlist[i].cropphen_col;
+			}
+
+			gridcell.pft[pftlist[i].id].hdate_force = (int)hdates.Get(year,thisname);
 
 			// Copy gridcellpft-value to standpft-value. If standtype values are required, modify code and input files.
 			for(unsigned int j=0; j<gridcell.nbr_stands(); j++) {
@@ -2286,6 +2347,89 @@ void ManagementInput::getNfert(Gridcell& gridcell) {
  *  land are represented in columns with header names "primf_harv", "primn_harv", "secmf_harv", "secyf_harv" and "secnf_harv" in
  *	gridcell area fraction input files and "primf_bioh", "primn_bioh", "secmf_bioh", "secyf_bioh" and "secnf_bioh" in C mass (kg/m2) input files.
  */
+
+void ManagementInput::getphu(Gridcell& gridcell) {
+
+	if(!phus.isloaded())
+		return;
+
+	int year = date.get_calendar_year();
+	for(int i=0; i<npft; i++) {
+		if(pftlist[i].phenology == CROPGREEN) {
+
+			xtring thisname = pftlist[i].name;
+			if (pftlist[i].cropphen_col != "") {
+				thisname = pftlist[i].cropphen_col;
+			}
+
+			gridcell.pft[i].phu_force = phus.Get(year,thisname);
+		}
+	}
+}
+
+void ManagementInput::getpvd(Gridcell& gridcell) {
+
+	if(!pvds.isloaded())
+		return;
+
+	int year = date.get_calendar_year();
+	for(int i=0; i<npft; i++) {
+		if(pftlist[i].phenology == CROPGREEN) {
+
+			xtring thisname = pftlist[i].name;
+			if (pftlist[i].cropphen_col != "") {
+				thisname = pftlist[i].cropphen_col;
+			}
+
+			gridcell.pft[i].pvd_force = pvds.Get(year,thisname);
+		}
+	}
+}
+
+void ManagementInput::getgrowseaslength(Gridcell& gridcell) {
+
+	if(!growseaslength.isloaded())
+		return;
+
+	int year = date.get_calendar_year();
+	for(int i=0; i<npft; i++) {
+		if(pftlist[i].phenology == CROPGREEN) {
+
+			xtring thisname = pftlist[i].name;
+			if (pftlist[i].cropphen_col != "") {
+				thisname = pftlist[i].cropphen_col;
+			}
+
+			gridcell.pft[pftlist[i].id].growseaslength_force = (int)growseaslength.Get(year,thisname);
+
+			for(unsigned int j=0; j<gridcell.nbr_stands(); j++) {
+				Standpft& standpft = gridcell[j].pft[i];
+				if(standpft.active)
+					standpft.growseaslength_force = gridcell.pft[pftlist[i].id].growseaslength_force;
+			}
+		}
+	}
+}
+
+void ManagementInput::getNfertdate2(Gridcell& gridcell) {
+
+	if(!Nfertdate2.isloaded())
+		return;
+
+	int year = date.get_calendar_year();
+	for(int i=0; i<npft; i++) {
+		if(pftlist[i].phenology == CROPGREEN) {
+
+			xtring thisname = pftlist[i].name;
+			if (pftlist[i].cropphen_col != "") {
+				thisname = pftlist[i].cropphen_col;
+			}
+
+			gridcell.pft[pftlist[i].id].Nfertdate2_force = (int)Nfertdate2.Get(year,thisname);
+		}
+	}
+}
+
 void ManagementInput::getwoodharvest(Gridcell& gridcell, LandcoverInput& landcover_input) {
 
 	// Ignore harvest on "non-forested" land
@@ -2457,6 +2601,17 @@ void ManagementInput::getmanagement(Gridcell& gridcell, LandcoverInput& landcove
 		//Read N fertilization from input file, put into gridcellpft.Nfert_read
 		if(readNfert || readNfert_st)		
 			getNfert(gridcell);
+
+		if (iflandsymm_crop_management) {
+			if(readphu)
+				getphu(gridcell);
+			if(readpvd)
+				getpvd(gridcell);
+			if(readgrowseaslength)
+				getgrowseaslength(gridcell);
+			if(readNfertdate2)
+				getNfertdate2(gridcell);
+		}
 	}
 	// Read wood harvest from input file, put into gridcell.landcover.wood_harvest struct
 	if(readwoodharvest_frac || readwoodharvest_cmass)		

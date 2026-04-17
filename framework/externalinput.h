@@ -161,6 +161,10 @@ private:
 	TextInput::TimeDataD Nfert;
 	TextInput::TimeDataD Nfert_st;
 	TextInput::TimeDataD NfertMan;
+	TextInput::TimeDataD phus;
+	TextInput::TimeDataD pvds;
+	TextInput::TimeDataD growseaslength;
+	TextInput::TimeDataD Nfertdate2;
 	TextInput::TimeDataD woodharv_frac;
 	TextInput::TimeDataD woodharv_cmass;
 	TextInput::TimeDataD cutinterval_st;
@@ -171,6 +175,7 @@ private:
 	/// Files names for management input file
 	xtring file_sdates, file_hdates, file_Nfert, file_Nfert_st, file_NfertMan, file_woodharv_frac, file_woodharv_cmass,
 		file_cutinterval_st, file_firstmanageyear_st;
+	xtring file_phu_in, file_pvd_in, file_growseaslength_in, file_Nfertdate2_in;
 
 	/// Gets sowing date data for a year
 	void getsowingdates(Gridcell& gridcell);
@@ -178,6 +183,14 @@ private:
 	void getharvestdates(Gridcell& gridcell);
 	/// Gets nitrogen fertilisation data for a year
 	void getNfert(Gridcell& gridcell);
+	/// Gets PHU data for a year (fork crop management pipeline)
+	void getphu(Gridcell& gridcell);
+	/// Gets PVD data for a year (fork crop management pipeline)
+	void getpvd(Gridcell& gridcell);
+	/// Gets growing season length data for a year (fork crop management pipeline)
+	void getgrowseaslength(Gridcell& gridcell);
+	/// Gets 2nd N fertilization date for a year (fork crop management pipeline)
+	void getNfertdate2(Gridcell& gridcell);
 	/// Gets wood harvest data for a year
 	void getwoodharvest(Gridcell& gridcell, LandcoverInput& landcover_input);
 	/// Gets cutinterval
