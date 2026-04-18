@@ -626,7 +626,76 @@ For context, the following LandSyMM features were previously integrated as runti
 
 ---
 
-## 9. File Locations Reference
+## 9. Fix Implementation Results (2026-01-27)
+
+### 9.1 Fixes Applied
+
+**Fix 2 (commit `66dd30df8`):** Added `if(standpft.active)` guard to `commonoutput.cpp` output accumulation loop, matching fork line 959. Branch `landsymm/fix-standpft-active-guard`.
+
+**Fix 1 (commit `e57a9ba37`):** Ported fork crop management pipeline to integrated `externalinput.cpp`. Added `TimeDataD phus, pvds, growseaslength, Nfertdate2` members, `getphu()`/`getpvd()`/`getgrowseaslength()`/`getNfertdate2()` functions, `cropphen_col` usage in `getsowingdates()`/`getharvestdates()`, and `getmanagement()` dispatch. All gated by new runtime parameter `iflandsymm_crop_management` (default 0 = LTS behavior). Branch `landsymm/crop-management-pipeline`.
+
+### 9.2 Diagnostic Test: H_D1 Before/After
+
+| Domain | Metric | Before Fix | After Fix | Change |
+|--------|--------|-----------|----------|--------|
+| AGPP Total | MedRel% | 0.42% | 0.49% | +0.07% (negligible) |
+| AGPP Crop_sum | MedRel% | 7.43% | 8.79% | +1.36% (slightly worse) |
+| AGPP Crop_sum | Corr | 0.8589 | 0.8440 | -0.015 (slightly worse) |
+| AGPP Pasture_sum | MedRel% | 0.13% | 0.13% | unchanged |
+| AGPP Natural_sum | MedRel% | 0.31% | 0.29% | -0.02% (negligible better) |
+| ANPP Crop_sum | MedRel% | 6.16% | 7.43% | +1.27% (slightly worse) |
+| cflux Veg | MedRel% | 0.61% | 0.64% | +0.03% (negligible) |
+| cflux Soil | MedRel% | 0.53% | 0.59% | +0.06% (negligible) |
+| cflux Fire | Corr | -0.1246 | -0.1233 | unchanged |
+| cflux Harvest | MedRel% | 1.33% | 1.19% | -0.14% (slightly better) |
+| cflux NEE | MedRel% | 4.40% | 4.40% | unchanged |
+| cpool Total | MedRel% | 0.34% | 0.33% | -0.01% (negligible better) |
+| cpool SoilC | Corr | 0.9962 | 0.9970 | +0.008 (slightly better) |
+| yield avg | MedRel% | 7.75% | 7.94% | +0.19% (negligible worse) |
+| yield avg | Corr | 0.6541 | 0.6483 | -0.006 (negligible worse) |
+| **clitter FruitAndVeg** | **MedRel%** | **100.00%** | **0.00%** | **FIXED** |
+| **clitter Barren_sum** | **MedRel%** | **100.00%** | **0.00%** | **FIXED** |
+
+### 9.3 Critical Finding: Crop Identity Collapse Was Expected Behavior
+
+The crop identity collapse (Issue 1) was **misdiagnosed** as an integration bug. Investigation revealed that the **fork also produces identical values** for crops sharing the same base PFT when no PHU/PVD data files are provided:
+
+Fork H_D1 AGPP means (from fork output, comparing fork against itself):
+- OilOther = 0.3807, StarchyRoots = 0.3808, FruitAndVeg = 0.3808, Sugar = 0.3808 (identical)
+- OilNfix = 0.4476, Pulses = 0.4476 (identical)
+
+This is the **expected behavior** in `do_potyield=1` mode without external PHU/PVD files. Crops sharing a base PFT have identical physiology parameters and therefore identical output. Per-crop differentiation only occurs when:
+1. `file_phu_in` / `file_pvd_in` provide per-crop PHU/PVD data (via `cropphen_col` column lookup), OR
+2. `file_sdates` / `file_hdates` provide per-crop sowing/harvest dates
+
+The Fix 1 pipeline is **architecturally necessary** for production LandSyMM runs that use these data files but has no effect in the current test configuration where all phenology file paths are empty.
+
+### 9.4 Revised Understanding of Remaining Crop Divergence
+
+The 7-9% Crop_sum MedRel divergence is NOT caused by crop identity collapse. It is caused by genuine physics differences between the integrated LTS and the fork, specifically:
+
+**A. N-fixer BNF behavior (Issue 3):** OilNfix and Pulses show the largest individual crop divergences (10-15% MedRel). The `iflandsymm_bnf_direct` parameter controls the high-level BNF routing, but the fork's BNF response functions (`bnf_func_wcont`, `bnf_func_developmentstage`) have subtle differences in boundary conditions and curve shapes that weren't fully captured by the parameterization in Steps 49f/49g.
+
+**B. Crop allocation parameter values:** The fork's `crop_n.ins` defines crop groups (e.g., `TeSW_nlim`, `TeSo_nlim`) with specific Richards allocation coefficients (`a1`-`d3`). While the *code* for crop allocation (`crop_allocation_devries()`) was parameterized to use PFT-level parameters (Step 49f), the actual **numerical parameter values** in the fork's PFT definitions may differ from what the integrated test ins files use. A line-by-line comparison of PFT parameter values between fork and integrated ins files is needed.
+
+**C. LTS improvements kept as Category A:** Several LTS code improvements over the fork were intentionally retained (not parameterized to fork behavior) because they represent genuine scientific improvements. These include:
+- `cmass_wood_inc_5` computation location (LTS: end-of-year from total wood change; fork: during allocation)
+- `lc_change` carbon routing during land-use transitions
+- Forest management infrastructure (irrelevant when `run_forest=0`)
+- SOM N:C reduction algorithm (only active when `ifnlim=0`)
+- Various carbon accounting variables
+
+**D. Remaining BLAZE fire differences (Issue 4):** Fire correlation remains negative (-0.12) in potyield=1 mode. While `iflandsymm_blaze_fork` controls the main fire behavior, the different crop/vegetation composition between fork and integrated (from items A-C above) produces different fuel loads and therefore different fire dynamics.
+
+### 9.5 Recommended Next Debug Steps
+
+1. **PFT parameter audit:** Line-by-line comparison of numerical PFT parameter values between fork and integrated test ins files (particularly `crop_n.ins` Richards coefficients `a1`-`d3`, `fphu_anthesis`, BNF parameters)
+2. **BNF deep dive:** Compare `bnf_func_wcont()` and `bnf_func_developmentstage()` outputs with diagnostic prints for a single gridcell to identify where the curves diverge
+3. **Accept or investigate:** Determine which remaining differences are genuine LTS improvements (acceptable divergence) vs integration implementation errors (need fixing)
+
+---
+
+## 10. File Locations Reference
 
 | Item | Path |
 |------|------|

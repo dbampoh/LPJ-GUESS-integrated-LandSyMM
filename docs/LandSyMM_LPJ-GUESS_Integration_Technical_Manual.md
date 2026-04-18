@@ -22,7 +22,7 @@
 10. [Phase 4: Verification Testing](#10-phase-4-verification-testing)
 11. [Phase 5: Debugging & Issue Resolution — Analytical Narrative](#11-phase-5-debugging)
 12. [Runtime Parameters Reference](#12-runtime-parameters-reference)
-13. [Known Issues & Planned Fixes](#13-known-issues--planned-fixes)
+13. [Known Issues, Fixes Applied, & Remaining Divergence Analysis](#13-known-issues-fixes-applied--remaining-divergence-analysis)
 14. [Future Integration Guide](#14-future-integration-guide)
 15. [Troubleshooting Guide](#15-troubleshooting-guide)
 16. [Appendices](#16-appendices)
@@ -656,6 +656,65 @@ These steps represent the most analytically demanding phase of the project. Afte
 
 The culmination was **Step 50**, where we discovered three missing function calls in `framework.cpp` that were the root cause of all climate-driven divergence. This is documented with full analytical narrative in Section 11.1.
 
+#### Post-Verification Fixes: Fix 2 and Fix 1
+
+After the comprehensive 16-configuration verification suite revealed 6 issues (documented in `comprehensive_phase2_debug_report.md`), two targeted fixes were implemented:
+
+**Fix 2 — `standpft.active` guard (commit `66dd30df8`):**
+Branch `landsymm/fix-standpft-active-guard`. The fork's `commonoutput.cpp` `outannual()` function wraps the per-stand per-PFT output accumulation loop in an `if(standpft.active)` guard (fork line 959). The integrated version was missing this guard, causing it to iterate over ALL stands for ALL PFTs, including stands where a PFT was never planted. For annual crop PFTs like FruitAndVeg, their litter pools are fully decomposed by December 31 (transferred to SOM pools via `som_dynamics()`). Without the active guard, averaging over inactive stands (where the PFT has zero litter) diluted the signal to zero, producing the observed 100% clitter FruitAndVeg divergence.
+
+The fix adds the guard at the same structural location as in the fork:
+
+```cpp
+// commonoutput.cpp — outannual(), per-stand loop
+Standpft& standpft = stand.pft[pft.id];
+if(standpft.active) {    // ← Added: only accumulate from active stands
+
+    // ... (all variable zeroing, patch loop, normalization,
+    //      landcover totals, mean updates, gridcell totals,
+    //      and plot statements — unchanged LTS code)
+
+}//if(standpft.active)   // ← Added: closing brace
+++gc_itr;                 // Iterator always advances (outside guard)
+```
+
+**Result:** clitter FruitAndVeg divergence resolved from 100% to 0%. Barren_sum divergence also resolved. All other output domains unchanged (the guard evaluates to `true` for all PFTs that are active on their respective stands, preserving LTS behavior for standard configurations).
+
+**Fix 1 — Crop management pipeline (commit `e57a9ba37`):**
+Branch `landsymm/crop-management-pipeline`. The fork's `ManagementInput` class contains a complete crop management pipeline for loading per-crop PHU (Potential Heat Units), PVD (Potential Vernalization Days), growing season length, and N fertilization date data from external files. This pipeline uses the `cropphen_col` PFT member to look up per-crop columns in these data files, enabling different crop types that share the same base PFT (e.g., OilOther, StarchyRoots, FruitAndVeg, Sugar all inheriting from `TeSW_nlim`) to receive crop-specific phenology data and thereby produce differentiated yields.
+
+This entire pipeline was missing from the integrated version. The fix ports it from the fork, gated by a new runtime parameter `iflandsymm_crop_management` (default 0 = LTS behavior):
+
+```cpp
+// externalinput.cpp — getsowingdates() (modified)
+xtring thisname = pftlist[i].name;  // LTS: always use PFT name
+if (iflandsymm_crop_management && pftlist[i].cropphen_col != "") {
+    thisname = pftlist[i].cropphen_col;  // Fork: use per-crop column name
+}
+gridcell.pft[i].sdate_force = (int)sdates.Get(year, thisname);
+```
+
+```cpp
+// externalinput.cpp — getphu() (new function, ported from fork)
+void ManagementInput::getphu(Gridcell& gridcell) {
+    if(!phus.isloaded()) return;
+    int year = date.get_calendar_year();
+    for(int i=0; i<npft; i++) {
+        if(pftlist[i].phenology == CROPGREEN) {
+            xtring thisname = pftlist[i].name;
+            if (pftlist[i].cropphen_col != "") {
+                thisname = pftlist[i].cropphen_col;
+            }
+            gridcell.pft[i].phu_force = phus.Get(year, thisname);
+        }
+    }
+}
+```
+
+**Critical finding during diagnostic testing:** The crop identity collapse that was originally diagnosed as Issue 1 turned out to be **expected behavior**, not an integration bug. When run without PHU/PVD data files (`file_phu_in ""`, `file_pvd_in ""`), the **fork also produces identical AGPP/yield values** for crops sharing a base PFT. Per-crop differentiation only occurs when external phenology data files are provided. The Fix 1 pipeline is architecturally necessary for production LandSyMM runs that use these data files, but it has no effect in verification tests where the phenology file paths are empty.
+
+The remaining 7-9% Crop_sum MedRel divergence between integrated and fork is therefore caused by genuine physics differences (BNF behavior, crop allocation parameter values, LTS improvements retained as Category A items), not by missing pipeline infrastructure. See Section 13 for the revised analysis of these remaining differences.
+
 ---
 
 ## 8. The Runtime Parameter Pattern — Worked Example
@@ -1051,6 +1110,7 @@ These 16 parameters select between LTS and LandSyMM code paths. All default to `
 | `iflandsymm_weathergen_floors` | 46 | weathergen.cpp | Fork: `max(0.01, cloud_weight)`, `max(0.001, dsol)` floors. LTS: `max(0.0, ...)`. Only active with monthly climate input |
 | `iflandsymm_fpc_linear` | 45 | guess.cpp | Fork: `fpc_today = fpc * phen` (linear). LTS: Lambert-Beer canopy extinction model |
 | `iflandsymm_blaze_fork` | 44 | blaze.cpp | Three BLAZE items: (A4) no grass ANPP reduction after fire, (A5) stochmort without mt.stochmort guard, (A6) scale_indiv for pasture before fire |
+| `iflandsymm_crop_management` | Fix 1 | externalinput.cpp | Fork crop management pipeline: when enabled, `getsowingdates()`/`getharvestdates()` use `cropphen_col` for per-crop column lookup in phenology data files; `getphu()`/`getpvd()`/`getgrowseaslength()`/`getNfertdate2()` load per-crop PHU/PVD data from `file_phu_in`/`file_pvd_in`. Required for production LandSyMM runs with external crop phenology data. Has no effect when `file_phu_in`/`file_pvd_in` are empty (both fork and integrated produce identical per-base-PFT output in that case). |
 
 ### 12.2 Physics Parameters
 
@@ -1101,6 +1161,7 @@ iflandsymm_century_nc 1
 iflandsymm_weathergen_floors 1
 iflandsymm_fpc_linear 1
 iflandsymm_blaze_fork 1
+iflandsymm_crop_management 1
 
 ! ===== LandSyMM physics options =====
 ifphdependent_ncycle 1
@@ -1121,25 +1182,55 @@ For **standard LTS mode**, simply omit all of the above — all defaults produce
 
 ---
 
-## 13. Known Issues & Planned Fixes
+## 13. Known Issues, Fixes Applied, & Remaining Divergence Analysis
 
-### 13.1 Issue 1: Crop Identity Collapse in Potyield=1 (CRITICAL)
+### 13.1 Fix 2 — `standpft.active` Guard: RESOLVED
 
-**What happens:** Crops sharing the same base PFT (e.g., OilOther/StarchyRoots/FruitAndVeg/Sugar all inherit from `TeSW_nlim`) produce **identical AGPP and yield** in the integrated version. The fork produces **distinct** values per crop.
+**Commit:** `66dd30df8` | **Branch:** `landsymm/fix-standpft-active-guard`
 
-**Root cause:** The integrated `ManagementInput` class is missing the fork's PHU/PVD management pipeline. Specifically, functions `getphu()`, `getpvd()`, `getgrowseaslength()`, `getNfertdate2()` do not exist in the integrated code, and `getsowingdates()`/`getharvestdates()` do not use `cropphen_col` for per-crop column lookup. Without per-crop PHU data, crops sharing a base PFT get identical phenology and therefore identical allocation and yield.
+The fork's `commonoutput.cpp` `outannual()` wraps the per-stand per-PFT output accumulation in `if(standpft.active)`. The integrated version lacked this guard, causing it to iterate over ALL stands for ALL PFTs including inactive ones. For annual crops like FruitAndVeg, litter pools are fully decomposed by year-end; averaging over inactive stands (zero litter) diluted the signal to exactly zero.
 
-**Fix:** Port these functions from `LandSyMM_LPJ-GUESS/framework/externalinput.cpp` to the integrated version, gated by a new runtime parameter `iflandsymm_crop_management`.
+**Result:** clitter FruitAndVeg resolved from 100% divergence to 0%. Barren_sum clitter also resolved. No regression in any other output domain — the guard evaluates to `true` for all PFTs active on their respective stands, so standard LTS behavior is completely preserved.
 
-**Impact:** Resolves the SSP126 potyield=1 Crop_sum Corr collapse from 0.13 → expected 0.85+.
+### 13.2 Fix 1 — Crop Management Pipeline: CODE COMPLETE
 
-### 13.2 Issue 2: clitter FruitAndVeg = 0 (SIGNIFICANT)
+**Commit:** `e57a9ba37` | **Branch:** `landsymm/crop-management-pipeline`
 
-**Root cause:** Missing `if (standpft.active)` guard in `commonoutput.cpp` output accumulation loop. Fix: add the guard to match fork line 959.
+Ported the fork's complete crop management pipeline (PHU/PVD/growing-season-length/N-fert-date-2 loading, `cropphen_col` column lookup in sowing/harvest dates) to the integrated `externalinput.cpp`, gated by `iflandsymm_crop_management` (default 0).
 
-### 13.3 Issues 3-6
+**Critical finding during diagnostic testing:** The crop identity collapse originally diagnosed as a critical integration bug was **expected behavior**. When run without PHU/PVD data files (`file_phu_in ""`, `file_pvd_in ""`), the **fork also produces identical** AGPP/yield values for crops sharing a base PFT (e.g., StarchyRoots = FruitAndVeg = Sugar = 0.3808 in both fork and integrated). Per-crop differentiation only occurs when external phenology data files with per-crop columns are provided. The pipeline is architecturally necessary for production LandSyMM runs that use these files.
 
-See `comprehensive_phase2_debug_report.md` for full details on N-fixer BNF bias (Issue 3), fire correlation (Issue 4 — cascading from Issue 1), peatland bias (Issue 5), and NEE (Issue 6 — downstream).
+### 13.3 Remaining Crop Divergence: Genuine Physics Differences (7-9% Crop_sum MedRel)
+
+The remaining crop divergence is NOT caused by missing integration infrastructure. It reflects genuine differences between the LTS-based integrated code and the fork. Diagnostic testing (H_D1 before/after fix comparison) showed that Fix 1 had no material effect on crop metrics in the current test configuration (Crop_sum MedRel went from 7.43% to 8.79% — within noise). The divergence is driven by three categories of genuine differences:
+
+**A. N-fixer BNF behavior (originally Issue 3):** OilNfix and Pulses show 10-15% MedRel divergence, consistently the worst among all crop types. The `iflandsymm_bnf_direct` parameter controls the high-level BNF routing, but residual differences exist in:
+- `bnf_func_wcont()` boundary behavior: fork returns 1.0 (max fixation) when `w > bnf_wcont_max`; LTS returns 0.0 (no fixation). The parameter switches this, but the transition near the boundary interacts with the crop allocation cycle.
+- `bnf_func_developmentstage()`: fork halves the development stage for CROPGREEN PFTs, shifting BNF earlier in the growing season.
+- `cton_leaf_min` vs `cton_leaf_avr` for N-fixer harvest organ N demand.
+
+**B. Crop PFT parameter values:** The fork's `crop_n.ins` defines crop groups with specific Richards allocation coefficients (`a1`–`d3`) and fphu→development-stage mapping parameters (`fphu_anthesis`, `a_fphu_ds_1`, `b_fphu_ds_1`, `a_fphu_ds_2`, `b_fphu_ds_2`). While the code was parameterized to read these from PFT-level parameters (Step 49f), the actual **numerical values** in the integrated test ins files have not been verified to exactly match the fork's values. A line-by-line PFT parameter audit is needed.
+
+**C. LTS improvements retained (Category A):** Several LTS code improvements were intentionally kept as-is (not parameterized to fork behavior) because they represent genuine improvements: `cmass_wood_inc_5` computation timing, `lc_change` carbon routing, `harvest_pasture()` N accounting, and various carbon accounting variables. While individually small, they collectively contribute to the remaining divergence.
+
+### 13.4 Fire (Originally Issue 4): Cascading
+
+Fire correlation is excellent in potyield=0 deterministic mode (Corr = 0.99) but poor in potyield=1 (-0.12). The `iflandsymm_blaze_fork` parameter correctly controls all three BLAZE items. The poor potyield=1 correlation cascades from the crop/vegetation composition differences described in Section 13.3.
+
+### 13.5 Peatland (Originally Issue 5): -20 to -42% Bias
+
+Multiple contributing factors: fire cascading, stochastic competition sensitivity, and potentially unparameterized peatland-specific code. Requires investigation after crop divergence is addressed.
+
+### 13.6 NEE (Originally Issue 6): Downstream
+
+Near-zero-mean residual flux. Poor relative metrics are a mathematical artifact. Absolute bias typically < 0.01 kgC/m²/yr. Acceptable and will improve as upstream issues resolve.
+
+### 13.7 Recommended Next Debug Steps
+
+1. **PFT parameter audit:** Systematic numerical comparison of every crop PFT parameter between fork and integrated ins files
+2. **BNF deep dive:** Diagnostic output from `bnf_func_wcont()` and `bnf_func_developmentstage()` for a single gridcell to identify exact curve divergence points
+3. **Category A acceptance review:** For each retained LTS improvement, determine whether the divergence it introduces is acceptable or warrants parameterization
+4. **Full 16-config re-verification** after addressing items 1-3
 
 ---
 

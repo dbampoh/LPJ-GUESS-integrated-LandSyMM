@@ -24,6 +24,11 @@ An integrated version of LPJ-GUESS that combines the upstream Latest Stable Rele
 - **Output year gating** — `firstoutyear`/`lastoutyear` for selective output windows
 - **`lutomemory` parameter** — Load LU data to RAM for fast parallel access
 
+### Post-Verification Fixes (2026-01-27)
+
+- **Fix 2:** Added `standpft.active` guard to `commonoutput.cpp` output accumulation loop — resolved 100% divergence in clitter FruitAndVeg and Barren_sum outputs
+- **Fix 1:** Ported fork crop management pipeline to `externalinput.cpp` — added `getphu()`/`getpvd()`/`getgrowseaslength()`/`getNfertdate2()` functions, `cropphen_col` column lookup in `getsowingdates()`/`getharvestdates()`, gated by `iflandsymm_crop_management` parameter. Required for production LandSyMM runs with PHU/PVD data files.
+
 ### Bug Fixes Applied
 
 - `cropindiv_struct` missing member initialization (`harv_cmass_plant`)
