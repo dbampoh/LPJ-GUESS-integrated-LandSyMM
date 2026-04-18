@@ -648,6 +648,12 @@ extern bool iflandsymm_blaze_fork;
 /// When false (default): LTS behavior — uses pftlist[i].name, no PHU/PVD file loading.
 extern bool iflandsymm_crop_management;
 
+/// Whether to use fork hydrology routing in hydrology_lpjf().
+/// When true: uses infiltrate_upland() for non-saturating stands and calls
+/// get_soil_water_status() after all infiltration (fork behavior).
+/// When false (default): uses LTS inline proportional infiltration to upper layers only.
+extern bool iflandsymm_hydrology_routing;
+
 /// Save/restart year (LTS name)
 extern int state_year;
 

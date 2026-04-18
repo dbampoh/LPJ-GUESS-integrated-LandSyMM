@@ -1012,71 +1012,99 @@ void Soil::hydrology_lpjf(const Climate& climate, double fevap) {
 
 	// *** INPUT TO TOP LAYER ***
 
-	if (do_saturate()) {
-		saturate_nonpeat_wetlands(patch);
+	if (iflandsymm_hydrology_routing) {
+
+		if (do_saturate()) {
+			saturate_nonpeat_wetlands(patch);
+		} else if (rain_melt > 0.0) {
+			infiltrate_upland(patch);
+		}
+
 		runoff_surf = rain_melt;
 		rain_melt = 0.0;
 
-		for (int s = 0; s < NSOILLAYER; s++) {
-			Faw_layer[s] = wcont[s] * soiltype.awc[s];
-			ice_layer[s] = Frac_ice[s + IDX] * Dz[s + IDX];
-			potential_layer[s] = aw_max[s] - Faw_layer[s] - ice_layer[s];
-			if (potential_layer[s] < 0.0) potential_layer[s] = 0.0;
+		double total_potential_after = 0.0;
+		bool negative_potential_after = false;
+		get_soil_water_status(*this, NSOILLAYER, total_potential_after,
+			Faw_layer, ice_layer, potential_layer, negative_potential_after);
+		if (negative_potential_after) {
+			fail("hydrology_lpjf() - error in a soil layer's water balance - negative potential after water addition\n");
+		}
+
+		wcont_evap = 0.0;
+		Faw_layer_evap = 0.0;
+		for (int s = 0; s < num_evaplayers; s++) {
+			Faw_layer_evap += Faw_layer[s];
+		}
+		wcont_evap = Faw_layer_evap / awc_count;
+		oob_check_wcont(wcont_evap);
+
+		double awc1 = 0.0;
+		Faw_layer1 = 0.0;
+		for (int s = 0; s < NSOILLAYER_UPPER; s++) {
+			Faw_layer1 += Faw_layer[s];
+			awc1 += soiltype.awc[s];
 		}
 	}
-	else if (water_flux_in > 0) {
+	else {
 
-		// ADDITION of water to the top layers (rain_melt > 0)
-		if (water_flux_in < potential_top_layer) {
+		if (do_saturate()) {
+			saturate_nonpeat_wetlands(patch);
+			runoff_surf = rain_melt;
+			rain_melt = 0.0;
 
-			// The upper soil layers can absorb all of this water today
-			// so add the water to layers in proportion to their capacity
+			for (int s = 0; s < NSOILLAYER; s++) {
+				Faw_layer[s] = wcont[s] * soiltype.awc[s];
+				ice_layer[s] = Frac_ice[s + IDX] * Dz[s + IDX];
+				potential_layer[s] = aw_max[s] - Faw_layer[s] - ice_layer[s];
+				if (potential_layer[s] < 0.0) potential_layer[s] = 0.0;
+			}
+		}
+		else if (water_flux_in > 0) {
+
+			if (water_flux_in < potential_top_layer) {
+
+				for (int s = 0; s<NSOILLAYER_UPPER; s++) {
+
+					double water_input_ly = 0.0;
+					if (potential_top_layer > 0.0)
+						water_input_ly = water_flux_in * (potential_layer[s] / potential_top_layer);
+
+					Faw_layer[s] += water_input_ly;
+					potential_layer[s] -= water_input_ly;
+					wcont[s] = Faw_layer[s] / soiltype.awc[s];
+					oob_check_wcont(wcont[s]);
+				}
+
+				runoff_surf = 0.0;
+			}
+			else {
+
+				for (int s = 0; s<NSOILLAYER_UPPER; s++) {
+					Faw_layer[s] += potential_layer[s];
+					potential_layer[s] = 0.0;
+					wcont[s] = Faw_layer[s] / soiltype.awc[s];
+				}
+
+				runoff_surf = water_flux_in - potential_top_layer;
+			}
+
 			for (int s = 0; s<NSOILLAYER_UPPER; s++) {
-
-				double water_input_ly = 0.0;
-				if (potential_top_layer > 0.0)
-					water_input_ly = water_flux_in * (potential_layer[s] / potential_top_layer);
-
-				Faw_layer[s] += water_input_ly;
-				potential_layer[s] -= water_input_ly;
-				wcont[s] = Faw_layer[s] / soiltype.awc[s];
 				oob_check_wcont(wcont[s]);
 			}
-
-			// No surface runoff
-			runoff_surf = 0.0;
-		}
-		else {
-
-			// The upper soil layers cannot absorb all of this water today, so take up what can be absorbed 
-			// (i.e. potential_top_layer) and add the rest to surface runoff
-
-			for (int s = 0; s<NSOILLAYER_UPPER; s++) {
-				Faw_layer[s] += potential_layer[s];
-				potential_layer[s] = 0.0;
-				wcont[s] = Faw_layer[s] / soiltype.awc[s];
-			}
-
-			// Update surface runoff
-			runoff_surf = water_flux_in - potential_top_layer;
 		}
 
-		for (int s = 0; s<NSOILLAYER_UPPER; s++) {
-			oob_check_wcont(wcont[s]);
+		// Update wcont_evap again, after the input of rain_melt
+		wcont_evap = 0.0;
+		Faw_layer_evap = 0.0;
+
+		for (int s = 0; s < num_evaplayers; s++) {
+			Faw_layer_evap += Faw_layer[s];
 		}
+
+		wcont_evap = Faw_layer_evap / awc_count;
+		oob_check_wcont(wcont_evap);
 	}
-
-
-	// Update wcont_evap again, after the input of rain_melt
-	wcont_evap = 0.0;
-	Faw_layer_evap = 0.0;	// mm
-
-	for (int s = 0; s < num_evaplayers; s++) {
-		Faw_layer_evap += Faw_layer[s];
-	}
-
-	wcont_evap = Faw_layer_evap / awc_count;
-	oob_check_wcont(wcont_evap);
 
 
 	// Update Faw_layer1 and wcont1
