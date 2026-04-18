@@ -172,6 +172,7 @@ iflandsymm_fpc_linear 1	! 0=LTS (Lambert-Beer extinction), 1=LandSyMM (linear fp
 ! --- BLAZE fire model (Step 44) ---
 iflandsymm_blaze_fork 1	! 0=LTS (grass anpp reduction, mt.stochmort, cmass_fire), 1=LandSyMM (fork fire behavior)
 iflandsymm_crop_management 1	! 0=LTS (pftlist[i].name only, no PHU/PVD files), 1=LandSyMM (cropphen_col lookup, load PHU/PVD from file_phu_in/file_pvd_in)
+iflandsymm_hydrology_routing 1	! 0=LTS (inline proportional infiltration), 1=LandSyMM (infiltrate_upland + get_soil_water_status after infiltration)
 !
 ! --- Forestry (Step 29) ---
 landsymm_simple_forestry 0	! 0=LTS full forestry, 1=LandSyMM simplified (only effective when run_forest=1)
