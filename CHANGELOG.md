@@ -64,10 +64,29 @@ See `docs/comprehensive_phase2_debug_report.md` for details on 6 identified issu
 
 ### Data Requirements
 
-LandSyMM runs require external forcing data (climate, land-use, soil, N deposition, CO2, population density) not included in this repository. See the technical manual Section 3 and `data/landsymm-integrated-ins/` for path configuration. Contact the maintainers for data access.
+LandSyMM runs require external forcing data not included in this repository:
+
+- **Climate:** ISIMIP3b daily NetCDF (7 variables × 2 periods: historical 1850–2014 + SSP 2015–2100)
+- **N deposition:** ISIMIP3 monthly wet+dry NHx/NOy (4 files, 1850–2100)
+- **CO2:** Annual concentration time series (1850–2100)
+- **Soil:** Soil property map (texture, pH, AWC) remapped to LandSyMM grid
+- **Land-use:** HILDA+ historic / PLUMharm scenario fractions + crop fractions + N fertilization
+- **Population density:** For BLAZE fire model (NetCDF, 1601–2100)
+- **Fire:** SIMFIRE binary input
+- **Crop phenology (optional):** PHU, PVD, sowing/harvest dates per crop type
+
+See `README.md` for the complete data inventory with parameter names and sources. See `data/landsymm-integrated-ins/setup_paths.sh` for path configuration.
+
+**KIT IMK-IFU members:** Data on Simba2 at `/bg/data/lpj/LPJ-GUESS/input/`
+
+**External collaborators:** Contact Daniel Bampoh (daniel.bampoh@kit.edu, KIT IMK-IFU)
+
+**Land-use production:** The `landsymm_py` repos contain the remapping/harmonization pipeline:
+- KIT: `https://gitlab.imk-ifu.kit.edu/bampoh-d/landsymm_py`
+- Helmholtz: `https://codebase.helmholtz.cloud/daniel.bampoh/landsymm_py`
 
 ### Related Repositories
 
-- **landsymm_py** — Python pipeline for land-use remapping and harmonization (produces the LU fraction input files)
+- **landsymm_py** — Python pipeline for land-use remapping and harmonization
 - **LPJ-GUESS upstream** — Lund University GitLab (`stormbringer4.nateko.lu.se`)
 - **LandSyMM fork** — Bitbucket (`bitbucket.org/samrabin/landsymm-lpjg`)

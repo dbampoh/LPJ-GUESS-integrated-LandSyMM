@@ -221,6 +221,31 @@ python3 verification/compare_per_variable.py \
 #         RMSE, NRMSE%, Bias, Bias%, MeanRef, MeanTest, Corr
 ```
 
+### 3.6 Input Data Requirements
+
+LandSyMM runs require external forcing data not distributed with this repository. The complete data inventory, organized by the ins file parameters that reference each dataset:
+
+**Climate:** ISIMIP3b daily NetCDF — `file_temp1`/`file_temp2` (temperature), `file_prec1`/`file_prec2` (precipitation), `file_insol1`/`file_insol2` (shortwave radiation), `file_wind1`/`file_wind2` (wind speed), `file_relhum1`/`file_relhum2` (relative humidity), `file_min_temp1`/`file_min_temp2` (daily min temperature), `file_max_temp1`/`file_max_temp2` (daily max temperature). Historical files cover 1850–2014; SSP scenario files cover 2015–2100. The `file_*2` parameters enable multi-part climate file handling via `setup_multipart()` in the CFXInput module.
+
+**Nitrogen deposition:** ISIMIP3 monthly wet+dry — `file_mNHxdrydep`, `file_mNOydrydep`, `file_mNHxwetdep`, `file_mNOywetdep`. Monthly NHx and NOy deposition rates, historical+scenario, 1850–2100.
+
+**CO2:** `file_co2` — Annual concentration time series (ppm), 1850–2100. Text format.
+
+**Soil:** `file_soildata` — Soil property map (texture, pH, AWC). Binary `.dat` format, remapped to the LandSyMM gridlist.
+
+**Land-use:** `file_lu` (land-use fractions), `file_lucrop` (crop-type fractions), `file_Nfert` (N fertilization rates). Produced by the `landsymm_py` remapping and harmonization pipeline from HILDA+ (historical) or PLUM (scenario) data. For peatland runs, use peatland-variant files. The `landsymm_py` repos are available at:
+- KIT GitLab: `https://gitlab.imk-ifu.kit.edu/bampoh-d/landsymm_py`
+- Helmholtz GitLab: `https://codebase.helmholtz.cloud/daniel.bampoh/landsymm_py`
+
+**Fire:** `file_popdens` (population density NetCDF, for BLAZE ignition), `file_simfire` (SIMFIRE binary input).
+
+**Crop phenology (optional):** `file_phu_in`, `file_pvd_in`, `file_sdates`, `file_hdates`, `file_growseaslength_in` — per-crop phenology data for `iflandsymm_crop_management=1` mode. Only needed when per-crop differentiation beyond the base PFT is required.
+
+**Data access:**
+- **KIT IMK-IFU members:** Available on Simba2 cluster at `/bg/data/lpj/LPJ-GUESS/input/`
+- **External collaborators:** Contact Daniel Bampoh (daniel.bampoh@kit.edu, KIT IMK-IFU) for data access
+- **Path configuration:** Run `data/landsymm-integrated-ins/setup_paths.sh` after obtaining data (see README for details)
+
 ---
 
 ## 4. Repository Structure
