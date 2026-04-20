@@ -827,8 +827,8 @@ void Soil::hydrology_lpjf(const Climate& climate, double fevap) {
 
 	double wcont_evap_init = Faw_evap_init / awc_init;
 
-	if (dsnowdepth < 10.0) {	// evap only if snow depth < 10mm
-							// The potential evaporation:
+	bool evap_allowed = iflandsymm_hydrology_routing ? (snowpack < 10.0) : (dsnowdepth < 10.0);
+	if (evap_allowed) {	// evap only if snow depth < 10mm (fork: SWE; LTS: actual depth)
 		evap_init = climate.eet * PRIESTLEY_TAYLOR * wcont_evap_init * wcont_evap_init * fevap;
 		// Below, we will limit evaporation to a value <= the available water in the evaporation layer
 	}
@@ -1011,6 +1011,8 @@ void Soil::hydrology_lpjf(const Climate& climate, double fevap) {
 	}
 
 	// *** INPUT TO TOP LAYER ***
+
+	double rain_melt_orig = rain_melt;
 
 	if (iflandsymm_hydrology_routing) {
 
@@ -1201,8 +1203,8 @@ void Soil::hydrology_lpjf(const Climate& climate, double fevap) {
 			perc_from_base = min(perc_from_base, Faw_perc_layer_2); // Only available water in these layers can percolate
 
 			// As in LPJ-GUESS v4.0
-			if (perc_from_base > rain_melt - runoff_surf && rain_melt >= runoff_surf)
-				perc_from_base = rain_melt - runoff_surf;
+			if (perc_from_base > rain_melt_orig - runoff_surf && rain_melt_orig >= runoff_surf)
+				perc_from_base = rain_melt_orig - runoff_surf;
 		}
 		else {
 			// No percolation

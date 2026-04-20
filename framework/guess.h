@@ -512,6 +512,17 @@ public:
 		else
 			return 0;
 	}
+
+	/// Return TRUE if outputs should be written this year
+	bool write_outputs(int year_offset = 0) {
+		return (get_calendar_year() + year_offset) >= firstoutyear &&
+		       (get_calendar_year() + year_offset) <= lastoutyear;
+	}
+
+	/// Return TRUE if this is the first non-spinup year OR first year after restart
+	bool is_firsthist_or_restart_year() {
+		return date.year == nyear_spinup || (restart && date.get_calendar_year() == restart_year);
+	}
 };
 
 /// Object describing sub-daily periods
