@@ -61,7 +61,7 @@ See `docs/LandSyMM_LPJ-GUESS_Integration_Technical_Manual.md` for the comprehens
 
 ### Known Issues
 
-See `docs/comprehensive_phase2_debug_report.md` for details on 6 identified issues with planned fixes, most significantly the crop management pipeline (Issue 1) needed for full per-crop differentiation in `do_potyield=1` mode.
+See `docs/comprehensive_phase2_debug_report.md` for details on the 6 identified issues — all investigated to root cause, 4 resolved with code fixes (Fixes 1-4), 2 explained as acceptable divergence from genuine LTS improvements.
 
 ### Data Requirements
 
