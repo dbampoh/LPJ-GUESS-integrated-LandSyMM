@@ -515,6 +515,7 @@ void Soil::hydrology_lpjf_twolayer(const Climate& climate, double fevap) {
 	double aet_total = 0.0;
 
 	// Sum AET for across all vegetation individuals
+	bool isinundated = false;
 	Vegetation& vegetation = patch.vegetation;
 	vegetation.firstobj();
 	while (vegetation.isobj) {
@@ -527,6 +528,14 @@ void Soil::hydrology_lpjf_twolayer(const Climate& climate, double fevap) {
 				aet_twolayer[0] += aet;
 			else
 				aet_twolayer[1] += aet;
+
+			if (iflandsymm_hydrology_routing) {
+				Patchpft& ppft = patch.pft[indiv.pft.id];
+				if (patch.stand.pft[indiv.pft.id].hydrology == INUNDATED &&
+					ppft.cropphen && ppft.cropphen->growingseason) {
+					isinundated = true;
+				}
+			}
 		}
 		vegetation.nextobj();
 	}
@@ -565,7 +574,7 @@ void Soil::hydrology_lpjf_twolayer(const Climate& climate, double fevap) {
 
 	// Surface runoff
 	double runoff_surf = 0.0;
-	if (wcont_twolayer[0] > 1.0) {
+	if (wcont_twolayer[0] > 1.0 && !isinundated) {
 		runoff_surf = (wcont_twolayer[0] - 1.0) * soiltype.gawc[0];
 		wcont_twolayer[0] = 1.0;
 	}
@@ -589,7 +598,7 @@ void Soil::hydrology_lpjf_twolayer(const Climate& climate, double fevap) {
 
 	// Percolation from evaporation layer
 	double perc = 0.0;
-	if (percolate) {
+	if (percolate && !isinundated) {
 		perc = min(SOILDEPTH_EVAP / SOILDEPTH_UPPER*soiltype.perc_base*pow(twolayerwcont_evap, soiltype.perc_exp),
 			max_rain_melt);
 	}
@@ -608,7 +617,7 @@ void Soil::hydrology_lpjf_twolayer(const Climate& climate, double fevap) {
 		// Percolation
 		// Allow only on days with rain or snowmelt (Dieter Gerten, 021216)
 
-		if (percolate) {
+		if (percolate && !isinundated) {
 			perc = min(soiltype.perc_base*pow(wcont_twolayer[s - 1], soiltype.perc_exp), max_rain_melt);
 		}
 		else {
@@ -634,7 +643,7 @@ void Soil::hydrology_lpjf_twolayer(const Climate& climate, double fevap) {
 
 	// Baseflow runoff (Dieter Gerten 021216) (rain or snowmelt days only)
 	double runoff_baseflow = 0.0;
-	if (percolate) {
+	if (percolate && !isinundated) {
 		double perc_baseflow = BASEFLOW_FRAC*soiltype.perc_base*pow(wcont_twolayer[NSOILLAYER_SIMPLE - 1], soiltype.perc_exp);
 		// guess2008 - Added "&& rain_melt >= runoff_surf" to guarantee nonnegative baseflow.
 		if (perc_baseflow > rain_melt - runoff_surf && rain_melt >= runoff_surf) {
