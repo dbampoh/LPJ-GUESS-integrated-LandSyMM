@@ -1774,13 +1774,14 @@ This means the infiltration routing fix (Fix 3, identified in Section 9.11.6) co
 ### 9.14 Updated Debug Step Checklist
 
 1. ~~PFT parameter audit~~ — COMPLETED
-2. ~~BNF deep dive~~ — COMPLETED
-3. ~~Nitrification isolation~~ — COMPLETED
-4. ~~Investigate Issue 4 (Fire)~~ — COMPLETED
-5. ~~Investigate Issue 5 (Peatland)~~ — COMPLETED
-6. ~~Investigate Issue 6 (NEE)~~ — COMPLETED
+2. ~~BNF deep dive~~ — COMPLETED (8 differences analyzed, all parameterized or fork bugs)
+3. ~~Nitrification isolation~~ — COMPLETED (accounts for ~1/3 of crop divergence)
+4. ~~Investigate Issue 4 (Fire)~~ — COMPLETED (statistical artifact of 13-cell gridlist)
+5. ~~Investigate Issue 5 (Peatland)~~ — COMPLETED (Fix 4 resolved outlier: +141% → -0.5%)
+6. ~~Investigate Issue 6 (NEE)~~ — COMPLETED (downstream, abs bias < 0.003 kgC/m²/yr)
+7. ~~Final completeness sweep~~ — COMPLETED (123 diff files, 160,892 lines examined; 4 items implemented, 2 confirmed already addressed)
 
-**All debug report issues have been investigated and resolved or explained.**
+**All debug report issues have been investigated, resolved or explained. Final completeness sweep confirms ~98% integration with all remaining items addressed.**
 
 ---
 

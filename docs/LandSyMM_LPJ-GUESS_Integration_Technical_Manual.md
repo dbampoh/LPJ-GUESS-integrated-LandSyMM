@@ -611,7 +611,7 @@ These steps added the complete SPITFIRE fire model (2,845 lines) and GGCMI crop 
 This large group of steps integrated the science module changes: SPITFIRE fuel properties in SOM dynamics, crop/irrigation code in `canexch.cpp`, BNF system, wetland physics, IMOGEN coupling, CFXInput multi-part files, output module implementation, hydrology fixes, and state save/restart.
 
 Notable milestones:
-- **Step 11:** Added Wania freeze-thaw helpers and soil water helper functions (`get_soil_water_status`, `infiltrate_upland`, `saturate_nonpeat_wetlands`) that are called by the fork's hydrology routing but not yet activated in the integrated code
+- **Step 11:** Added Wania freeze-thaw helpers and soil water helper functions (`get_soil_water_status`, `infiltrate_upland`, `saturate_nonpeat_wetlands`) — later activated in Fix 3 (hydrology routing) and corrected in Fix 4 (wetland gate)
 - **Step 22-23:** Eliminated all `bad wcont` warnings (1,535-8,102 depending on config) by adding ice accounting in irrigation and the `oob_check_wcont()` clamping function
 - **Step 25:** Implemented 13 LandSyMM-specific output tables (per-stand yields, irrigation, pasture ANPP, daily BLAZE burned area)
 - **Step 27:** First peatland/methane verification — confirmed CH4 model is functional with ~13% lower mean vs fork
@@ -739,6 +739,27 @@ void ManagementInput::getphu(Gridcell& gridcell) {
 **Critical finding during diagnostic testing:** The crop identity collapse that was originally diagnosed as Issue 1 turned out to be **expected behavior**, not an integration bug. When run without PHU/PVD data files (`file_phu_in ""`, `file_pvd_in ""`), the **fork also produces identical AGPP/yield values** for crops sharing a base PFT. Per-crop differentiation only occurs when external phenology data files are provided. The Fix 1 pipeline is architecturally necessary for production LandSyMM runs that use these data files, but it has no effect in verification tests where the phenology file paths are empty.
 
 The remaining 7-9% Crop_sum MedRel divergence between integrated and fork is therefore caused by genuine physics differences (BNF behavior, crop allocation parameter values, LTS improvements retained as Category A items), not by missing pipeline infrastructure. See Section 13 for the revised analysis of these remaining differences.
+
+#### Final Completeness Sweep
+
+After all 6 verification issues were resolved, a comprehensive sweep of all 123 diff files (160,892 lines) between the fork and original LTS was performed. The sweep confirmed **~98% integration completeness** across framework/ (36 diffs) and modules/ (56 diffs), with all 21 fork-only module files present and all runtime parameters verified.
+
+The sweep identified 6 remaining items. 4 were implemented, 2 confirmed as already addressed:
+
+**Implemented:**
+
+1. **Timer convenience methods** (commit `2cfc509e7`, `guess.h`): Added `write_outputs(year_offset)` and `is_firsthist_or_restart_year()` to the Date class — inline helper methods used by the fork's `indata.cpp` for data loading optimization. Purely additive — no effect on LTS behavior.
+
+2. **Evaporation snow threshold** (commit `2cfc509e7`, `soil.cpp`): The fork uses `snowpack` (SWE in mm) while the LTS uses `dsnowdepth` (actual snow depth in mm) for the evaporation gate. Since `dsnowdepth` is 3-10x larger than `snowpack` (due to snow density), the LTS blocks evaporation on significantly more days. Now gated by `iflandsymm_hydrology_routing`: when `=0` (LTS default) uses `dsnowdepth`; when `=1` (fork) uses `snowpack`.
+
+3. **`rain_melt_orig` baseflow limiter** (commit `2cfc509e7`, `soil.cpp`): The fork saves the original `rain_melt` value before the routing block processes it to zero. This preserved value is used in the baseflow percolation cap. Without it, the cap is disabled in the hydrology routing path because `rain_melt=0`. Now saved as `rain_melt_orig` and used in the limiter.
+
+4. **`isinundated` percolation guards** (commit `4c45b74e8`, `soil.cpp`): The fork's `hydrology_lpjf_twolayer` skips overflow processing and all three percolation blocks for INUNDATED stands (rice paddies) during the growing season. Added `bool isinundated` detection in the AET loop (gated by `iflandsymm_hydrology_routing`) and `&& !isinundated` guards on the overflow check and three percolation blocks. Includes null-check on `cropphen` pointer (safety improvement over fork). When `iflandsymm_hydrology_routing=0`, `isinundated` is always `false` and all guards evaluate to their original form — LTS behavior completely preserved.
+
+**Already addressed (no action needed):**
+
+- `Patchpft::total_litter` — integrated has both the `total_litter()` method (LTS) and `total_litter_cached` member. Not referenced in any module file.
+- `cmass_leaf_root_turnover` — already exists in integrated (LTS addition, not from fork).
 
 ---
 
@@ -1017,7 +1038,7 @@ python3 compare_per_variable.py \
 | **Crops PotY=1** | ≤7.43% | ≤4.25% | **≤22.50%** | **≤26.68%** | **POOR (SSP)** |
 | **Carbon pools** | ≤0.35% | ≤0.64% | ≤0.74% | ≤1.76% | **EXCELLENT** |
 | **Soil C** | ≤0.30% | ≤0.73% | ≤0.30% | ≤0.69% | **EXCELLENT** |
-| **Peatland** | ≤6% | ≤10% | ≤10% | ≤17% | **MODERATE** |
+| **Peatland** | ≤0.8% (post-Fix4) | — | — | — | **EXCELLENT (post-Fix4)** |
 | **CH4 total** | 6-7% | 7-8% | 8% | 16% | **GOOD-MOD** |
 
 See `comprehensive_phase2_debug_report.md` for the full per-variable, per-test statistics tables.
