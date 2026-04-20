@@ -419,7 +419,7 @@ void initial_infiltration(Patch& patch, Climate& climate) {
 			soil.update_soil_water(); // update wcont_evap, whc[], Frac_water etc. based on wcont (as the first layer's water content has changed) 
 		}
 
-		if (patch.stand.is_true_wetland_stand()) {
+		if (patch.stand.is_true_wetland_stand() && ifsaturatewetlands) {
 
 			if (iflandsymm_infiltration) {
 				saturate_nonpeat_wetlands(patch);
