@@ -29,6 +29,7 @@ An integrated version of LPJ-GUESS that combines the upstream Latest Stable Rele
 - **Fix 2:** Added `standpft.active` guard to `commonoutput.cpp` output accumulation loop — resolved 100% divergence in clitter FruitAndVeg and Barren_sum outputs. This is a correctness fix (LTS already uses this guard in other output loops).
 - **Fix 1:** Ported fork crop management pipeline to `externalinput.cpp` — added `getphu()`/`getpvd()`/`getgrowseaslength()`/`getNfertdate2()` functions, `cropphen_col` column lookup in `getsowingdates()`/`getharvestdates()`, gated by `iflandsymm_crop_management` parameter. Required for production LandSyMM runs with PHU/PVD data files.
 - **Fix 3:** Wired fork hydrology routing in `hydrology_lpjf()` (`soil.cpp`) — `infiltrate_upland()` for non-saturating stands and `get_soil_water_status()` after infiltration, gated by `iflandsymm_hydrology_routing` parameter. Completes the Priority 1 unfinished integration item from `remaining_integration_work.md`.
+- **Fix 4:** Corrected `initial_infiltration()` wetland gate in `soilwater.cpp` — added `&& ifsaturatewetlands` to match the fork's `do_saturate()` logic. The integrated was unconditionally saturating low-latitude wetland soil daily, ignoring the `ifsaturatewetlands` parameter. Result: peatland outlier gridcell resolved from +141% to -0.5% bias; Peatland_sum MedRel from 8.96% to 0.82%, Corr from 0.73 to 0.99.
 
 ### Verification Investigation Outcomes (2026-01-27/28)
 
@@ -36,7 +37,7 @@ All 6 issues from the Phase 2 verification test suite were investigated to root 
 
 - **Issue 3 (N-fixer BNF bias):** BNF code correctly parameterized. 8 code differences analyzed — 5 neutralized by runtime parameters, 3 residual are fork bugs corrected in integrated. The nitrification fix accounts for ~1/3 of the 5-9% crop divergence; the rest is baseline integration cost from genuine improvements compounding during spinup.
 - **Issue 4 (Fire uncorrelated):** Statistical artifact — fire occurs at only 2 of 13 demo gridcells, with 80% fewer events in potyield=1 mode. BLAZE code correctly parameterized.
-- **Issue 5 (Peatland -20 to -42% bias):** Dominated by single outlier gridcell at arid SW USA site; 3 of 4 peatland cells within 7.8%. Fix 3 and nitrification isolation both had zero effect. Unresolved marginal-site divergence documented for future investigation.
+- **Issue 5 (Peatland -20 to -42% bias):** Root cause identified — `initial_infiltration()` gate in `soilwater.cpp` bypassed `ifsaturatewetlands` parameter, causing unconditional daily wetland saturation. Fix 4 (one-line correction) resolved the outlier from +141% to -0.5%. Peatland_sum Corr improved from 0.73 to 0.99.
 - **Issue 6 (NEE poor correlations):** No independent code driver. NEE formula includes `acflux_wood_harvest + acflux_clearing` in integrated (LTS improvement) but not fork. Absolute bias < 0.003 kgC/m²/yr. Deterministic Corr 0.97-0.99.
 
 ### Bug Fixes Applied

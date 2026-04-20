@@ -1244,18 +1244,56 @@ The remaining crop divergence is NOT caused by missing integration infrastructur
 
 Fire correlation is excellent in potyield=0 deterministic mode (Corr = 0.99) but poor in potyield=1 (-0.12). The `iflandsymm_blaze_fork` parameter correctly controls all three BLAZE items. The poor potyield=1 correlation cascades from the crop/vegetation composition differences described in Section 13.3.
 
-### 13.5 Peatland (Originally Issue 5): -20 to -42% Bias — INVESTIGATED
+### 13.5 Peatland (Originally Issue 5): -20 to -42% Bias — RESOLVED (Fix 4)
 
-The aggregate peatland bias is dominated by a **single outlier gridcell** (-109.75, 35.25) at an arid SW USA site where peatland vegetation is climatically marginal. Per-gridcell analysis:
+#### Root Cause
 
-- 3 of 4 peatland-active gridcells: -7.8% to +2.7% bias (within baseline integration cost)
-- 1 outlier: +141% bias (2.4x more peatland vegetation in integrated)
+The integrated `initial_infiltration()` in `soilwater.cpp` (line 422) used `is_true_wetland_stand()` alone to gate wetland saturation, while the fork (line 471) uses `do_saturate()` which requires BOTH `is_true_wetland_stand()` AND `ifsaturatewetlands`:
 
-**Fix 3 (hydrology routing)** was implemented to wire the fork's `infiltrate_upland()` and post-infiltration `get_soil_water_status()` into `hydrology_lpjf`, gated by `iflandsymm_hydrology_routing`. Result: no effect on the outlier.
+```cpp
+// Fork (soilwater.cpp line 471) — respects ifsaturatewetlands:
+else if (soil.do_saturate()) {          // = is_true_wetland && ifsaturatewetlands
+    saturate_nonpeat_wetlands(patch);
+}
 
-**Nitrification isolation test** (H_DP with `iflandsymm_nitri_gas_fork=0`): no effect on the outlier (+141.1% → +141.2%).
+// Integrated BEFORE fix (soilwater.cpp line 422) — ignores ifsaturatewetlands:
+if (patch.stand.is_true_wetland_stand()) {   // ALWAYS true for low-lat peatland!
+    saturate_nonpeat_wetlands(patch);
+}
+```
 
-The outlier is caused by an unidentified cumulative spinup effect at a marginal site. Documented for future investigation but does not indicate an integration defect — peatland parity at climatically appropriate sites is within acceptable range.
+`do_saturate()` is defined as `is_true_wetland_stand() && ifsaturatewetlands` (soil.cpp line 4160). `is_true_wetland_stand()` returns true for `PEATLAND` stands at latitude < `PEATLAND_WETLAND_LATITUDE_LIMIT` (40.0°N, defined in soil.h line 304).
+
+With `ifsaturatewetlands=0` (the setting in all ins files), the integrated was **unconditionally saturating low-latitude wetland soil to capacity every day** in `initial_infiltration()` (which runs before canopy exchange), while the fork correctly treated these stands as upland with `infiltrate_upland()`. At the arid peatland gridcell (-109.75, 35.25°N — below the 40°N limit), this daily "free" saturation gave peatland PFTs (WetGRS, pLSE) unlimited water regardless of the arid climate, producing 2.4x more productivity than the fork.
+
+#### Discovery Process
+
+This root cause was identified through a systematic elimination process:
+1. **Fix 3** (hydrology routing in `hydrology_lpjf`) — tested, zero effect (because `do_saturate()=false` in `hydrology_lpjf` when `ifsaturatewetlands=0`)
+2. **Nitrification isolation** (`iflandsymm_nitri_gas_fork=0`) — tested, zero effect (water-limited, not N-limited)
+3. **Comprehensive 11-difference hydrology audit** — compared every functional difference in `hydrology_lpjf()` (~460 lines), `initial_infiltration()` (~120 lines), and all helper functions. Identified the gating mismatch as Difference #1 (CRITICAL) out of 11 ranked differences.
+
+#### Fix Applied
+
+**Fix 4** (commit `69a8505d0`, branch `landsymm/fix-wetland-gate`): One-line change adding `&& ifsaturatewetlands` to the gate condition:
+
+```cpp
+// AFTER fix (soilwater.cpp line 422):
+if (patch.stand.is_true_wetland_stand() && ifsaturatewetlands) {
+```
+
+No runtime parameter needed — this is a direct correction to respect an existing parameter that was being bypassed.
+
+#### Verification Results
+
+| Metric | Before Fix 4 | After Fix 4 |
+|--------|-------------|------------|
+| Outlier (-109.75, 35.25) Bias | **+141.1%** | **-0.5%** |
+| Peatland_sum MedRel% | **8.96%** | **0.82%** |
+| Peatland_sum Corr | **0.73** | **0.99** |
+| Other peatland cells | -6.4% to +2.6% | -6.4% to +0.0% |
+
+See `comprehensive_phase2_debug_report.md` Section 9.11 for the full 11-difference audit with code snippets, impact rankings, and per-gridcell time series.
 
 ### 13.6 NEE (Originally Issue 6): Downstream
 
