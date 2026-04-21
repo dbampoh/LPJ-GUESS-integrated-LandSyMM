@@ -792,6 +792,10 @@ This follows IPCC/GCB conventions where NEE and NBP are distinct diagnostics. Ma
 
 **4. Annual transpiration (`file_atransp`):** New output file with per-PFT transpiration and landcover sums, using the existing per-PFT accumulation that was always transpiration only (despite the `aaet` naming).
 
+**5. Backward compatibility (`file_mnee` alias):** The `file_mnee` parameter name is preserved as a permanent alias for `file_mnbp` in `commonoutput.cpp`. Both parameter names map to the same output variable, so existing ins files referencing `file_mnee` continue to work without modification. All standard ins files (`data/ins/global.ins`, `europe.ins`, `arctic.ins`) and the LandSyMM template (`data/landsymm-integrated-ins/global.ins`) were updated from `!file_mnee "mnee.out"` to `!file_mnbp "mnbp.out"` to reflect the correct parameter name.
+
+**Note on verification comparison:** Because the integrated `cflux.out` now has a redefined "NEE" column (ecosystem exchange only, without harvest/LUC) and a new "NBP" column (full biome budget), direct comparison of the "NEE" column between integrated and fork will show apparent divergence. This is expected — the fork's "NEE" corresponds to the integrated's "NBP". The correct comparison is fork `NEE` ↔ integrated `NBP`.
+
 ---
 
 ## 8. The Runtime Parameter Pattern — Worked Example
