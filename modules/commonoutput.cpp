@@ -74,6 +74,7 @@ CommonOutput::CommonOutput() {
 	declare_parameter("file_mintercep", &file_mintercep, 300, "Monthly intercep output file");
 	declare_parameter("file_mrh", &file_mrh, 300, "Monthly heterotrophic respiration output file");
 	declare_parameter("file_mnbp", &file_mnbp, 300, "Monthly NBP output file");
+	declare_parameter("file_mnee", &file_mnbp, 300, "Monthly NBP output file (backward-compatible alias for file_mnbp)");
 	declare_parameter("file_mwcont_upper", &file_mwcont_upper, 300, "Monthly wcont_upper output file");
 	declare_parameter("file_mwcont_lower", &file_mwcont_lower, 300, "Monthly wcont_lower output file");
 	// bvoc
