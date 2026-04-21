@@ -761,6 +761,37 @@ The sweep identified 6 remaining items. 4 were implemented, 2 confirmed as alrea
 - `Patchpft::total_litter` — integrated has both the `total_litter()` method (LTS) and `total_litter_cached` member. Not referenced in any module file.
 - `cmass_leaf_root_turnover` — already exists in integrated (LTS addition, not from fork).
 
+#### NBP and AET Output Improvements
+
+Based on changes from an earlier LPJ-GUESS branch (`tech_rename_aet_nee`, D. Bampoh, 17.10.2023), four scientifically motivated output improvements were integrated into `commonoutput.cpp/h`:
+
+**1. NBP (Net Biome Productivity) in `cflux.out`:** The previous single "NEE" column in `cflux.out` was actually computing the full biome carbon budget (including harvest, land-use change, wood harvest, clearing, and manure). This is scientifically incorrect — NEE should report atmosphere-ecosystem exchange only. The fix separates them:
+
+```cpp
+// NEE: atmosphere-ecosystem C exchange only
+double nee = flux_veg - flux_repr + flux_soil + flux_fire;
+
+// Disturbance, management, and lateral C fluxes
+double c_disturb = flux_est + flux_seed + flux_charvest - flux_man
+    + lc.acflux_wood_harvest + lc.acflux_harvest_slow
+    + lc.acflux_clearing + lc.acflux_landuse_change
+    + c_org_leach_gridcell;
+
+// NBP: full biome budget
+double nbp = nee + c_disturb;
+
+outlimit(out, out_cflux, nee);   // NEE column
+outlimit(out, out_cflux, nbp);   // NBP column (new)
+```
+
+This follows IPCC/GCB conventions where NEE and NBP are distinct diagnostics. Manure (`flux_man`) is correctly subtracted as a lateral C input.
+
+**2. Monthly NBP (`file_mnbp`):** Renamed from `file_mnee`/`out_mnee` to `file_mnbp`/`out_mnbp` to correctly label the monthly output.
+
+**3. AET decomposition (`aaet.out`):** Restructured from per-PFT columns to decomposed hydrological components: `Evap` (bare-soil evaporation), `Intercep` (canopy interception), `Transp` (plant transpiration), `Total`, plus per-landcover sums. This reveals water partitioning across the hydrological cycle.
+
+**4. Annual transpiration (`file_atransp`):** New output file with per-PFT transpiration and landcover sums, using the existing per-PFT accumulation that was always transpiration only (despite the `aaet` naming).
+
 ---
 
 ## 8. The Runtime Parameter Pattern — Worked Example
@@ -1316,9 +1347,9 @@ No runtime parameter needed — this is a direct correction to respect an existi
 
 See `comprehensive_phase2_debug_report.md` Section 9.11 for the full 11-difference audit with code snippets, impact rankings, and per-gridcell time series.
 
-### 13.6 NEE (Originally Issue 6): Downstream
+### 13.6 NEE (Originally Issue 6): Downstream — ALSO ADDRESSED
 
-Near-zero-mean residual flux. Poor relative metrics are a mathematical artifact. Absolute bias typically < 0.01 kgC/m²/yr. Acceptable and will improve as upstream issues resolve.
+NEE divergence was downstream of other issues (absolute bias < 0.003 kgC/m²/yr). Additionally, the investigation revealed that `cflux.out`'s "NEE" column was actually computing NBP (included `acflux_wood_harvest + acflux_clearing`). This has been corrected: `cflux.out` now has separate `NEE` (atmosphere-ecosystem exchange only) and `NBP` (full biome budget) columns. See Section 7, "NBP and AET Output Improvements" for details.
 
 ### 13.7 Recommended Next Debug Steps
 
