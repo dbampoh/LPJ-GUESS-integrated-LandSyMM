@@ -1785,15 +1785,72 @@ This means the infiltration routing fix (Fix 3, identified in Section 9.11.6) co
 
 ---
 
-## 10. File Locations Reference
+## 10. Final Comprehensive Verification (2026-04-21)
+
+Following the completion of all fixes (Fixes 1–4) and the final completeness sweep, a comprehensive final verification was performed with freshly compiled binaries (commit `c5e4e0496`). This full-suite test covered 12 paired configurations (24 total runs): Historical + SSP126 Future × Deterministic + Stochastic × do_potyield=0/1/peatland. All 24 runs completed successfully with identical output dimensions.
+
+### 10.1 Final Match Rates (H_D0 baseline deterministic historical)
+
+- **706 total variables** compared across 56 output files
+- **464 (65.7%) perfect match** (0.00% MedRel)
+- **574 (81.3%) within 1%** MedRel
+- **624 (88.4%) within 5%** MedRel
+- **78 variables >5%** — every one categorized and explained (see below)
+
+### 10.2 Every Divergent Variable Explained
+
+Of the 78 variables with >5% MedRel in H_D0:
+
+| Category | Count | % | Root Cause |
+|----------|-------|---|------------|
+| Crop/yield variables | 43 | 55.1% | Nitrification gas fix (genuine improvement) |
+| Nitrogen fluxes/pools | 12 | 15.4% | Nitrification gas fix (genuine improvement) |
+| BNE/BINE boreal PFTs + tiny fluxes | 12 | 15.4% | N-limited PFTs responding to N-fix; near-zero absolute values |
+| Fire variables | 6 | 7.7% | Stochastic sparse events on 13-site grid |
+| NEE column (redefined) | 3 | 3.8% | Apples-to-oranges comparison artifact (fork NEE = integrated NBP) |
+| Hydrology | 2 | 2.6% | Infiltration routing improvement |
+
+**Zero unexplained divergences** across any of the 12 configurations.
+
+### 10.3 Core Ecosystem Integrity Confirmed
+
+| Variable | MedRel% Range (all 12 configs) | Correlation Range |
+|----------|-------------------------------|-------------------|
+| cpool Total | 0.19% – 0.79% | 0.993 – 1.000 |
+| cpool SoilC | 0.13% – 0.44% | 0.994 – 0.999 |
+| npool Total | 0.10% – 0.43% | 0.994 – 0.999 |
+| agpp Total | 0.28% – 3.06% | 0.988 – 0.999 |
+| cflux Veg | 0.41% – 3.19% | 0.978 – 0.998 |
+| tot_runoff Total | 0.53% – 3.41% | 0.996 – 1.000 |
+
+### 10.4 Peatland Outlier Fully Resolved (Fix 4 Confirmed)
+
+| Variable | H_DP MedRel% | H_DP Corr | Pre-Fix 4 Bias |
+|----------|-------------|-----------|----------------|
+| cpool_peatland Total | 2.47% | 0.997 | was +141% |
+| mch4 (annual) | ~2% | ~0.95 | was +20-40% |
+
+### 10.5 NEE/NBP Correctly Mapped
+
+Fork NEE vs Integrated NBP (apples-to-apples): 2–14% MedRel, correlations mostly >0.95.
+Fork NEE vs Integrated NEE (apples-to-oranges): 83–119% MedRel — expected, different quantities.
+
+**Full details**: See `docs/final_comprehensive_verification_report.md` for the complete evidence-based analysis with per-variable data tables, mechanism explanations, and cross-configuration comparisons.
+
+---
+
+## 11. File Locations Reference
 
 | Item | Path |
 |------|------|
 | Integrated source | `lpjg_landsymm_integration/LPJ-GUESS-integrated/` |
 | Fork source | `lpjg_landsymm_integration/LandSyMM_LPJ-GUESS/` |
 | Test ins files | `lpjg_landsymm_integration/verification/phase2_landsymm_consistency/local_ins/` |
-| Test output | `lpjg_landsymm_integration/verification/comprehensive_final_v2/` |
+| Test output (initial) | `lpjg_landsymm_integration/verification/comprehensive_final_v2/` |
+| Test output (final) | `lpjg_landsymm_integration/verification/final_comprehensive_v3/` |
+| Per-variable results | `lpjg_landsymm_integration/verification/final_comprehensive_v3/results/` |
 | Comparison script | `lpjg_landsymm_integration/verification/compare_per_variable.py` |
+| Final verification report | `docs/final_comprehensive_verification_report.md` |
 | Integration log | `lpjg_landsymm_integration/integration_log.md` |
 | Modification registry | `lpjg_landsymm_integration/modification_registry.md` |
-| This document | `lpjg_landsymm_integration/comprehensive_phase2_debug_report.md` |
+| This document | `docs/comprehensive_phase2_debug_report.md` |

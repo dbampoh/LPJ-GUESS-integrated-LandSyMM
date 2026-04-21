@@ -33,6 +33,22 @@ An integrated version of LPJ-GUESS that combines the upstream Latest Stable Rele
 - **Completeness sweep items:** (a) Timer convenience methods `write_outputs()` and `is_firsthist_or_restart_year()` added to Date class in `guess.h`. (b) Evaporation snow threshold parameterized in `hydrology_lpjf`: fork uses `snowpack` (SWE mm), LTS uses `dsnowdepth` (actual depth mm); now gated by `iflandsymm_hydrology_routing`. (c) `rain_melt_orig` saved before routing to fix baseflow percolation limiter. (d) `isinundated` percolation guards added to `hydrology_lpjf_twolayer` — fork skips overflow and percolation for INUNDATED stands during growing season; 4 guards added, gated by `iflandsymm_hydrology_routing`.
 - **NBP/AET output improvements** (from earlier tech_rename_aet_nee branch, D. Bampoh 2023): (a) Separated NEE (atmosphere-ecosystem exchange only) from NBP (full biome budget including harvest/LUC/manure/leaching) in `cflux.out` — the previous "NEE" column was actually closer to NBP. (b) Renamed monthly output from `file_mnee` to `file_mnbp`. (c) Decomposed `aaet.out` from per-PFT columns to Evap/Intercep/Transp/Total + per-landcover sums. (d) Added new `file_atransp` for per-PFT annual transpiration. (e) Added `file_mnee` as permanent backward-compatible alias for `file_mnbp` — existing ins files referencing `file_mnee` continue to work. Updated all standard and template ins files from `!file_mnee` to `!file_mnbp`.
 
+### Final Comprehensive Verification (2026-04-21)
+
+Full 24-run verification suite with freshly compiled binaries (12 configs × 2 binaries): Historical + SSP126 × Deterministic + Stochastic × do_potyield=0/1/peatland. Results confirm integration fidelity:
+
+- Core ecosystem pools: 0.1–0.8% MedRel, >0.993 correlation across all 12 configs
+- Natural vegetation PFTs: 0.00–0.36% MedRel, >0.989 correlation
+- Hydrology: 0.5–3.4% MedRel (routing improvement), >0.996 correlation
+- Peatland (post-Fix 4): 0.9–2.5% MedRel, >0.997 correlation (was +141% pre-fix)
+- Crop yields: 5–30% due to nitrification gas fix (genuine improvement)
+- 78 variables >5% MedRel in baseline config — 100% categorized and explained:
+  - 55% crop/yield (nitrification fix), 15% nitrogen fluxes (nitrification fix)
+  - 15% BNE/BINE PFTs + tiny fluxes, 8% fire (stochastic), 4% NEE (redefined), 3% hydrology
+- Zero unexplained divergences across any configuration
+
+See `docs/final_comprehensive_verification_report.md` for the full evidence-based analysis.
+
 ### Verification Investigation Outcomes (2026-01-27/28)
 
 All 6 issues from the Phase 2 verification test suite were investigated to root cause:
