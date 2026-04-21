@@ -33,6 +33,13 @@ An integrated version of LPJ-GUESS that combines the upstream Latest Stable Rele
 - **Completeness sweep items:** (a) Timer convenience methods `write_outputs()` and `is_firsthist_or_restart_year()` added to Date class in `guess.h`. (b) Evaporation snow threshold parameterized in `hydrology_lpjf`: fork uses `snowpack` (SWE mm), LTS uses `dsnowdepth` (actual depth mm); now gated by `iflandsymm_hydrology_routing`. (c) `rain_melt_orig` saved before routing to fix baseflow percolation limiter. (d) `isinundated` percolation guards added to `hydrology_lpjf_twolayer` — fork skips overflow and percolation for INUNDATED stands during growing season; 4 guards added, gated by `iflandsymm_hydrology_routing`.
 - **NBP/AET output improvements** (from earlier tech_rename_aet_nee branch, D. Bampoh 2023): (a) Separated NEE (atmosphere-ecosystem exchange only) from NBP (full biome budget including harvest/LUC/manure/leaching) in `cflux.out` — the previous "NEE" column was actually closer to NBP. (b) Renamed monthly output from `file_mnee` to `file_mnbp`. (c) Decomposed `aaet.out` from per-PFT columns to Evap/Intercep/Transp/Total + per-landcover sums. (d) Added new `file_atransp` for per-PFT annual transpiration. (e) Added `file_mnee` as permanent backward-compatible alias for `file_mnbp` — existing ins files referencing `file_mnee` continue to work. Updated all standard and template ins files from `!file_mnee` to `!file_mnbp`.
 
+### Documentation Expansion (2026-04-22)
+
+- Added `docs/final_comprehensive_verification_report.md` — 500-line evidence-based analysis of final 24-run verification suite
+- Technical manual: Added Section 10A (ins file architecture, import chain, override semantics, common pitfalls), Section 10B (5 generic simulation recipes from production to quick-test), Section 10C (step-by-step verification suite workflow with copy-paste commands)
+- README: Added final verification report to documentation table
+- Fixed stale `landsymm_py` URL in `landcover.ins` (`git.scc.kit.edu` → `gitlab.imk-ifu.kit.edu`)
+
 ### Final Comprehensive Verification (2026-04-21)
 
 Full 24-run verification suite with freshly compiled binaries (12 configs × 2 binaries): Historical + SSP126 × Deterministic + Stochastic × do_potyield=0/1/peatland. Results confirm integration fidelity:

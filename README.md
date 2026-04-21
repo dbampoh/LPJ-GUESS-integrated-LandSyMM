@@ -39,9 +39,10 @@ See `data/landsymm-integrated-ins/global.ins` for the complete parameter set wit
 
 | Document | Description |
 |----------|-------------|
-| **[Technical Manual](docs/LandSyMM_LPJ-GUESS_Integration_Technical_Manual.md)** | Comprehensive guide: integration process, runtime parameters, verification, debugging, future integration procedures |
-| **[Debug Report](docs/comprehensive_phase2_debug_report.md)** | Phase 2 verification results, 6 identified issues with root causes and fix plans |
-| **[Changelog](CHANGELOG.md)** | Summary of all additions, bug fixes, and known issues |
+| **[Technical Manual](docs/LandSyMM_LPJ-GUESS_Integration_Technical_Manual.md)** | Comprehensive guide: integration process, runtime parameters, ins file setup, running simulations, verification methodology, debugging, and future integration procedures |
+| **[Final Verification Report](docs/final_comprehensive_verification_report.md)** | Evidence-based analysis of the final 24-run verification suite: per-variable statistics, divergence categorization, and conclusion that all differences are explained |
+| **[Debug Report](docs/comprehensive_phase2_debug_report.md)** | Phase 2 verification investigation: 6 identified issues with root cause analysis, code-level fixes, and resolution status |
+| **[Changelog](CHANGELOG.md)** | Summary of all additions, fixes, verification outcomes, and known issues |
 
 ## Data Requirements
 

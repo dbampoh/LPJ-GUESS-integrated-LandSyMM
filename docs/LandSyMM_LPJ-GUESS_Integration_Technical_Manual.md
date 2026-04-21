@@ -1076,7 +1076,321 @@ python3 compare_per_variable.py \
 | **Peatland** | ≤0.8% (post-Fix4) | — | — | — | **EXCELLENT (post-Fix4)** |
 | **CH4 total** | 6-7% | 7-8% | 8% | 16% | **GOOD-MOD** |
 
-See `comprehensive_phase2_debug_report.md` for the full per-variable, per-test statistics tables.
+See `comprehensive_phase2_debug_report.md` for the full per-variable, per-test statistics tables, and `final_comprehensive_verification_report.md` for the final 24-run evidence-based analysis confirming zero unexplained divergences.
+
+---
+
+## 10A. Instruction File (`.ins`) Architecture and Nuances
+
+This section provides a detailed guide to the ins file system — the configuration layer that controls all LPJ-GUESS behavior. Understanding this architecture is essential for setting up simulations correctly.
+
+### 10A.1 The Import Chain and Override Semantics
+
+LPJ-GUESS ins files use an `import` directive that works like C `#include`: the imported file's contents are logically inserted at the point of the import statement. **Later definitions override earlier ones** — the last uncommented value for any parameter wins. This is both powerful and dangerous.
+
+The LandSyMM template ins files in `data/landsymm-integrated-ins/` use this chain:
+
+```
+main.ins                          ← Entry point (climate paths, time config, gridlist)
+├── import "global.ins"           ← Core params, output file defs, LandSyMM switches
+│   └── import "global_soiln.ins" ← Soil nitrogen parameters
+├── import "crop_n.ins"           ← Crop PFT definitions, N management
+│   └── import "landcover.ins"    ← LU file paths, stand types, run_peatland
+│       └── import "crop.ins"     ← Base crop PFT group definitions
+└── import "wetlandpfts.ins"      ← Peatland PFT definitions
+```
+
+**Critical nuance — parameter override order**: If `global.ins` sets `ggcmi2 1` but `crop_n.ins` (which imports `landcover.ins` which imports `crop.ins`) later sets `ggcmi2 0`, the effective value is `0` because `crop_n.ins` is imported *after* `global.ins` in `main.ins`. This caught us during verification testing. Always verify effective parameter values by checking the full import chain from bottom to top.
+
+**Commenting convention**: Lines starting with `!` are comments and are ignored. `!param "file_mnbp" "mnbp.out"` means the monthly NBP output is disabled. Remove the `!` to enable it.
+
+### 10A.2 The Three Ins File Sets
+
+The repository contains three distinct ins file sets, each serving a different purpose:
+
+| Set | Location | Purpose | Input module |
+|-----|----------|---------|-------------|
+| **LTS standard** | `data/ins/` | Standard upstream LPJ-GUESS demos | `demo` or `cf` |
+| **LandSyMM templates** | `data/landsymm-integrated-ins/` | Full LandSyMM production runs | `cfx` (CFX extended) |
+| **SSP126 overrides** | `data/landsymm-integrated-ins/ssp126-overrides/` | Future scenario continuation runs | `cfx` |
+
+The **LTS standard** ins files work out of the box with the demo input data distributed in the repository. They do not use any `iflandsymm_*` parameters and exercise only LTS code paths.
+
+The **LandSyMM templates** require external forcing data (see README for the complete data inventory). They contain `<DATA_ROOT>` and `<LU_ROOT>` placeholders that must be replaced using `setup_paths.sh` before running.
+
+The **SSP126 overrides** are a parallel set of `main.ins`, `crop.ins`, and `landcover.ins` that override the historical versions for future scenario runs. Key differences from the historical set:
+- `firstoutyear 2021` and `lasthistyear 2100` (future period)
+- `restart 1` and `restart_year 2020` (restart from historical state)
+- SSP126 land-use files (`plum_scen/ssp126/landcover.txt` etc.)
+- SSP126 N fertilization and irrigation files
+- `save_state` disabled (no state save at end of future run)
+
+### 10A.3 Key Parameter Groups and Their Effects
+
+**Time control** (`main.ins`):
+
+| Parameter | Historical | SSP126 Future | Effect |
+|-----------|-----------|---------------|--------|
+| `firsthistyear` | 1901 | 1901 | First year of historical forcing (same for both) |
+| `lasthistyear` | 2020 | 2100 | Last simulation year |
+| `firstoutyear` | 1901 | 2021 | First year to write output |
+| `lastoutyear` | 2020 | 2100 | Last year to write output |
+| `restart` | 0 | 1 | Whether to load state from file |
+| `restart_year` | — | 2020 | Year of state file to load |
+| `save_state` | 1 | 0 | Whether to save state at end |
+| `save_years` | "2020" | — | Which years to save state for |
+| `nyear_spinup` | 500 | 500 | Spinup years (ignored when restart=1) |
+
+**Stochastic vs deterministic** (`global.ins`):
+
+| Parameter | Deterministic | Stochastic | Effect |
+|-----------|--------------|-----------|--------|
+| `npatch` | 1 | 5–25 | Number of replicate patches per stand |
+| `ifstochestab` | 0 or 1 | 1 | Stochastic establishment events |
+| `ifstochmort` | 0 or 1 | 1 | Stochastic mortality events |
+| `ifdisturb` | 0 or 1 | 1 | Patch-destroying disturbances |
+
+For verification testing, use `npatch 1` (deterministic) to isolate code differences from stochastic noise. For production runs, use `npatch 25` (the LandSyMM default).
+
+**Crop mode** (`landcover.ins`):
+
+| Parameter | LU-driven (standard) | Ins-driven (factorial) | Effect |
+|-----------|---------------------|----------------------|--------|
+| `do_potyield` | 0 | 1 | How crop allocation is determined |
+| `run_peatland` | 0 | 0 or 1 | Whether peatland stands are simulated |
+| `run_crop` | 1 | 1 | Whether crop stands are simulated |
+| `run_forest` | 0 | 0 | Whether managed forest is simulated |
+
+**LandSyMM behavioral switches** (`global.ins`):
+
+The 18 `iflandsymm_*` parameters in `global.ins` (lines 104–178) control whether the integrated binary uses LTS or LandSyMM physics for each subsystem. They are grouped and annotated in the file itself. To run in **full LandSyMM mode**, set all to their LandSyMM values (as shown in the template). To run in **pure LTS mode**, either omit them entirely (they default to LTS) or explicitly set them all to 0.
+
+### 10A.4 The `setup_paths.sh` Script
+
+Before running LandSyMM simulations, you must replace the placeholder paths:
+
+```bash
+cd data/landsymm-integrated-ins
+./setup_paths.sh /path/to/your/data/root /path/to/your/lu/root
+```
+
+This modifies ins files **in place**, replacing `<DATA_ROOT>`, `<LU_ROOT>`, and `<USER>` placeholders in all `.ins` files (including `ssp126-overrides/`). To undo: `git checkout -- data/landsymm-integrated-ins/`.
+
+**KIT Simba2 example:**
+```bash
+./setup_paths.sh /bg/data/lpj/LPJ-GUESS/input /bg/data/lpj/$USER/landsymm_lu
+```
+
+### 10A.5 Common Ins File Pitfalls
+
+1. **Parameter override surprise**: A parameter set in `global.ins` can be silently overridden by a later import. Always check the full chain when debugging unexpected behavior. Use `grep -rn "parameter_name" data/landsymm-integrated-ins/` to find all definitions.
+
+2. **`file_*2` (multi-part climate)**: The `file_temp2`, `file_prec2`, etc. parameters specify the SSP scenario climate files used when the simulation year exceeds the historical file's range. These are processed by `setup_multipart()` in `framework.cpp`. If these are set to `""` (empty string), the model recycles the last year of historical climate — this is usually wrong for future projections.
+
+3. **`ifsaturatewetlands` must match between runs**: If comparing integrated vs fork output for peatland runs, both must use the same `ifsaturatewetlands` value. The integrated version now correctly respects this parameter (Fix 4), but mismatches will produce large divergence.
+
+4. **`ggcmi2` vs `isimip3` are mutually exclusive**: Setting both to 1 produces undefined behavior. The LandSyMM templates use `ggcmi2 1` and `isimip3 0`.
+
+5. **Output directory**: `outputdirectory "./"` means output goes to the current working directory, not the ins file directory. Always `cd` to your desired output directory before running `guess`.
+
+6. **Empty string parameters**: Setting `param "file_foo" (str "")` tells LPJ-GUESS to skip loading that input. This is the correct way to disable optional inputs (not commenting out the line, which leaves the parameter undefined and may cause errors).
+
+---
+
+## 10B. Running Simulations: Generic Templates and Recipes
+
+This section provides copy-paste-ready recipes for the most common simulation scenarios. All recipes assume the binary is built and paths are configured.
+
+### 10B.1 Recipe 1: Historical LandSyMM Run (Standard Production)
+
+This is the standard historical simulation from 1901–2020 with 500-year spinup, full LandSyMM physics, and state saving for future restart.
+
+```bash
+# 1. Prepare output directory
+mkdir -p /path/to/output/historical && cd /path/to/output/historical
+mkdir -p state
+
+# 2. Copy gridlist (or symlink)
+cp /path/to/LPJ-GUESS-integrated/data/landsymm-integrated-ins/gridlist_test480.txt gridlist.txt
+# Or for a full global run:
+# cp .../gridlist_in_62892_and_climate.txt gridlist.txt
+
+# 3. Run (using template main.ins which includes all other ins files)
+/path/to/LPJ-GUESS-integrated/build/guess -input cfx \
+    /path/to/LPJ-GUESS-integrated/data/landsymm-integrated-ins/main.ins
+```
+
+**Expected runtime**: 500yr spinup + 120yr historical ≈ several hours per gridcell (highly variable with npatch setting).
+
+**Outputs**: 56 `.out` files in the current directory, plus `state/meta.bin` (saved state at year 2020).
+
+### 10B.2 Recipe 2: SSP126 Future Continuation Run
+
+This restarts from the historical run's saved state and runs 2021–2100 under SSP126 forcing with SSP126 land-use.
+
+```bash
+# 1. Prepare output directory
+mkdir -p /path/to/output/ssp126 && cd /path/to/output/ssp126
+
+# 2. Copy gridlist
+cp /path/to/output/historical/gridlist.txt gridlist.txt
+
+# 3. Edit the SSP126 main.ins to point to the correct state directory
+#    The template has: state_path "./state"
+#    Change this to the ABSOLUTE path of your historical state:
+#    state_path "/path/to/output/historical/state"
+#    (or create a symlink: ln -s /path/to/output/historical/state state)
+
+# 4. Run with SSP126 overrides
+/path/to/LPJ-GUESS-integrated/build/guess -input cfx \
+    /path/to/LPJ-GUESS-integrated/data/landsymm-integrated-ins/ssp126-overrides/main.ins
+```
+
+**Key differences from historical**: The SSP126 `main.ins` sets `restart 1`, `restart_year 2020`, `firstoutyear 2021`, and `lasthistyear 2100`. The SSP126 `landcover.ins` points to PLUM scenario land-use files. The SSP126 `crop.ins` points to SSP126 N fertilization and irrigation files.
+
+### 10B.3 Recipe 3: Quick Test Run (2-Cell, Deterministic)
+
+For rapid testing of code changes or parameter experiments:
+
+```bash
+mkdir -p /tmp/guess_test && cd /tmp/guess_test
+cp /path/to/LPJ-GUESS-integrated/data/landsymm-integrated-ins/gridlist_test2.txt gridlist.txt
+mkdir -p state
+
+# Override npatch and spinup for speed
+/path/to/LPJ-GUESS-integrated/build/guess -input cfx \
+    /path/to/LPJ-GUESS-integrated/data/landsymm-integrated-ins/main.ins \
+    -npatch 1 -nyear_spinup 200
+```
+
+**Note**: Command-line `-parameter value` arguments override ins file values. This is useful for quick experiments without modifying ins files.
+
+### 10B.4 Recipe 4: Peatland Run
+
+To enable peatland simulation, you need to modify `landcover.ins` to set `run_peatland 1` and use peatland-variant land-use files:
+
+```bash
+mkdir -p /path/to/output/peatland && cd /path/to/output/peatland
+mkdir -p state
+cp .../gridlist.txt gridlist.txt
+
+# Run with peatland — override run_peatland on command line:
+/path/to/build/guess -input cfx .../main.ins \
+    -run_peatland 1
+```
+
+**Peatland outputs**: `cmass_peatland.out`, `cflux_peatland.out`, `cpool_peatland.out`, `nflux_peatland.out`, `npool_peatland.out`, `mch4.out`, `mch4_diffusion.out`, `mch4_ebullition.out`, `mch4_plant.out`.
+
+**Important**: The `ifsaturatewetlands` parameter controls whether low-latitude wetlands are force-saturated. For most configurations, `ifsaturatewetlands 0` is appropriate (it is the default in the LandSyMM templates).
+
+### 10B.5 Recipe 5: Pure LTS Mode (No LandSyMM Features)
+
+To run the integrated binary in pure LTS mode (for Phase 1 verification or when LandSyMM features are not needed):
+
+```bash
+mkdir -p /path/to/output/lts_mode && cd /path/to/output/lts_mode
+
+# Use the standard LTS ins files (no iflandsymm_* parameters)
+/path/to/LPJ-GUESS-integrated/build/guess -input demo \
+    /path/to/LPJ-GUESS-integrated/data/ins/global_demo.ins
+```
+
+All `iflandsymm_*` parameters default to 0 (LTS behavior) when not specified in the ins file. The integrated binary with standard LTS ins files produces output identical to the original upstream LTS (verified: MedRel ≤ 0.2%, Corr ≥ 0.999).
+
+---
+
+## 10C. Full Verification Suite: Step-by-Step Recipe
+
+This section provides the exact commands to reproduce the final comprehensive verification. This is the "gold standard" test that confirms the integration is correct.
+
+### 10C.1 Prerequisites
+
+- Both binaries compiled at `-O2` (see Section 3.3 and 3.4)
+- External forcing data configured via `setup_paths.sh`
+- Python 3 with NumPy for comparison scripts
+
+### 10C.2 Create Verification Ins Files
+
+For each of the 12 configurations, you need an ins file for the integrated binary and one for the fork binary. The key differences:
+
+**Integrated ins files** include all `iflandsymm_*=1` parameters (from the LandSyMM template `global.ins`).
+
+**Fork ins files** use a separate `global_fork.ins` that omits all `iflandsymm_*` parameters (the fork doesn't recognize them and would error).
+
+**Configuration-specific overrides** (applied on top of the base ins file for each config):
+
+| Config | Overrides |
+|--------|-----------|
+| D0 (deterministic, potyield=0) | `npatch 1`, `ifstochestab 0`, `ifstochmort 0`, `ifdisturb 0`, `do_potyield 0` |
+| S0 (stochastic, potyield=0) | `npatch 5`, `ifstochestab 1`, `ifstochmort 1`, `ifdisturb 1`, `do_potyield 0` |
+| D1 (deterministic, potyield=1) | `npatch 1`, `ifstochestab 0`, `ifstochmort 0`, `ifdisturb 0`, `do_potyield 1` |
+| S1 (stochastic, potyield=1) | `npatch 5`, `ifstochestab 1`, `ifstochmort 1`, `ifdisturb 1`, `do_potyield 1` |
+| DP (deterministic, peatland) | `npatch 1`, `ifstochestab 0`, `ifstochmort 0`, `ifdisturb 0`, `do_potyield 0`, `run_peatland 1` |
+| SP (stochastic, peatland) | `npatch 5`, `ifstochestab 1`, `ifstochmort 1`, `ifdisturb 1`, `do_potyield 0`, `run_peatland 1` |
+
+For SSP126 future configs (F_*), add: `restart 1`, `restart_year 2020`, `firstoutyear 2021`, `lasthistyear 2100`, and point `state_path` to the corresponding historical run's state directory.
+
+### 10C.3 Create Output Directories and Launch
+
+```bash
+BASE=/path/to/verification/output
+INTEG_BIN=/path/to/LPJ-GUESS-integrated/build/guess
+FORK_BIN=/path/to/LandSyMM_LPJ-GUESS/build/guess
+INS_DIR=/path/to/verification/ins_files
+
+# Create all 24 output directories
+for test in H_D0 H_S0 H_D1 H_S1 H_DP H_SP; do
+    for bin in integ fork; do
+        mkdir -p $BASE/P2_${test}_${bin}/state
+    done
+done
+for test in F_D0 F_S0 F_D1 F_S1 F_DP F_SP; do
+    for bin in integ fork; do
+        mkdir -p $BASE/P2_${test}_${bin}
+    done
+done
+
+# Launch all 12 historical runs (6 configs × 2 binaries)
+for test in H_D0 H_S0 H_D1 H_S1 H_DP H_SP; do
+    cd $BASE/P2_${test}_integ && $INTEG_BIN -input cfx $INS_DIR/P2_${test}_integ.ins &
+    cd $BASE/P2_${test}_fork  && $FORK_BIN  -input cfx $INS_DIR/P2_${test}_fork.ins &
+done
+echo "12 historical runs launched. Monitor with: ps aux | grep guess"
+
+# Wait for historical runs to complete...
+# Check: all P2_H_*_{integ,fork}/cflux.out should have the same number of lines
+
+# Launch all 12 future runs
+for test in F_D0 F_S0 F_D1 F_S1 F_DP F_SP; do
+    cd $BASE/P2_${test}_integ && $INTEG_BIN -input cfx $INS_DIR/P2_${test}_integ.ins &
+    cd $BASE/P2_${test}_fork  && $FORK_BIN  -input cfx $INS_DIR/P2_${test}_fork.ins &
+done
+echo "12 future runs launched."
+```
+
+### 10C.4 Run Comparisons
+
+```bash
+SCRIPT=/path/to/verification/compare_per_variable.py
+mkdir -p $BASE/results
+
+for test in H_D0 H_S0 H_D1 H_S1 H_DP H_SP F_D0 F_S0 F_D1 F_S1 F_DP F_SP; do
+    python3 $SCRIPT $BASE/P2_${test}_fork $BASE/P2_${test}_integ \
+        > $BASE/results/compare_${test}.txt
+done
+```
+
+### 10C.5 Interpret Results
+
+Check each comparison file. For healthy integration:
+- **cpool.out Total**: MedRel ≤ 1%, Corr ≥ 0.99
+- **agpp.out Total**: MedRel ≤ 3%, Corr ≥ 0.98
+- **tot_runoff.out Total**: MedRel ≤ 5%, Corr ≥ 0.99
+- **yield.out (major crops)**: MedRel ≤ 30% (nitrification fix)
+- **cflux.out Fire**: High MedRel is normal (stochastic, tiny values)
+- **cflux.out NEE**: Ignore MedRel (different definitions); compare fork NEE ↔ integrated NBP instead
+
+For the full expected ranges, see `docs/final_comprehensive_verification_report.md`.
 
 ---
 
