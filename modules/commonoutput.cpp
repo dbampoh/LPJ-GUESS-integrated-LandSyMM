@@ -35,6 +35,7 @@ CommonOutput::CommonOutput() {
 	declare_parameter("file_anpp", &file_anpp, 300, "Annual NPP output file");
 	declare_parameter("file_agpp", &file_agpp, 300, "Annual GPP output file");
 	declare_parameter("file_fpc", &file_fpc, 300, "FPC output file");
+	declare_parameter("file_atransp", &file_atransp, 300, "Annual transpiration output file");
 	declare_parameter("file_aaet", &file_aaet, 300, "Annual AET output file");
 	declare_parameter("file_lai", &file_lai, 300, "LAI output file");
 	declare_parameter("file_cflux", &file_cflux, 300, "C fluxes output file");
@@ -72,7 +73,7 @@ CommonOutput::CommonOutput() {
 	declare_parameter("file_mrunoff", &file_mrunoff, 300, "Monthly runoff output file");
 	declare_parameter("file_mintercep", &file_mintercep, 300, "Monthly intercep output file");
 	declare_parameter("file_mrh", &file_mrh, 300, "Monthly heterotrophic respiration output file");
-	declare_parameter("file_mnee", &file_mnee, 300, "Monthly NEE output file");
+	declare_parameter("file_mnbp", &file_mnbp, 300, "Monthly NBP output file");
 	declare_parameter("file_mwcont_upper", &file_mwcont_upper, 300, "Monthly wcont_upper output file");
 	declare_parameter("file_mwcont_lower", &file_mwcont_lower, 300, "Monthly wcont_lower output file");
 	// bvoc
@@ -223,9 +224,16 @@ void CommonOutput::define_output_tables() {
 	ColumnDescriptors fpc_columns = cmass_columns;
 
 	// AET
+	ColumnDescriptors atransp_columns;
+	atransp_columns += ColumnDescriptors(pfts,                8, 2);
+	atransp_columns += ColumnDescriptor("Total",              8, 2);
+	atransp_columns += ColumnDescriptors(landcovers,         13, 2);
+
 	ColumnDescriptors aaet_columns;
-	aaet_columns += ColumnDescriptors(pfts,                8, 2);
-	aaet_columns += ColumnDescriptor("Total",              8, 2);
+	aaet_columns += ColumnDescriptor("Evap",               9, 2);
+	aaet_columns += ColumnDescriptor("Intercep",          11, 2);
+	aaet_columns += ColumnDescriptor("Transp",             9, 2);
+	aaet_columns += ColumnDescriptor("Total",              9, 2);
 	aaet_columns += ColumnDescriptors(landcovers,         13, 2);
 
 	// DENS
@@ -252,6 +260,7 @@ void CommonOutput::define_output_tables() {
 		 cflux_columns += ColumnDescriptor("Slow_h",       9, 4);
 	}
 	cflux_columns += ColumnDescriptor("NEE",              10 + bm_extra_prec, 5 + bm_extra_prec);
+	cflux_columns += ColumnDescriptor("NBP",              10 + bm_extra_prec, 5 + bm_extra_prec);
 
 	ColumnDescriptors doc_columns;
 	doc_columns += ColumnDescriptor("Total",              10, 3);
@@ -444,6 +453,7 @@ void CommonOutput::define_output_tables() {
 	create_output_table(out_anpp,           file_anpp,           anpp_columns);
 	create_output_table(out_agpp,           file_agpp,           agpp_columns);
 	create_output_table(out_fpc,            file_fpc,            fpc_columns);
+	create_output_table(out_atransp,        file_atransp,        atransp_columns);
 	create_output_table(out_aaet,           file_aaet,           aaet_columns);
 	create_output_table(out_dens,           file_dens,           dens_columns);
 	create_output_table(out_lai,            file_lai,            lai_columns);
@@ -492,7 +502,7 @@ void CommonOutput::define_output_tables() {
 	create_output_table(out_mrunoff,        file_mrunoff,        month_columns_wide);
 	create_output_table(out_mintercep,      file_mintercep,      month_columns);
 	create_output_table(out_mrh,            file_mrh,            month_columns);
-	create_output_table(out_mnee,           file_mnee,           month_columns);
+	create_output_table(out_mnbp,           file_mnbp,           month_columns);
 	create_output_table(out_mwcont_upper,   file_mwcont_upper,   month_columns);
 	create_output_table(out_mwcont_lower,   file_mwcont_lower,   month_columns);
 	create_output_table(out_miso,           file_miso,           month_columns_wide);
@@ -791,7 +801,7 @@ void CommonOutput::outannual(Gridcell& gridcell) {
 	double mrunoff[12];
 	double mrh[12];
 	double mra[12];
-	double mnee[12];
+	double mnbp[12];
 	double mwcont_upper[12];
 	double mwcont_lower[12];
 	double miso[12];
@@ -819,7 +829,7 @@ void CommonOutput::outannual(Gridcell& gridcell) {
 
 	// guess2008 - reset monthly and annual sums across patches each year
 	for (m = 0; m < 12; m++) {
-		mnpp[m] = mlai[m] = mgpp[m] = mra[m] = maet[m] = mpet[m] = mevap[m] = mintercep[m] = mrunoff[m] = mrh[m] = mnee[m] = mwcont_upper[m] = mwcont_lower[m] = miso[m] = mmon[m] = mmon_mt1[m] = mmon_mt2[m] = 0.0;
+		mnpp[m] = mlai[m] = mgpp[m] = mra[m] = maet[m] = mpet[m] = mevap[m] = mintercep[m] = mrunoff[m] = mrh[m] = mnbp[m] = mwcont_upper[m] = mwcont_lower[m] = miso[m] = mmon[m] = mmon_mt1[m] = mmon_mt2[m] = 0.0;
 		mcflux_fire[m] = 0.0;
 
 		for (int sl = 0; sl < SOILTEMPOUT; sl++) msoilt[m][sl] = 0.0;
@@ -1221,7 +1231,7 @@ void CommonOutput::outannual(Gridcell& gridcell) {
 		outlimit(out,out_anpp,      mean_standpft_anpp);
 		outlimit(out,out_agpp,      mean_standpft_agpp);
 		outlimit(out,out_fpc,       mean_standpft_fpc);
-		outlimit(out,out_aaet,      mean_standpft_aaet);
+		outlimit(out,out_atransp,   mean_standpft_aaet);
 		outlimit(out,out_clitter,   mean_standpft_clitter);
 		outlimit(out,out_dens,      mean_standpft_densindiv_total);
 		outlimit(out,out_lai,       mean_standpft_lai);
@@ -1479,7 +1489,7 @@ void CommonOutput::outannual(Gridcell& gridcell) {
 	// or establishment fluxes
 	for (m=0;m<12;m++) {
 		mnpp[m] = mgpp[m] - mra[m];
-		mnee[m] = mrh[m] - mnpp[m];
+		mnbp[m] = mrh[m] - mnpp[m];
 	}
 
 	// Print gridcell totals to files
@@ -1496,7 +1506,7 @@ void CommonOutput::outannual(Gridcell& gridcell) {
 	outlimit(out,out_anpp,					anpp_gridcell);
 	outlimit(out,out_agpp,					agpp_gridcell);
 	outlimit(out,out_fpc,					fpc_gridcell);
-	outlimit(out,out_aaet,					aaet_gridcell);
+	outlimit(out,out_atransp,				aaet_gridcell);
 	outlimit(out,out_dens,					dens_gridcell);
 	outlimit(out,out_lai,					lai_gridcell);
 	outlimit(out,out_clitter,				clitter_gridcell);
@@ -1545,7 +1555,7 @@ void CommonOutput::outannual(Gridcell& gridcell) {
 				outlimit(out,out_anpp,  landcover_anpp[i]);
 				outlimit(out,out_agpp,  landcover_agpp[i]);
 				outlimit(out,out_fpc,   landcover_fpc[i]);
-				outlimit(out,out_aaet,  landcover_aaet[i]);
+				outlimit(out,out_atransp, landcover_aaet[i]);
 				outlimit(out,out_dens,  landcover_densindiv_total[i]);
 				outlimit(out,out_lai,   landcover_lai[i]);
 				outlimit(out,out_clitter, landcover_clitter[i]);
@@ -1582,7 +1592,7 @@ void CommonOutput::outannual(Gridcell& gridcell) {
 		outlimit(out,out_mrunoff,      mrunoff[m]);
 		outlimit(out,out_mintercep,    mintercep[m]);
 		outlimit(out,out_mrh,          mrh[m]);
-		outlimit(out,out_mnee,         mnee[m]);
+		outlimit(out,out_mnbp,         mnbp[m]);
 		outlimit(out,out_mwcont_upper, mwcont_upper[m]);
 		outlimit(out,out_mwcont_lower, mwcont_lower[m]);
 		outlimit(out,out_miso,         miso[m]);
@@ -1638,6 +1648,20 @@ void CommonOutput::outannual(Gridcell& gridcell) {
 	}
 
 	outlimit(out,out_mald, maxald_gridcell); // [m]
+
+	// AET decomposed output
+	double aaet_total = aevap + aaet_gridcell + aintercep;
+	outlimit(out, out_aaet, aevap);
+	outlimit(out, out_aaet, aintercep);
+	outlimit(out, out_aaet, aaet_gridcell);
+	outlimit(out, out_aaet, aaet_total);
+	if (run_landcover) {
+		for (int i = 0; i < NLANDCOVERTYPES; i++) {
+			if (run[i]) {
+				outlimit(out, out_aaet, landcover_aaet[i]);
+			}
+		}
+	}
 
 	// Graphical output every PLOT_INTERVAL years
 	// (Windows shell only - no effect otherwise)
@@ -1713,8 +1737,20 @@ void CommonOutput::outannual(Gridcell& gridcell) {
 			outlimit(out,out_cflux, lc.acflux_wood_harvest + lc.acflux_clearing + lc.acflux_landuse_change);
 			outlimit(out,out_cflux, lc.acflux_harvest_slow);
 	}
-	outlimit(out,out_cflux, flux_man + flux_veg - flux_repr + flux_soil + flux_fire + flux_est + c_org_leach_gridcell +
-				flux_seed + flux_charvest + lc.acflux_wood_harvest + lc.acflux_clearing + lc.acflux_landuse_change + lc.acflux_harvest_slow);
+	// NEE: atmosphere-ecosystem C exchange only (positive = source to atmosphere)
+	double nee = flux_veg - flux_repr + flux_soil + flux_fire;
+
+	// Disturbance, management and lateral C fluxes
+	double c_disturb = flux_est + flux_seed + flux_charvest - flux_man
+		+ lc.acflux_wood_harvest + lc.acflux_harvest_slow
+		+ lc.acflux_clearing + lc.acflux_landuse_change
+		+ c_org_leach_gridcell;
+
+	// NBP: full biome carbon budget (NEE + all disturbance/management/lateral)
+	double nbp = nee + c_disturb;
+
+	outlimit(out, out_cflux, nee);
+	outlimit(out, out_cflux, nbp);
 
 	outlimit(out,out_doc, (c_org_leach_gridcell) * M2_PER_HA);
 
