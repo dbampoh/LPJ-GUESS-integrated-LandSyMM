@@ -31,11 +31,54 @@
 
 ## 1. Executive Summary
 
-This manual documents the complete integration of the LandSyMM (Land System Modular Model) modifications into the LPJ-GUESS Latest Stable Release (LTS, Version 4.1). The integration preserves the LTS codebase's full functionality while adding LandSyMM's capabilities — enhanced crop management, wetland/peatland support, SPITFIRE fire model, GGCMI crop intercomparison, IMOGEN climate coupling, and biological nitrogen fixation — as selectable features controlled entirely via runtime parameters in instruction (`.ins`) files.
+This manual documents the complete integration of the LandSyMM (Land System Modular Model) modifications into the LPJ-GUESS Latest Stable Release (LTS, Version 4.1). The integration preserves the LTS codebase's full functionality while adding LandSyMM's capabilities — enhanced crop management, potential-yield factorial mode, wetland/peatland support, SPITFIRE fire model, GGCMI crop intercomparison, IMOGEN climate coupling, and biological nitrogen fixation — as selectable features controlled entirely via runtime parameters in instruction (`.ins`) files.
 
-**Key design principle:** All LandSyMM features are controlled by runtime parameters that default to LTS behavior. When no LandSyMM parameters are set, the integrated codebase produces **identical output** to the original upstream LTS. When LandSyMM parameters are enabled, the codebase activates fork-equivalent code paths to replicate LandSyMM behavior. This dual-mode capability is the architectural foundation of the entire integration.
+### 1.1 Scientific Motivation (Why this integration exists)
 
-**Scale of integration:**
+LPJ-GUESS is a process-based dynamic global vegetation model (DGVM) developed at Lund University. The LandSyMM project at the Karlsruhe Institute of Technology (KIT) and partner institutions extended LPJ-GUESS as the vegetation/ecosystem component of a coupled Earth-system framework that links it to the Parsimonious Land Use Model (PLUM/PLUMv2) and, optionally, to the IMOGEN intermediate-complexity climate model. The two foundational LandSyMM publications motivate every modification that the fork made to LPJ-GUESS:
+
+- **Alexander et al. (2018)** — *Adaptation of global land use and management intensity to changes in climate and atmospheric carbon dioxide.* Glob. Change Biol. 24:2791–2809. doi:10.1111/gcb.14110
+- **Rabin et al. (2020)** — *Impacts of future agricultural change on ecosystem service indicators.* Earth Syst. Dynam. 11:357–376. doi:10.5194/esd-11-357-2020
+
+Together they establish the LandSyMM coupled-modeling workflow:
+
+1. **Spin up LPJ-GUESS** to a steady-state historical vegetation state.
+2. **Run LPJ-GUESS in "yield-generating" / "potential yield" factorial mode** to produce per-grid-cell, per-crop yield surfaces under six management treatments (3 fertilizer rates × 2 irrigation regimes; Rabin 2020 Sect. 2.3, Alexander 2018 Sect. 2.2). These factorial yields are what allow PLUMv2 to choose intensities at the grid-cell level rather than at coarse regional scales.
+3. **Feed yields into PLUMv2**, which uses GDP/population scenarios to project country-level demand and grid-cell-level land use, fertilizer, and irrigation under a chosen SSP-RCP combination.
+4. **Harmonize PLUM outputs with the historical baseline** (a procedure based on the Land Use Harmonization v1 routine of Hurtt et al., 2011) so that PLUM's projected 2011 land use joins smoothly to the observed 2010 land use; without harmonization, the historical-to-future boundary would induce spurious abandonment/expansion artifacts that contaminate carbon-cycle interpretation (Rabin 2020 Sect. 2.3). The harmonization is implemented in the companion `landsymm_py` Python pipeline.
+5. **Run LPJ-GUESS again** with the harmonized PLUM land-use trajectory to produce ecosystem-service indicators (carbon storage, runoff, biodiversity proxies, N pollution) over the 21st century.
+
+For this workflow to function, LPJ-GUESS itself had to be modified in several specific ways:
+
+- **External LU forcing**: ability to consume gridded historical LU (HILDA+ remap) and harmonized future LU (PLUMharm) text files at half-degree resolution.
+- **Potential-yield factorial mode**: the `do_potyield`/`isforpotyield` machinery that lets a single run produce multiple irrigation × fertilization yield surfaces per crop without internal LU dynamics interfering.
+- **Wetland/peatland (Wania) submodel**: peatland fraction as a distinct land-cover class, freeze–thaw soil physics, and three CH₄ transport pathways (diffusion, ebullition, plant-mediated) — relevant especially for IMOGEN-coupled simulations where CH₄ feeds back into the climate model alongside CO₂ and N₂O.
+- **Enhanced crop management**: 5 hydrology classes (rainfed, irrigated, irrigated-to-wilting-point, irrigated-to-saturation, inundated for rice paddies), per-crop phenology data (PHU/PVD/sowing/harvest dates) loadable from external files, and biological N fixation for legume crops.
+- **Climate-input multipart files**: ability to read historical + scenario climate as two file pairs (`file_temp1`/`file_temp2`, etc.) so that a single simulation can transition cleanly from historical to future forcing.
+- **State save/restart aliases**: HPC-friendly `restart_year`, `save_year`, `save_years` parameters for the historical → future continuation workflow.
+
+These modifications were originally built directly into a fork of LPJ-GUESS that diverged from the trunk many years ago. The fork's drift from the LTS made every upstream improvement (bug fixes, parameterizations, performance) something the LandSyMM developers had to manually port — a continual maintenance tax. **This integration eliminates that tax** by re-expressing every fork modification as a runtime-selectable code path on top of the current LTS, so a single binary can either be the LTS exactly or the LandSyMM fork behaviorally.
+
+### 1.2 Key Design Principle
+
+All LandSyMM features are controlled by runtime parameters that default to LTS behavior. When no LandSyMM parameters are set, the integrated codebase produces **identical output** to the original upstream LTS. When LandSyMM parameters are enabled, the codebase activates fork-equivalent code paths to replicate LandSyMM behavior. This dual-mode capability is the architectural foundation of the entire integration.
+
+### 1.3 LTS Baseline Provenance
+
+This integration is built on a specific, identifiable upstream LTS commit:
+
+| Attribute | Value |
+|-----------|-------|
+| **Version** | LPJ-GUESS 4.1 (per `reference/releasenotes.txt` in upstream tree) |
+| **Branch** | `trunk` |
+| **HEAD commit** | `a4575b9bd8cf86636a522154baebf29fac8ab422` |
+| **Commit date** | 2026-03-12 (committer: `LPJ-GUESS_admin`, message: "Merge remote-tracking branch remotes/origin/svn-trunk into trunk") |
+| **Upstream remote** | `git@stormbringer4.nateko.lu.se:lpj-guess-developers/LPJ-GUESS.git` (Lund University) |
+
+A pristine clone of this exact LTS commit is preserved alongside the integrated codebase in the parent project directory (`../LPJ-GUESS/`) and serves as the Phase 1 verification reference: the integrated binary, run with no `iflandsymm_*` parameters set, reproduces the LTS output to MedRel ≤ 0.2% and Corr ≥ 0.999 across 13 global sites.
+
+### 1.4 Scale of Integration
+
 - **208 files** with differences between fork and LTS identified and classified
 - **47 modification registry entries** across 10 directories, each documented with rationale
 - **50 integration steps** performed across ~2 weeks, each on a dedicated git feature branch
@@ -43,6 +86,8 @@ This manual documents the complete integration of the LandSyMM (Land System Modu
 - **9,750 total commits** in the integrated repository (3,082 from upstream history + integration work)
 - **16-configuration verification test suite** spanning deterministic/stochastic modes, historical/SSP126 scenarios, potyield=0/1, and peatland on/off
 - **13 global demo sites** (G13 gridlist) used for verification, providing biome diversity from tropical to boreal
+
+### 1.5 Scope of This Manual
 
 **What this manual covers:** Every decision, every deferred item with its rationale, every code pattern employed, every bug discovered and how it was diagnosed, and a complete procedure for reproducing or extending this integration in the future. The intent is that any developer familiar with C++ and LPJ-GUESS (but with zero knowledge of this specific integration project) could pick up this manual and independently perform the same work, adapt it to future LTS versions, or extend it with new LandSyMM features.
 
@@ -52,19 +97,31 @@ This manual documents the complete integration of the LandSyMM (Land System Modu
 
 ### 2.1 What is LandSyMM?
 
-LandSyMM (Land System Modular Model) is a modelling framework for studying land-use and land-cover change (LULCC) impacts on the Earth system. At its core, LandSyMM uses LPJ-GUESS (Lund-Potsdam-Jena General Ecosystem Simulator) as its dynamic global vegetation model (DGVM) component, but with substantial modifications tailored for LULCC studies:
+LandSyMM (Land System Modular Model) is the coupled land–vegetation modeling framework named in Rabin et al. (2020) that links a process-based dynamic global vegetation model (LPJ-GUESS) with the Parsimonious Land Use Model PLUM/PLUMv2 (Engström et al., 2016; Alexander et al., 2018). The framework was designed to overcome a structural limitation of earlier integrated assessment models: those models typically chose agricultural areas and intensities at coarse regional scales using stylized yield response functions, which could not capture the spatially differentiated responses of crops to climate and CO₂. LandSyMM instead uses **biophysically-derived per-grid-cell yield potentials at 0.5° resolution** as the basis for an economic land-use optimization, so that the model can explore questions about adaptation of the global agriculture and food system to climate change at much higher fidelity (Alexander et al., 2018, Sect. 1).
 
-- **External land-use forcing** from PLUM (Projected Land Use Model) via remapped HILDA+ historic and PLUM scenario data. Unlike standard LPJ-GUESS which can internally generate land-use decisions, LandSyMM is primarily driven by externally provided land-use fraction time series. These land-use datasets go through a remapping pipeline (remap codes) and a harmonization pipeline (PLUMharm) before being consumed by LPJ-GUESS.
+The LandSyMM workflow (Rabin et al., 2020, Fig. 1) is a sequence of LPJ-GUESS and PLUM runs:
 
-- **Wetland/peatland processes** including methane (CH4) emissions via the Wania et al. (2009) peatland model. This includes specialized freeze-thaw physics, peatland hydrology, and three methane transport pathways (diffusion, ebullition, plant-mediated transport).
+1. **Historical LPJ-GUESS spin-up** with prescribed historical land use (LUH2 in the original publications; HILDA+ remap in the current `landsymm_py` pipeline) to produce a steady-state vegetation/soil state.
+2. **Yield-generating LPJ-GUESS factorial runs** (the *potential yield* mode) that produce six yield surfaces per crop per grid cell (3 fertilizer rates × 2 irrigation regimes), accounting for changing climate and atmospheric CO₂.
+3. **PLUM runs** that combine these yield surfaces with country-level demand projections (driven by SSP population and GDP) to produce future land-use, fertilizer, and irrigation trajectories under a chosen SSP-RCP combination.
+4. **PLUMharm harmonization** of PLUM outputs against the historical baseline to ensure a smooth historical→future transition.
+5. **Final LPJ-GUESS run** with the harmonized PLUM trajectory to produce the ecosystem-service indicators of interest (carbon storage, runoff, biodiversity, N pollution).
 
-- **SPITFIRE fire model** (Spread and InTensity of FIRE, Thonicke et al. 2010) as an alternative to the existing BLAZE model (Burton et al. 2019). SPITFIRE provides process-based fire spread, intensity, and mortality using the Rothermel fire spread model, Nesterov fire danger index, and explicit fuel moisture calculations.
+The LPJ-GUESS modifications introduced by the LandSyMM fork — and now available as runtime-selectable features in this integrated LTS — exist precisely to make each step of this workflow possible. Each item below traces back to a specific need from the coupled system:
 
-- **Enhanced crop management** with five irrigation/hydrology types (rainfed, irrigated, irrigated-to-wilting-point, irrigated-to-saturation, and inundated for rice paddies), potential yield factorial experiments (`do_potyield` mode), and GGCMI (Global Gridded Crop Model Intercomparison) protocols for standardized crop model benchmarking.
+- **External land-use forcing** from PLUM (Projected Land Use Model) via remapped HILDA+ historic and PLUM scenario data. Unlike standard LPJ-GUESS which can internally generate land-use decisions, LandSyMM is primarily driven by externally provided land-use fraction time series. These land-use datasets go through a remapping pipeline (remap codes, now `landsymm_py.remapping`) and a harmonization pipeline (PLUMharm, now `landsymm_py.harmonization`) before being consumed by LPJ-GUESS. **Why:** Step 1 and Step 5 of the LandSyMM workflow require LPJ-GUESS to consume externally prescribed gridded LU rather than make LU decisions internally.
 
-- **Biological nitrogen fixation (BNF)** for N-fixing crop species (e.g., soybeans, pulses), with explicit response functions for development stage, soil water content, temperature, and plant N status.
+- **Potential-yield factorial mode** (`do_potyield`/`isforpotyield`) that lets a single LPJ-GUESS run produce yield surfaces for crops under each of six management treatments without internal LU dynamics interfering. The treatments combine three fertilization rates (0, 200, 1000 kg N ha⁻¹) with two irrigation regimes (rain-fed vs. fully irrigated, i.e., applied as much water as plants can take up), with the potential heat units (PHU) phenology scheme (Olin, Lindeskog, et al., 2015). These yields, averaged over 5-year time steps, are what PLUMv2 consumes as its biophysical input. **Why:** Step 2 — without this factorial capability, LPJ-GUESS cannot supply PLUMv2 with the high-spatial-resolution yield response surfaces that distinguish the LandSyMM approach from coarser-resolution land-use models. This mode is a defining LandSyMM capability and is now first-class in the integrated LTS via the `do_potyield` (master switch) and `isforpotyield` (per-stand-type marker) parameters in the `.ins` files. See Section 12 (Runtime Parameters Reference) and Section 10B (run recipes) for usage.
 
-- **IMOGEN climate model coupling** (Intermediate complexity Model for Ozone and Greenhouse gases, Huntingford et al. 2010) for running LPJ-GUESS within a simple coupled climate system rather than with prescribed offline climate data.
+- **Wetland/peatland processes** including methane (CH₄) emissions via the Wania et al. (2009, 2010) peatland model. This includes specialized freeze-thaw soil physics, peatland hydrology with explicit water-table dynamics, and three methane transport pathways (diffusion through the soil column, ebullition as bubbles, and plant-mediated transport via aerenchyma). Peatland is treated as a distinct land-cover class. **Why:** When LPJ-GUESS is coupled to the IMOGEN climate model, peatland CH₄ emissions feed back into the climate calculation alongside CO₂ and N₂O. The companion `landsymm_py.wetlands` module integrates GLWD3 wetland fractions into the prescribed LU files specifically for these IMOGEN-coupled simulations.
+
+- **Enhanced crop management** with five irrigation/hydrology types (`rainfed`, `irrigated`, `irrigated-to-wilting-point`, `irrigated-to-saturation`, and `inundated` for rice paddies), per-crop phenology data (PHU/PVD/sowing/harvest dates) loadable from external files via the `iflandsymm_crop_management` pipeline, and GGCMI (Global Gridded Crop Model Intercomparison Project) protocols for standardized crop-model benchmarking and calibration. **Why:** Crop yields in LandSyMM had to be calibrated against observed yields (Alexander et al., 2018, Sect. 2.2.1) to be useful as PLUMv2 inputs; GGCMI protocols and the externally driven phenology pipeline enable that calibration and reproducibility.
+
+- **Biological nitrogen fixation (BNF)** for N-fixing crop species (e.g., soybeans, pulses), with explicit response functions for development stage, soil water content, temperature, and plant N status, and direct routing of fixed N to plant tissue rather than via the soil mineral pool. **Why:** Realistic representation of legume crops is necessary for the potential yields that PLUM consumes; the fork's BNF routing improves on the LTS's default treatment for these crops.
+
+- **SPITFIRE fire model** (Spread and InTensity of FIRE, Thonicke et al. 2010) as an alternative to the existing BLAZE model (Burton et al. 2019). SPITFIRE provides process-based fire spread, intensity, and mortality using the Rothermel fire spread model, Nesterov fire danger index, and explicit fuel moisture calculations. **Why:** Fire is a major control on biomass and ecosystem-service indicators (carbon storage, biodiversity), so LandSyMM publications used different fire schemes for different studies; the integrated LTS supports both at runtime.
+
+- **IMOGEN climate model coupling** (Intermediate complexity Model for Ozone and Greenhouse gases, Huntingford et al. 2010) for running LPJ-GUESS within a simple coupled climate system rather than with prescribed offline climate data. **Why:** Some LandSyMM science questions (especially those involving CH₄–climate feedback from peatlands) require an interactive climate component rather than prescribed forcing.
 
 ### 2.2 Why Integrate? — The Divergence Problem
 

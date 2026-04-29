@@ -2,6 +2,49 @@
 
 An integrated version of **LPJ-GUESS 4.1** that combines the upstream Latest Stable Release (LTS) with all features from the **LandSyMM** (Land System Modular Model) fork. Both LTS and LandSyMM behaviors are available from a single binary, selected entirely via runtime parameters in `.ins` files.
 
+## Why This Integration Exists
+
+LPJ-GUESS is a process-based dynamic global vegetation model (DGVM) developed at Lund University and maintained as the upstream **Latest Stable Release (LTS)**. The **LandSyMM** (Land System Modular Model) project at the Karlsruhe Institute of Technology (KIT) and partner institutions extended LPJ-GUESS as part of a coupled Earth-system framework that links a vegetation/ecosystem model with a process-based land-use and food-system model (PLUM/PLUMv2). The coupled system was built to address questions that neither model could answer alone:
+
+- **How will the global agricultural and food system adapt to changing climate and atmospheric CO₂?** (Alexander et al., 2018, *Global Change Biology* 24:2791–2809, doi:10.1111/gcb.14110)
+- **What are the impacts of plausible future agricultural change on ecosystem service indicators — carbon storage, runoff, biodiversity, and nitrogen pollution?** (Rabin et al., 2020, *Earth System Dynamics* 11:357–376, doi:10.5194/esd-11-357-2020)
+
+Answering these questions requires a vegetation model that can:
+
+1. **Produce spatially explicit potential crop and pasture yields** under a factorial of management treatments (no/medium/high fertilizer × rain-fed/fully-irrigated) so that an economic land-use model can choose intensities at the grid-cell level rather than at coarse regional scales (Alexander et al., 2018, Sect. 2.2).
+2. **Accept externally prescribed land-use, fertilizer, and irrigation forcing** at high spatial resolution, so that PLUM scenario outputs can drive vegetation, carbon, and nitrogen dynamics over the 21st century (Rabin et al., 2020, Sect. 2.3).
+3. **Simulate wetlands and peatlands** explicitly so that methane (CH₄) emissions, carbon storage, and water-table dynamics can be tracked alongside CO₂ and N₂O in coupled climate–vegetation runs (relevant especially for IMOGEN-coupled simulations).
+4. **Use enhanced crop management** (5 irrigation/hydrology classes, biological nitrogen fixation for legumes, GGCMI benchmarking protocols, externally supplied phenology data) so that crop responses to climate, CO₂, and management are realistic at the country/grid level.
+
+Over years of LandSyMM research, these capabilities accumulated as modifications and additions to a fork of LPJ-GUESS that diverged from the upstream trunk. This made it increasingly difficult to keep the LandSyMM fork synchronized with the LTS — every upstream bug fix, parameterization update, or feature improvement had to be ported by hand. **This repository ends that divergence**: it merges the LandSyMM additions back into the LPJ-GUESS LTS as runtime-selectable code paths, so a single binary can either reproduce the upstream LTS exactly (when no LandSyMM parameters are set) or reproduce the LandSyMM fork's behavior (when LandSyMM parameters are enabled). Future LTS updates can be merged in directly rather than re-implemented.
+
+**Key LandSyMM-enabling features now available from the integrated binary:**
+
+| Feature | Runtime control | Scientific role |
+|---------|-----------------|-----------------|
+| External land-use forcing (HILDA+/PLUM) | `landcover.ins` paths + `landsymm_py` pipeline | Drives historical and scenario LU change |
+| Potential yield factorial runs | `do_potyield 1` + `isforpotyield 1` per stand type | Generates yield surfaces for PLUM economic optimization |
+| Enhanced crop management | `iflandsymm_crop_management 1`, hydrology types in stand defs | Per-crop phenology, irrigation classes, BNF |
+| Wetland / peatland (Wania CH₄) | `run_peatland 1`, `ifsaturatewetlands` | CH₄ emissions for IMOGEN-coupled climate modeling |
+| SPITFIRE fire model | `firemodel "SPITFIRE"` | Process-based fire spread/intensity (alongside BLAZE) |
+| IMOGEN climate coupling | `imogen_intermediary.ins` | Coupled climate–vegetation simulations |
+| GGCMI Phase-2 protocol | `ggcmi2 1` | Standardized crop-model benchmarking |
+| Biological N fixation | `iflandsymm_bnf_direct 1` | Realistic N supply for N-fixing crops |
+
+## LTS Baseline Provenance
+
+This integration is built directly on top of the official upstream LPJ-GUESS LTS:
+
+| Attribute | Value |
+|-----------|-------|
+| **Version** | LPJ-GUESS 4.1 (`reference/releasenotes.txt` in upstream tree) |
+| **Branch** | `trunk` |
+| **HEAD commit** | `a4575b9bd8cf86636a522154baebf29fac8ab422` |
+| **Commit date** | 2026-03-12 (committer: `LPJ-GUESS_admin`, message: "Merge remote-tracking branch remotes/origin/svn-trunk into trunk") |
+| **Upstream remote** | `git@stormbringer4.nateko.lu.se:lpj-guess-developers/LPJ-GUESS.git` (Lund University) |
+
+A pristine clone of this LTS is preserved alongside the integrated codebase in the parent project directory (`../LPJ-GUESS/`) and is used as the Phase 1 verification reference (the integrated binary, run with no `iflandsymm_*` parameters set, reproduces the LTS output to MedRel ≤ 0.2% and Corr ≥ 0.999 across 13 global sites).
+
 ## Quick Start
 
 ```bash

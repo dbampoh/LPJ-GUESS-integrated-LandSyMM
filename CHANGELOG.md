@@ -2,7 +2,24 @@
 
 ## v1.0-landsymm-integration (2026-01-27)
 
-**Baseline:** LPJ-GUESS 4.1 Latest Stable Release (Lund University, `trunk` branch, commit `a4575b9bd`)
+### Baseline
+
+| Attribute | Value |
+|-----------|-------|
+| Version | LPJ-GUESS 4.1 (`reference/releasenotes.txt` in upstream tree) |
+| Branch | `trunk` |
+| HEAD commit | `a4575b9bd8cf86636a522154baebf29fac8ab422` |
+| Commit date | 2026-03-12 (committer: `LPJ-GUESS_admin`) |
+| Upstream remote | `git@stormbringer4.nateko.lu.se:lpj-guess-developers/LPJ-GUESS.git` (Lund University) |
+
+### Scientific Context
+
+The LandSyMM modifications integrated here exist to support the coupled LPJ-GUESS ↔ PLUM/PLUMv2 land-use modeling framework described in:
+
+- Alexander, P., Rabin, S., Anthoni, P., Henry, R., Pugh, T. A. M., Rounsevell, M. D. A., & Arneth, A. (2018). *Adaptation of global land use and management intensity to changes in climate and atmospheric carbon dioxide.* Global Change Biology, 24, 2791–2809. doi:10.1111/gcb.14110
+- Rabin, S. S., Alexander, P., Henry, R., Anthoni, P., Pugh, T. A. M., Rounsevell, M., & Arneth, A. (2020). *Impacts of future agricultural change on ecosystem service indicators.* Earth System Dynamics, 11, 357–376. doi:10.5194/esd-11-357-2020
+
+The LPJ-GUESS modifications in the LandSyMM fork enable: (a) externally prescribed land-use forcing from PLUM scenarios via the companion `landsymm_py` pipeline, (b) potential-yield factorial runs (3 fertilizer rates × 2 irrigation regimes per crop) that generate the biophysical inputs PLUMv2 consumes, (c) optional wetland/peatland CH₄ modeling for IMOGEN-coupled climate runs, and (d) related crop management, fire, and nitrogen-cycling improvements. See `README.md` and `docs/LandSyMM_LPJ-GUESS_Integration_Technical_Manual.md` Section 1.1 for the full scientific motivation.
 
 ### What This Is
 
@@ -14,7 +31,8 @@ An integrated version of LPJ-GUESS that combines the upstream Latest Stable Rele
 - **GGCMI crop intercomparison** — Standardized crop benchmarking protocols, forced PHU/PVD, per-growing-season outputs
 - **IMOGEN climate coupling** — Intermediate complexity climate model for coupled vegetation-climate simulations
 - **Extended CFXInput module** — NetCDF-based climate input with multi-part file support (`file_temp1`/`file_temp2` for historical+scenario)
-- **Enhanced crop management** — 5 irrigation/hydrology types (rainfed, irrigated, irrigated-wilt, irrigated-sat, inundated), potential yield factorial mode (`do_potyield`), per-management N fertilization
+- **Potential-yield factorial mode** (`do_potyield`/`isforpotyield`) — Enables a single LPJ-GUESS run to produce per-grid-cell yield surfaces for crops under six management treatments (3 fertilizer rates × 2 irrigation regimes), the biophysical input PLUMv2 consumes for its economic land-use optimization (Alexander et al., 2018; Rabin et al., 2020)
+- **Enhanced crop management** — 5 irrigation/hydrology types (rainfed, irrigated, irrigated-wilt, irrigated-sat, inundated), per-crop phenology pipeline (`iflandsymm_crop_management`), per-management N fertilization
 - **Biological nitrogen fixation** — BNF system for N-fixing crops with development stage, water content, and temperature response functions
 - **Wetland/peatland support** — Wania freeze-thaw physics, peatland hydrology, methane emissions (diffusion, ebullition, plant-mediated)
 - **16 behavioral runtime parameters** — Select between LTS and LandSyMM physics at runtime (see `data/landsymm-integrated-ins/global.ins`)
